@@ -20,6 +20,27 @@ enum class EMobaLane : uint8
 	Bot
 };
 
+UENUM(BlueprintType)
+enum class EMobaAbilitySlot : uint8
+{
+	Q,
+	W,
+	E,
+	R
+};
+
+/** 스킬을 쓸 때 무엇을 지정해야 하는지. */
+UENUM(BlueprintType)
+enum class EMobaTargetingMode : uint8
+{
+	/** 지정 없이 즉시 발동. */
+	None,
+	/** 커서 방향으로 발사. */
+	Direction,
+	/** 커서가 가리키는 지면 위치. */
+	Location
+};
+
 namespace MobaTeam
 {
 	/** PlayerStart 등 레벨 액터에서 팀을 구분할 때 쓰는 태그 이름 ("Blue" / "Red"). */

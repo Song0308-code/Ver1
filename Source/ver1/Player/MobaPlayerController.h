@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Game/MobaTypes.h"
 #include "MobaPlayerController.generated.h"
 
 class AMobaCameraRig;
@@ -21,6 +22,12 @@ public:
 	virtual void SetupInputComponent() override;
 	virtual void PlayerTick(float DeltaTime) override;
 
+	/** 조준 중인 스킬 칸. 조준 중이 아니면 false를 돌려준다. */
+	bool GetTargetingSlot(EMobaAbilitySlot& OutSlot) const;
+
+	/** 커서가 가리키는 지면 위치. */
+	bool GetCursorGroundLocation(FVector& OutLocation) const;
+
 protected:
 	/** 입력 에셋을 만들기 전까지 쓰는 기본 키 배치를 코드로 구성한다. */
 	void CreateDefaultInput();
@@ -31,6 +38,17 @@ protected:
 	void OnCameraCenterStarted();
 	void OnCameraCenterCompleted();
 	void OnCameraZoom(const FInputActionValue& Value);
+	void OnAbilityQ();
+	void OnAbilityW();
+	void OnAbilityE();
+	void OnAbilityR();
+	void OnConfirmTarget();
+
+	/** 스킬 키를 눌렀을 때. 즉시 시전하거나 조준 모드로 들어간다. */
+	void HandleAbilityKey(EMobaAbilitySlot Slot);
+
+	/** 해당 칸의 스킬을 커서 위치를 향해 시전하도록 요청한다. */
+	void CastAbilityAtCursor(EMobaAbilitySlot Slot);
 
 	/** 커서 아래에 적이 있으면 공격을, 없으면 그 지면으로 이동을 명령한다. */
 	void IssueCommandAtCursor();
@@ -57,6 +75,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Camera")
 	float EdgeScrollMargin = 20.0f;
 
+	/**
+	 * true면 스킬 키를 누르는 즉시 커서 위치로 시전한다(스마트캐스트).
+	 * false면 범위 표시가 나오고 좌클릭으로 확정, 우클릭으로 취소한다.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
+	bool bSmartCast = true;
+
 	/** 우클릭을 누르고 있을 때 이동 명령을 다시 내리는 간격(초). */
 	UPROPERTY(EditDefaultsOnly, Category = "Movement")
 	float HeldMoveInterval = 0.1f;
@@ -80,6 +105,21 @@ protected:
 	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> CameraZoomAction;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> AbilityQAction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> AbilityWAction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> AbilityEAction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> AbilityRAction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> ConfirmTargetAction;
+
 #if WITH_EDITORONLY_DATA
 	/** 에디터 자동 검증용. bDebugIssueMove를 켜면 다음 틱에 DebugMoveGoal로 이동 명령을 내린다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
@@ -94,7 +134,20 @@ protected:
 
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugIssueAttack = false;
+
+	/** 에디터 자동 검증용. bDebugIssueCast를 켜면 다음 틱에 DebugCastSlot 스킬을 DebugCastLocation으로 시전한다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	EMobaAbilitySlot DebugCastSlot = EMobaAbilitySlot::Q;
+
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	FVector DebugCastLocation = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugIssueCast = false;
 #endif
+
+	bool bTargeting = false;
+	EMobaAbilitySlot TargetingSlot = EMobaAbilitySlot::Q;
 
 	bool bCameraCenterHeld = false;
 	float LastHeldMoveTime = 0.0f;

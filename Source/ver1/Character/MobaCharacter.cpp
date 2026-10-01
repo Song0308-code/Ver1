@@ -1,5 +1,10 @@
 #include "Character/MobaCharacter.h"
+#include "AbilitySystem/Abilities/MobaAbilityArchetypes.h"
+#include "AbilitySystem/MobaAbilityLibrary.h"
+#include "AbilitySystem/MobaGameplayAbility.h"
+#include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "Character/MobaChampionData.h"
 #include "Combat/MobaCombatComponent.h"
 #include "Game/MobaGameMode.h"
 #include "Game/MobaGameplayTags.h"
@@ -8,6 +13,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "Player/MobaPlayerState.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -50,6 +56,18 @@ AMobaCharacter::AMobaCharacter()
 	}
 
 	CombatComponent = CreateDefaultSubobject<UMobaCombatComponent>(TEXT("CombatComponent"));
+
+	DefaultAbilities.Add(EMobaAbilitySlot::Q, UMobaAbility_Skillshot::StaticClass());
+	DefaultAbilities.Add(EMobaAbilitySlot::W, UMobaAbility_SelfBuff::StaticClass());
+	DefaultAbilities.Add(EMobaAbilitySlot::E, UMobaAbility_Blink::StaticClass());
+	DefaultAbilities.Add(EMobaAbilitySlot::R, UMobaAbility_GroundAoE::StaticClass());
+}
+
+void AMobaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AMobaCharacter, ChampionData);
 }
 
 EMobaTeam AMobaCharacter::GetTeam() const
@@ -70,9 +88,23 @@ bool AMobaCharacter::IsDead() const
 	return AbilitySystem && AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Dead);
 }
 
+bool AMobaCharacter::IsStunned() const
+{
+	const UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	return AbilitySystem && AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Stunned);
+}
+
 void AMobaCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
+
+	if (!ChampionData)
+	{
+		if (const AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
+		{
+			ChampionData = GameMode->GetDefaultChampion();
+		}
+	}
 
 	BindToPlayerStateTeam();
 	InitAbilitySystem();
@@ -105,6 +137,7 @@ void AMobaCharacter::InitAbilitySystem()
 	BoundAbilitySystem = AbilitySystem;
 
 	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Dead, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaCharacter::HandleDeadTagChanged);
+	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Stunned, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaCharacter::HandleStunnedTagChanged);
 	AttributeSet->OnMoveSpeedChanged.AddUObject(this, &AMobaCharacter::HandleMoveSpeedChanged);
 
 	if (HasAuthority())
@@ -114,7 +147,7 @@ void AMobaCharacter::InitAbilitySystem()
 		if (!MobaPlayerState->bStatsInitialized)
 		{
 			MobaPlayerState->bStatsInitialized = true;
-			AttributeSet->InitFromBaseStats(BaseStats);
+			GrantChampionKit(MobaPlayerState);
 		}
 	}
 
@@ -125,6 +158,29 @@ void AMobaCharacter::InitAbilitySystem()
 	}
 
 	ApplyDeadState(IsDead());
+}
+
+void AMobaCharacter::GrantChampionKit(AMobaPlayerState* MobaPlayerState)
+{
+	UAbilitySystemComponent* AbilitySystem = MobaPlayerState->GetAbilitySystemComponent();
+
+	MobaPlayerState->GetAttributeSet()->InitFromBaseStats(ChampionData ? ChampionData->BaseStats : BaseStats);
+
+	if (ChampionData)
+	{
+		CombatComponent->ConfigureBasicAttack(ChampionData->bRangedBasicAttack, ChampionData->BasicAttackProjectileSpeed);
+	}
+
+	const TMap<EMobaAbilitySlot, TSubclassOf<UMobaGameplayAbility>>& Abilities = ChampionData ? ChampionData->Abilities : DefaultAbilities;
+	for (const TPair<EMobaAbilitySlot, TSubclassOf<UMobaGameplayAbility>>& Entry : Abilities)
+	{
+		if (Entry.Value)
+		{
+			FGameplayAbilitySpec Spec(Entry.Value, 1);
+			Spec.GetDynamicSpecSourceTags().AddTag(MobaAbility::GetSlotTag(Entry.Key));
+			AbilitySystem->GiveAbility(Spec);
+		}
+	}
 }
 
 void AMobaCharacter::HandleMoveSpeedChanged(float NewMoveSpeed)
@@ -154,13 +210,23 @@ void AMobaCharacter::HandleDeadTagChanged(const FGameplayTag Tag, int32 NewCount
 	ApplyDeadState(NewCount > 0);
 }
 
+void AMobaCharacter::HandleStunnedTagChanged(const FGameplayTag Tag, int32 NewCount)
+{
+	UpdateMovementLock();
+}
+
 void AMobaCharacter::ApplyDeadState(bool bDead)
 {
 	SetActorHiddenInGame(bDead);
 	SetActorEnableCollision(!bDead);
 
+	UpdateMovementLock();
+}
+
+void AMobaCharacter::UpdateMovementLock()
+{
 	UCharacterMovementComponent* Movement = GetCharacterMovement();
-	if (bDead)
+	if (!CanAct())
 	{
 		if (IsLocallyControlled() && GetController())
 		{
@@ -183,18 +249,118 @@ void AMobaCharacter::Respawn(const FVector& Location, const FRotator& Rotation)
 		return;
 	}
 
-	SetActorLocationAndRotation(Location, Rotation, false, nullptr, ETeleportType::TeleportPhysics);
-	ClientTeleport(Location, Rotation);
+	TeleportChampion(Location, Rotation);
 
 	AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute(), AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute()));
 	AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute(), AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxManaAttribute()));
 	AbilitySystem->RemoveLooseGameplayTag(MobaTags::State_Dead, 1, EGameplayTagReplicationState::TagOnly);
 }
 
+void AMobaCharacter::TeleportChampion(const FVector& Location, const FRotator& Rotation)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	SetActorLocationAndRotation(Location, Rotation, false, nullptr, ETeleportType::TeleportPhysics);
+	ClientTeleport(Location, Rotation);
+}
+
 void AMobaCharacter::ClientTeleport_Implementation(const FVector& Location, const FRotator& Rotation)
 {
+	// 걷던 중이었다면 이전 경로를 따라 되돌아가지 않도록 멈춘다.
+	if (GetController())
+	{
+		GetController()->StopMovement();
+	}
+
 	SetActorLocationAndRotation(Location, Rotation, false, nullptr, ETeleportType::TeleportPhysics);
 	GetCharacterMovement()->StopMovementImmediately();
+}
+
+void AMobaCharacter::CastAbility(EMobaAbilitySlot Slot, const FVector& TargetLocation)
+{
+	if (CanAct())
+	{
+		ServerCastAbility(Slot, TargetLocation);
+	}
+}
+
+void AMobaCharacter::ServerCastAbility_Implementation(EMobaAbilitySlot Slot, FVector_NetQuantize TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!AbilitySystem)
+	{
+		return;
+	}
+
+	const FGameplayTag SlotTag = MobaAbility::GetSlotTag(Slot);
+	for (const FGameplayAbilitySpec& Spec : AbilitySystem->GetActivatableAbilities())
+	{
+		if (!Spec.GetDynamicSpecSourceTags().HasTagExact(SlotTag))
+		{
+			continue;
+		}
+
+		FGameplayAbilityTargetingLocationInfo SourceInfo;
+		SourceInfo.LocationType = EGameplayAbilityTargetingLocationType::LiteralTransform;
+		SourceInfo.LiteralTransform = FTransform(GetActorLocation());
+
+		FGameplayAbilityTargetingLocationInfo TargetInfo;
+		TargetInfo.LocationType = EGameplayAbilityTargetingLocationType::LiteralTransform;
+		TargetInfo.LiteralTransform = FTransform(FVector(TargetLocation));
+
+		FGameplayEventData Payload;
+		Payload.Instigator = this;
+		Payload.TargetData = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromLocations(SourceInfo, TargetInfo);
+
+		AbilitySystem->TriggerAbilityFromGameplayEvent(Spec.Handle, AbilitySystem->AbilityActorInfo.Get(), SlotTag, &Payload, *AbilitySystem);
+		return;
+	}
+}
+
+const UMobaGameplayAbility* AMobaCharacter::GetAbilityInSlot(EMobaAbilitySlot Slot) const
+{
+	const UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!AbilitySystem)
+	{
+		return nullptr;
+	}
+
+	const FGameplayTag SlotTag = MobaAbility::GetSlotTag(Slot);
+	for (const FGameplayAbilitySpec& Spec : AbilitySystem->GetActivatableAbilities())
+	{
+		if (Spec.GetDynamicSpecSourceTags().HasTagExact(SlotTag))
+		{
+			return Cast<UMobaGameplayAbility>(Spec.Ability);
+		}
+	}
+	return nullptr;
+}
+
+bool AMobaCharacter::GetCooldownRemaining(EMobaAbilitySlot Slot, float& OutRemaining, float& OutDuration) const
+{
+	OutRemaining = 0.0f;
+	OutDuration = 0.0f;
+
+	const UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!AbilitySystem)
+	{
+		return false;
+	}
+
+	const FGameplayEffectQuery Query = FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(FGameplayTagContainer(MobaAbility::GetCooldownTag(Slot)));
+	for (const TPair<float, float>& Time : AbilitySystem->GetActiveEffectsTimeRemainingAndDuration(Query))
+	{
+		if (Time.Key > OutRemaining)
+		{
+			OutRemaining = Time.Key;
+			OutDuration = Time.Value;
+		}
+	}
+
+	return OutRemaining > 0.0f;
 }
 
 void AMobaCharacter::BindToPlayerStateTeam()

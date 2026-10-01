@@ -1,4 +1,5 @@
 #include "Game/MobaGameMode.h"
+#include "Character/MobaChampionData.h"
 #include "Character/MobaCharacter.h"
 #include "EngineUtils.h"
 #include "Game/MobaGameState.h"
@@ -71,6 +72,11 @@ EMobaTeam AMobaGameMode::PickTeamForNewPlayer() const
 	}
 
 	return RedCount < BlueCount ? EMobaTeam::Red : EMobaTeam::Blue;
+}
+
+UMobaChampionData* AMobaGameMode::GetDefaultChampion() const
+{
+	return DefaultChampion.LoadSynchronous();
 }
 
 void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)

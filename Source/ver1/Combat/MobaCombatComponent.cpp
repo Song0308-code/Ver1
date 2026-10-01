@@ -1,6 +1,6 @@
 #include "Combat/MobaCombatComponent.h"
+#include "AbilitySystem/MobaAbilityLibrary.h"
 #include "AbilitySystem/MobaAttributeSet.h"
-#include "AbilitySystem/MobaDamageExecution.h"
 #include "AbilitySystemComponent.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "Combat/MobaCombatLibrary.h"
@@ -27,7 +27,6 @@ UMobaCombatComponent::UMobaCombatComponent()
 	SetIsReplicatedByDefault(true);
 
 	ProjectileClass = AMobaProjectile::StaticClass();
-	DamageEffectClass = UMobaDamageEffect::StaticClass();
 }
 
 AController* UMobaCombatComponent::GetOwnerController() const
@@ -40,6 +39,12 @@ float UMobaCombatComponent::GetAttackRange() const
 {
 	const UAbilitySystemComponent* AbilitySystem = MobaCombat::GetAbilitySystem(GetOwner());
 	return AbilitySystem ? AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackRangeAttribute()) : 0.0f;
+}
+
+void UMobaCombatComponent::ConfigureBasicAttack(bool bInRanged, float InProjectileSpeed)
+{
+	bRangedAttack = bInRanged;
+	ProjectileSpeed = InProjectileSpeed;
 }
 
 void UMobaCombatComponent::SetAttackTarget(AActor* NewTarget)
@@ -119,6 +124,14 @@ void UMobaCombatComponent::UpdateChase()
 		return;
 	}
 
+	// 기절 중에는 쫓아가지 않는다. 풀리면 이어서 쫓아간다.
+	const UAbilitySystemComponent* OwnerAbilitySystem = MobaCombat::GetAbilitySystem(GetOwner());
+	if (OwnerAbilitySystem && OwnerAbilitySystem->HasMatchingGameplayTag(MobaTags::State_Stunned))
+	{
+		bChasing = false;
+		return;
+	}
+
 	const float Distance = MobaCombat::GetDistanceToTargetEdge(GetOwner(), AttackTarget);
 	if (Distance > GetAttackRange() * ChaseRangeFraction)
 	{
@@ -148,6 +161,14 @@ void UMobaCombatComponent::UpdateAttack()
 	if (MobaCombat::IsDead(GetOwner()) || !MobaCombat::IsValidEnemyTarget(GetOwner(), AttackTarget))
 	{
 		AttackTarget = nullptr;
+		bWindingUp = false;
+		return;
+	}
+
+	// 기절 중에는 선딜레이가 끊기고 새 공격도 시작하지 못한다. 대상은 유지한다.
+	const UAbilitySystemComponent* OwnerAbilitySystem = MobaCombat::GetAbilitySystem(GetOwner());
+	if (OwnerAbilitySystem && OwnerAbilitySystem->HasMatchingGameplayTag(MobaTags::State_Stunned))
+	{
 		bWindingUp = false;
 		return;
 	}
@@ -198,22 +219,17 @@ void UMobaCombatComponent::FireAttack(AActor* Target)
 {
 	UAbilitySystemComponent* SourceAbilitySystem = MobaCombat::GetAbilitySystem(GetOwner());
 	UAbilitySystemComponent* TargetAbilitySystem = MobaCombat::GetAbilitySystem(Target);
-	if (!SourceAbilitySystem || !TargetAbilitySystem || !DamageEffectClass)
-	{
-		return;
-	}
-
-	FGameplayEffectContextHandle Context = SourceAbilitySystem->MakeEffectContext();
-	Context.AddInstigator(GetOwner(), GetOwner());
-
-	const FGameplayEffectSpecHandle Spec = SourceAbilitySystem->MakeOutgoingSpec(DamageEffectClass, 1.0f, Context);
-	if (!Spec.IsValid())
+	if (!SourceAbilitySystem || !TargetAbilitySystem)
 	{
 		return;
 	}
 
 	const float AttackDamage = SourceAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackDamageAttribute());
-	Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Damage_Physical, AttackDamage);
+	const FGameplayEffectSpecHandle Spec = MobaAbility::MakeDamageSpec(SourceAbilitySystem, GetOwner(), AttackDamage, 0.0f, 0.0f);
+	if (!Spec.IsValid())
+	{
+		return;
+	}
 
 	if (bRangedAttack && ProjectileClass)
 	{

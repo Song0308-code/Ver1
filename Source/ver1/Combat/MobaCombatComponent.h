@@ -5,7 +5,6 @@
 #include "MobaCombatComponent.generated.h"
 
 class AMobaProjectile;
-class UGameplayEffect;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMobaAttackStarted, AActor* /*Target*/);
 
@@ -29,6 +28,9 @@ public:
 	AActor* GetAttackTarget() const { return AttackTarget; }
 
 	float GetAttackRange() const;
+
+	/** 서버 전용. 챔피언 데이터에 따라 기본 공격 방식을 정한다. */
+	void ConfigureBasicAttack(bool bInRanged, float InProjectileSpeed);
 
 	/** 공격 선딜레이가 시작될 때 모든 클라이언트에서 호출된다. 애니메이션·사운드 연결용. */
 	FOnMobaAttackStarted OnAttackStarted;
@@ -68,9 +70,6 @@ protected:
 	/** 지연 시간 때문에 서버에서 사거리를 조금 넉넉하게 본다. */
 	UPROPERTY(EditAnywhere, Category = "Basic Attack")
 	float ServerRangeLeeway = 75.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Basic Attack")
-	TSubclassOf<UGameplayEffect> DamageEffectClass;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> AttackTarget;

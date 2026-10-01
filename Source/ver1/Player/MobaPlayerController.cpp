@@ -1,4 +1,5 @@
 #include "Player/MobaPlayerController.h"
+#include "AbilitySystem/MobaGameplayAbility.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "Character/MobaCharacter.h"
 #include "Combat/MobaCombatComponent.h"
@@ -57,6 +58,11 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(CameraCenterAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnCameraCenterStarted);
 		EnhancedInput->BindAction(CameraCenterAction, ETriggerEvent::Completed, this, &AMobaPlayerController::OnCameraCenterCompleted);
 		EnhancedInput->BindAction(CameraZoomAction, ETriggerEvent::Triggered, this, &AMobaPlayerController::OnCameraZoom);
+		EnhancedInput->BindAction(AbilityQAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityQ);
+		EnhancedInput->BindAction(AbilityWAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityW);
+		EnhancedInput->BindAction(AbilityEAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityE);
+		EnhancedInput->BindAction(AbilityRAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityR);
+		EnhancedInput->BindAction(ConfirmTargetAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnConfirmTarget);
 	}
 }
 
@@ -72,12 +78,22 @@ void AMobaPlayerController::CreateDefaultInput()
 	CameraCenterAction = NewObject<UInputAction>(this, TEXT("IA_CameraCenter"));
 	CameraZoomAction = NewObject<UInputAction>(this, TEXT("IA_CameraZoom"));
 	CameraZoomAction->ValueType = EInputActionValueType::Axis1D;
+	AbilityQAction = NewObject<UInputAction>(this, TEXT("IA_AbilityQ"));
+	AbilityWAction = NewObject<UInputAction>(this, TEXT("IA_AbilityW"));
+	AbilityEAction = NewObject<UInputAction>(this, TEXT("IA_AbilityE"));
+	AbilityRAction = NewObject<UInputAction>(this, TEXT("IA_AbilityR"));
+	ConfirmTargetAction = NewObject<UInputAction>(this, TEXT("IA_ConfirmTarget"));
 
 	DefaultMappingContext = NewObject<UInputMappingContext>(this, TEXT("IMC_Default"));
 	DefaultMappingContext->MapKey(MoveCommandAction, EKeys::RightMouseButton);
 	DefaultMappingContext->MapKey(CameraLockAction, EKeys::Y);
 	DefaultMappingContext->MapKey(CameraCenterAction, EKeys::SpaceBar);
 	DefaultMappingContext->MapKey(CameraZoomAction, EKeys::MouseWheelAxis);
+	DefaultMappingContext->MapKey(AbilityQAction, EKeys::Q);
+	DefaultMappingContext->MapKey(AbilityWAction, EKeys::W);
+	DefaultMappingContext->MapKey(AbilityEAction, EKeys::E);
+	DefaultMappingContext->MapKey(AbilityRAction, EKeys::R);
+	DefaultMappingContext->MapKey(ConfirmTargetAction, EKeys::LeftMouseButton);
 }
 
 void AMobaPlayerController::PlayerTick(float DeltaTime)
@@ -97,6 +113,15 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 	{
 		bDebugIssueAttack = false;
 		IssueAttack(DebugAttackTarget);
+	}
+
+	if (bDebugIssueCast && IsLocalController())
+	{
+		bDebugIssueCast = false;
+		if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
+		{
+			MobaCharacter->CastAbility(DebugCastSlot, DebugCastLocation);
+		}
 	}
 #endif
 }
@@ -158,6 +183,9 @@ void AMobaPlayerController::UpdateCamera(float DeltaTime)
 
 void AMobaPlayerController::OnMoveCommandStarted()
 {
+	// 조준 중 우클릭은 조준을 취소하고 평소대로 이동·공격 명령을 내린다.
+	bTargeting = false;
+
 	LastHeldMoveTime = GetWorld()->GetTimeSeconds();
 	IssueCommandAtCursor();
 }
@@ -175,7 +203,7 @@ void AMobaPlayerController::OnMoveCommandHeld()
 void AMobaPlayerController::IssueCommandAtCursor()
 {
 	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
-	if (!MobaCharacter || MobaCharacter->IsDead())
+	if (!MobaCharacter || !MobaCharacter->CanAct())
 	{
 		return;
 	}
@@ -189,17 +217,98 @@ void AMobaPlayerController::IssueCommandAtCursor()
 		return;
 	}
 
+	FVector GroundLocation;
+	if (GetCursorGroundLocation(GroundLocation))
+	{
+		IssueMoveTo(GroundLocation);
+	}
+}
+
+bool AMobaPlayerController::GetCursorGroundLocation(FVector& OutLocation) const
+{
 	FHitResult GroundHit;
 	if (GetHitResultUnderCursor(ECC_Visibility, false, GroundHit))
 	{
-		IssueMoveTo(GroundHit.Location);
+		OutLocation = GroundHit.Location;
+		return true;
+	}
+	return false;
+}
+
+bool AMobaPlayerController::GetTargetingSlot(EMobaAbilitySlot& OutSlot) const
+{
+	OutSlot = TargetingSlot;
+	return bTargeting;
+}
+
+void AMobaPlayerController::OnAbilityQ()
+{
+	HandleAbilityKey(EMobaAbilitySlot::Q);
+}
+
+void AMobaPlayerController::OnAbilityW()
+{
+	HandleAbilityKey(EMobaAbilitySlot::W);
+}
+
+void AMobaPlayerController::OnAbilityE()
+{
+	HandleAbilityKey(EMobaAbilitySlot::E);
+}
+
+void AMobaPlayerController::OnAbilityR()
+{
+	HandleAbilityKey(EMobaAbilitySlot::R);
+}
+
+void AMobaPlayerController::HandleAbilityKey(EMobaAbilitySlot Slot)
+{
+	AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	const UMobaGameplayAbility* Ability = MobaCharacter ? MobaCharacter->GetAbilityInSlot(Slot) : nullptr;
+	if (!Ability || !MobaCharacter->CanAct())
+	{
+		return;
+	}
+
+	if (Ability->GetTargetingMode() == EMobaTargetingMode::None)
+	{
+		bTargeting = false;
+		MobaCharacter->CastAbility(Slot, MobaCharacter->GetActorLocation());
+	}
+	else if (bSmartCast)
+	{
+		CastAbilityAtCursor(Slot);
+	}
+	else
+	{
+		bTargeting = true;
+		TargetingSlot = Slot;
+	}
+}
+
+void AMobaPlayerController::OnConfirmTarget()
+{
+	if (bTargeting)
+	{
+		bTargeting = false;
+		CastAbilityAtCursor(TargetingSlot);
+	}
+}
+
+void AMobaPlayerController::CastAbilityAtCursor(EMobaAbilitySlot Slot)
+{
+	AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	FVector GroundLocation;
+	if (MobaCharacter && GetCursorGroundLocation(GroundLocation))
+	{
+		MobaCharacter->CastAbility(Slot, GroundLocation);
 	}
 }
 
 void AMobaPlayerController::IssueAttack(AActor* Target)
 {
 	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
-	if (MobaCharacter && !MobaCharacter->IsDead())
+	if (MobaCharacter && MobaCharacter->CanAct())
 	{
 		MobaCharacter->GetCombatComponent()->SetAttackTarget(Target);
 	}
@@ -208,7 +317,7 @@ void AMobaPlayerController::IssueAttack(AActor* Target)
 void AMobaPlayerController::IssueMoveTo(const FVector& WorldLocation)
 {
 	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
-	if (!MobaCharacter || MobaCharacter->IsDead())
+	if (!MobaCharacter || !MobaCharacter->CanAct())
 	{
 		return;
 	}
