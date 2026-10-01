@@ -5,6 +5,8 @@
 #include "GameFramework/PlayerStart.h"
 #include "Player/MobaPlayerController.h"
 #include "Player/MobaPlayerState.h"
+#include "TimerManager.h"
+#include "UI/MobaHUD.h"
 
 AMobaGameMode::AMobaGameMode()
 {
@@ -12,6 +14,7 @@ AMobaGameMode::AMobaGameMode()
 	PlayerControllerClass = AMobaPlayerController::StaticClass();
 	PlayerStateClass = AMobaPlayerState::StaticClass();
 	GameStateClass = AMobaGameState::StaticClass();
+	HUDClass = AMobaHUD::StaticClass();
 }
 
 FString AMobaGameMode::InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
@@ -68,4 +71,49 @@ EMobaTeam AMobaGameMode::PickTeamForNewPlayer() const
 	}
 
 	return RedCount < BlueCount ? EMobaTeam::Red : EMobaTeam::Blue;
+}
+
+void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)
+{
+	if (!Victim)
+	{
+		return;
+	}
+
+	if (AMobaPlayerState* VictimState = Victim->GetPlayerState<AMobaPlayerState>())
+	{
+		VictimState->AddDeath();
+		VictimState->SetRespawnServerTime(GameState ? GameState->GetServerWorldTimeSeconds() + RespawnDelay : 0.0f);
+	}
+
+	const APawn* KillerPawn = Cast<APawn>(Killer);
+	if (AMobaPlayerState* KillerState = KillerPawn ? KillerPawn->GetPlayerState<AMobaPlayerState>() : nullptr)
+	{
+		KillerState->AddKill();
+	}
+
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(Victim, [this, Victim]()
+	{
+		RespawnChampion(Victim);
+	}), RespawnDelay, false);
+}
+
+void AMobaGameMode::RespawnChampion(AMobaCharacter* Champion)
+{
+	if (!Champion)
+	{
+		return;
+	}
+
+	const AActor* StartSpot = ChoosePlayerStart(Champion->GetController());
+	const FVector Location = StartSpot ? StartSpot->GetActorLocation() : Champion->GetActorLocation();
+	const FRotator Rotation = StartSpot ? StartSpot->GetActorRotation() : Champion->GetActorRotation();
+
+	if (AMobaPlayerState* PlayerState = Champion->GetPlayerState<AMobaPlayerState>())
+	{
+		PlayerState->SetRespawnServerTime(0.0f);
+	}
+
+	Champion->Respawn(Location, Rotation);
 }

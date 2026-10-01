@@ -1,5 +1,8 @@
 #include "Player/MobaPlayerController.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "Character/MobaCharacter.h"
+#include "Combat/MobaCombatComponent.h"
+#include "Combat/MobaCombatLibrary.h"
 #include "Engine/LocalPlayer.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -89,6 +92,12 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		bDebugIssueMove = false;
 		IssueMoveTo(DebugMoveGoal);
 	}
+
+	if (bDebugIssueAttack && IsLocalController())
+	{
+		bDebugIssueAttack = false;
+		IssueAttack(DebugAttackTarget);
+	}
 #endif
 }
 
@@ -150,7 +159,7 @@ void AMobaPlayerController::UpdateCamera(float DeltaTime)
 void AMobaPlayerController::OnMoveCommandStarted()
 {
 	LastHeldMoveTime = GetWorld()->GetTimeSeconds();
-	IssueMoveToCursor();
+	IssueCommandAtCursor();
 }
 
 void AMobaPlayerController::OnMoveCommandHeld()
@@ -159,25 +168,52 @@ void AMobaPlayerController::OnMoveCommandHeld()
 	if (Now - LastHeldMoveTime >= HeldMoveInterval)
 	{
 		LastHeldMoveTime = Now;
-		IssueMoveToCursor();
+		IssueCommandAtCursor();
 	}
 }
 
-void AMobaPlayerController::IssueMoveToCursor()
+void AMobaPlayerController::IssueCommandAtCursor()
 {
-	FHitResult Hit;
-	if (GetHitResultUnderCursor(ECC_Visibility, false, Hit))
+	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	if (!MobaCharacter || MobaCharacter->IsDead())
 	{
-		IssueMoveTo(Hit.Location);
+		return;
+	}
+
+	static const TArray<TEnumAsByte<EObjectTypeQuery>> PawnObjectTypes = { UEngineTypes::ConvertToObjectType(ECC_Pawn) };
+
+	FHitResult PawnHit;
+	if (GetHitResultUnderCursorForObjects(PawnObjectTypes, false, PawnHit) && MobaCombat::IsValidEnemyTarget(MobaCharacter, PawnHit.GetActor()))
+	{
+		IssueAttack(PawnHit.GetActor());
+		return;
+	}
+
+	FHitResult GroundHit;
+	if (GetHitResultUnderCursor(ECC_Visibility, false, GroundHit))
+	{
+		IssueMoveTo(GroundHit.Location);
+	}
+}
+
+void AMobaPlayerController::IssueAttack(AActor* Target)
+{
+	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	if (MobaCharacter && !MobaCharacter->IsDead())
+	{
+		MobaCharacter->GetCombatComponent()->SetAttackTarget(Target);
 	}
 }
 
 void AMobaPlayerController::IssueMoveTo(const FVector& WorldLocation)
 {
-	if (!GetPawn())
+	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	if (!MobaCharacter || MobaCharacter->IsDead())
 	{
 		return;
 	}
+
+	MobaCharacter->GetCombatComponent()->SetAttackTarget(nullptr);
 
 	// 경로 탐색은 조종하는 클라이언트에서 수행한다. 프로젝트 설정의 클라이언트 측 내비게이션이 켜져 있어야 한다.
 	const UNavigationSystemV1* NavSystem = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());

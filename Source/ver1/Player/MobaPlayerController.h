@@ -32,11 +32,14 @@ protected:
 	void OnCameraCenterCompleted();
 	void OnCameraZoom(const FInputActionValue& Value);
 
-	/** 커서 아래 지면으로 이동을 명령한다. */
-	void IssueMoveToCursor();
+	/** 커서 아래에 적이 있으면 공격을, 없으면 그 지면으로 이동을 명령한다. */
+	void IssueCommandAtCursor();
 
-	/** 지정한 위치와 가장 가까운 내비메시 지점으로 이동을 명령한다. */
+	/** 지정한 위치와 가장 가까운 내비메시 지점으로 이동을 명령한다. 공격 명령은 취소된다. */
 	void IssueMoveTo(const FVector& WorldLocation);
+
+	/** 대상을 사거리까지 쫓아가 기본 공격하도록 명령한다. */
+	void IssueAttack(AActor* Target);
 
 	void UpdateCamera(float DeltaTime);
 
@@ -84,6 +87,13 @@ protected:
 
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugIssueMove = false;
+
+	/** 에디터 자동 검증용. bDebugIssueAttack을 켜면 다음 틱에 DebugAttackTarget을 공격하도록 명령한다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	TObjectPtr<AActor> DebugAttackTarget;
+
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugIssueAttack = false;
 #endif
 
 	bool bCameraCenterHeld = false;
