@@ -1,4 +1,5 @@
 #include "AbilitySystem/MobaAttributeSet.h"
+#include "Combat/MobaCombatEvents.h"
 #include "GameplayEffectExtension.h"
 #include "Net/UnrealNetwork.h"
 
@@ -83,9 +84,15 @@ void UMobaAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 			}
 			SetHealth(NewHealth);
 
+			AActor* DamageInstigator = Data.EffectSpec.GetContext().GetOriginalInstigator();
+			if (UMobaCombatEvents* Events = UMobaCombatEvents::Get(GetOwningActor()))
+			{
+				Events->OnDamageDealt.Broadcast(DamageInstigator, GetOwningAbilitySystemComponentChecked()->GetAvatarActor(), Damage);
+			}
+
 			if (NewHealth <= 0.0f)
 			{
-				OnOutOfHealth.Broadcast(Data.EffectSpec.GetContext().GetOriginalInstigator());
+				OnOutOfHealth.Broadcast(DamageInstigator);
 			}
 		}
 	}

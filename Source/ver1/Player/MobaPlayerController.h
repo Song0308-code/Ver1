@@ -25,6 +25,9 @@ public:
 	/** 조준 중인 스킬 칸. 조준 중이 아니면 false를 돌려준다. */
 	bool GetTargetingSlot(EMobaAbilitySlot& OutSlot) const;
 
+	/** A키를 눌러 공격 대상을 고르는 중인지. */
+	bool IsAttackTargeting() const { return bAttackTargeting; }
+
 	/** 커서가 가리키는 지면 위치. */
 	bool GetCursorGroundLocation(FVector& OutLocation) const;
 
@@ -42,22 +45,39 @@ protected:
 	void OnAbilityW();
 	void OnAbilityE();
 	void OnAbilityR();
+	void OnAttackModeStarted();
 	void OnConfirmTarget();
 
-	/** 스킬 키를 눌렀을 때. 즉시 시전하거나 조준 모드로 들어간다. */
+	/** 스킬 키를 눌렀을 때. Ctrl과 함께면 스킬 단계를 올리고, 아니면 즉시 시전하거나 조준 모드로 들어간다. */
 	void HandleAbilityKey(EMobaAbilitySlot Slot);
 
 	/** 해당 칸의 스킬을 커서 위치를 향해 시전하도록 요청한다. */
 	void CastAbilityAtCursor(EMobaAbilitySlot Slot);
 
-	/** 커서 아래에 적이 있으면 공격을, 없으면 그 지면으로 이동을 명령한다. */
+	/**
+	 * 커서가 가리키는 적을 찾는다. 정확히 겹치지 않아도 커서 근처에 있으면 잡아 준다.
+	 * 적이 없으면 nullptr을 돌려주고, 커서가 닿은 지점은 어느 쪽이든 OutCursorLocation에 담는다.
+	 */
+	AActor* FindEnemyAtCursor(FVector& OutCursorLocation) const;
+
+	/** 우클릭. 커서에 적이 있으면 공격을, 없으면 그 지면으로 이동을 명령한다. */
 	void IssueCommandAtCursor();
+
+	/** A키 후 좌클릭. 커서에 적이 있으면 공격을, 없으면 그 지면으로 공격 이동을 명령한다. */
+	void IssueAttackCommandAtCursor();
 
 	/** 지정한 위치와 가장 가까운 내비메시 지점으로 이동을 명령한다. 공격 명령은 취소된다. */
 	void IssueMoveTo(const FVector& WorldLocation);
 
+	/** 지정한 위치로 걸어가면서 도중에 만나는 적을 공격하도록 명령한다. */
+	void IssueAttackMoveTo(const FVector& WorldLocation);
+
 	/** 대상을 사거리까지 쫓아가 기본 공격하도록 명령한다. */
 	void IssueAttack(AActor* Target);
+
+	bool ProjectToNavigation(const FVector& WorldLocation, FVector& OutLocation) const;
+
+	bool IsControlKeyDown() const;
 
 	void UpdateCamera(float DeltaTime);
 
@@ -90,6 +110,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Movement")
 	FVector NavProjectExtent = FVector(400.0, 400.0, 300.0);
 
+	/** 커서가 닿은 지점에서 적의 가장자리까지 이 거리 안이면 그 적을 클릭한 것으로 본다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Targeting")
+	float ClickSelectMargin = 90.0f;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UInputMappingContext> DefaultMappingContext;
 
@@ -118,6 +142,9 @@ protected:
 	TObjectPtr<UInputAction> AbilityRAction;
 
 	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> AttackModeAction;
+
+	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> ConfirmTargetAction;
 
 #if WITH_EDITORONLY_DATA
@@ -127,6 +154,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugIssueMove = false;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 DebugMoveGoal로 공격 이동 명령을 내린다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugIssueAttackMove = false;
 
 	/** 에디터 자동 검증용. bDebugIssueAttack을 켜면 다음 틱에 DebugAttackTarget을 공격하도록 명령한다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
@@ -144,10 +175,16 @@ protected:
 
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugIssueCast = false;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 DebugCastSlot 스킬을 한 단계 올린다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugLevelUp = false;
 #endif
 
 	bool bTargeting = false;
 	EMobaAbilitySlot TargetingSlot = EMobaAbilitySlot::Q;
+
+	bool bAttackTargeting = false;
 
 	bool bCameraCenterHeld = false;
 	float LastHeldMoveTime = 0.0f;

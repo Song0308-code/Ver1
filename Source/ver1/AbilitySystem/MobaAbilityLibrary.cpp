@@ -106,7 +106,7 @@ void MobaAbility::ApplySpecToTarget(const FGameplayEffectSpecHandle& Spec, AActo
 	}
 }
 
-void MobaAbility::FindEnemiesInRadius(const AActor* Source, const FVector& Center, float Radius, TArray<AActor*>& OutEnemies)
+void MobaAbility::FindEnemiesInRadius(const AActor* Source, const FVector& Center, float Radius, TArray<AActor*>& OutEnemies, bool bIncludeStructures)
 {
 	OutEnemies.Reset();
 	if (!Source || !Source->GetWorld())
@@ -114,8 +114,15 @@ void MobaAbility::FindEnemiesInRadius(const AActor* Source, const FVector& Cente
 		return;
 	}
 
+	// 챔피언과 미니언은 폰, 건물은 동적 오브젝트로 분류되어 있다.
+	FCollisionObjectQueryParams ObjectParams(ECC_Pawn);
+	if (bIncludeStructures)
+	{
+		ObjectParams.AddObjectTypesToQuery(ECC_WorldDynamic);
+	}
+
 	TArray<FOverlapResult> Overlaps;
-	Source->GetWorld()->OverlapMultiByObjectType(Overlaps, Center, FQuat::Identity, FCollisionObjectQueryParams(ECC_Pawn), FCollisionShape::MakeSphere(Radius));
+	Source->GetWorld()->OverlapMultiByObjectType(Overlaps, Center, FQuat::Identity, ObjectParams, FCollisionShape::MakeSphere(Radius));
 
 	for (const FOverlapResult& Overlap : Overlaps)
 	{

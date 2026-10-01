@@ -16,6 +16,22 @@ UMobaGameplayAbility::UMobaGameplayAbility()
 	ActivationBlockedTags.AddTag(MobaTags::State_Stunned);
 }
 
+bool UMobaGameplayAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
+{
+	// 아직 한 번도 찍지 않은 스킬은 쓸 수 없다.
+	return GetAbilityLevel(Handle, ActorInfo) >= 1 && Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags);
+}
+
+bool UMobaGameplayAbility::CanLevelUp(int32 CurrentLevel, int32 ChampionLevel) const
+{
+	if (CurrentLevel >= GetMaxLevel())
+	{
+		return false;
+	}
+
+	return !bUltimate || ChampionLevel >= 6 + 5 * CurrentLevel;
+}
+
 bool UMobaGameplayAbility::CheckCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, FGameplayTagContainer* OptionalRelevantTags) const
 {
 	const UAbilitySystemComponent* AbilitySystem = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;

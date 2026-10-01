@@ -19,6 +19,7 @@ class VER1_API UMobaGameplayAbility : public UGameplayAbility
 public:
 	UMobaGameplayAbility();
 
+	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
 	virtual bool CheckCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
 	virtual void ApplyCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
 	virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
@@ -30,6 +31,12 @@ public:
 	float GetCastRange() const { return CastRange; }
 	float GetManaCost() const { return ManaCost; }
 	float GetCooldownDuration() const { return CooldownDuration; }
+
+	/** 찍을 수 있는 최대 단계. 궁극기는 3, 나머지는 5. */
+	int32 GetMaxLevel() const { return bUltimate ? 3 : 5; }
+
+	/** 현재 CurrentLevel단계인 이 스킬을 챔피언 레벨 ChampionLevel에서 한 단계 올릴 수 있는지. */
+	bool CanLevelUp(int32 CurrentLevel, int32 ChampionLevel) const;
 
 	/** 조준 표시에 쓰는 크기. 방향 스킬은 폭의 절반, 위치 스킬은 범위 반지름. */
 	virtual float GetIndicatorRadius() const { return 0.0f; }
@@ -63,6 +70,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Skill")
 	float CooldownDuration = 0.0f;
+
+	/** 궁극기는 챔피언 레벨 6, 11, 16에서만 한 단계씩 올릴 수 있다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Skill")
+	bool bUltimate = false;
 
 private:
 	/** GetCooldownTags가 돌려줄 태그를 담아 두는 곳. */

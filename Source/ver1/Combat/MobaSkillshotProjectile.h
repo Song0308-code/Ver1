@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Game/MobaTypes.h"
 #include "GameplayEffectTypes.h"
 #include "MobaSkillshotProjectile.generated.h"
 
@@ -28,9 +29,10 @@ public:
 
 protected:
 	UFUNCTION()
-	void OnRep_Radius();
+	void OnRep_Visual();
 
-	void ApplyRadiusToMesh();
+	/** 반지름과 쏜 팀의 색을 외형에 반영한다. */
+	void ApplyVisual();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> Mesh;
@@ -44,8 +46,11 @@ protected:
 	UPROPERTY(Replicated)
 	float MaxRange = 0.0f;
 
-	UPROPERTY(ReplicatedUsing = OnRep_Radius)
+	UPROPERTY(ReplicatedUsing = OnRep_Visual)
 	float Radius = 50.0f;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Visual)
+	EMobaTeam SourceTeam = EMobaTeam::None;
 
 	/** 이 투사체를 쏜 액터. 적 판정의 기준이 된다. 서버에만 있다. */
 	UPROPERTY()

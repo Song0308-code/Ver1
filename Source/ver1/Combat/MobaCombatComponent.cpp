@@ -8,6 +8,8 @@
 #include "Game/MobaGameplayTags.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/PawnMovementComponent.h"
+#include "NavigationSystem.h"
 
 namespace
 {
@@ -15,10 +17,25 @@ namespace
 	constexpr double ChaseRepathInterval = 0.2;
 
 	/** 사거리 끝에 걸치지 않도록 조금 더 안쪽까지 들어간다. */
-	constexpr float ChaseRangeFraction = 0.9f;
+	constexpr float ChaseRangeFraction = 0.97f;
 
 	/** 서버에서 이 속도 이하일 때만 공격을 시작한다. */
 	constexpr float MaxSpeedToStartAttack = 20.0f;
+
+	/** 주변의 적을 다시 찾는 간격(초). */
+	constexpr double EnemyScanInterval = 0.15;
+
+	/** 명령을 내린 직후에는 이 시간 동안 자동 공격 대상을 찾지 않는다. 막 걷기 시작한 순간을 가만히 선 것으로 오해하지 않기 위해서다. */
+	constexpr double IdleDelayAfterOrder = 0.3;
+
+	/** 이 속도 이하면 서 있는 것으로 본다. */
+	constexpr float IdleSpeed = 5.0f;
+
+	/** 공격 이동 목적지에 이만큼 가까워지면 도착한 것으로 본다. */
+	constexpr float AttackMoveArrivalDistance = 100.0f;
+
+	/** 공격 이동 중 이 시간 동안 움직이지 못하면 더 갈 수 없는 것으로 보고 끝낸다. */
+	constexpr double AttackMoveStallTime = 0.75;
 }
 
 UMobaCombatComponent::UMobaCombatComponent()
@@ -47,7 +64,50 @@ void UMobaCombatComponent::ConfigureBasicAttack(bool bInRanged, float InProjecti
 	ProjectileSpeed = InProjectileSpeed;
 }
 
+void UMobaCombatComponent::ConfigureProjectileVisual(float InVisualScale, const FVector& InSpawnOffset)
+{
+	ProjectileVisualScale = InVisualScale;
+	ProjectileSpawnOffset = InSpawnOffset;
+}
+
+bool UMobaCombatComponent::CanOwnerAct() const
+{
+	const UAbilitySystemComponent* AbilitySystem = MobaCombat::GetAbilitySystem(GetOwner());
+	return AbilitySystem
+		&& !AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Dead)
+		&& !AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Stunned)
+		&& !MobaCombat::IsMatchOver(this);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 명령
+
 void UMobaCombatComponent::SetAttackTarget(AActor* NewTarget)
+{
+	bAttackMoving = false;
+	bAttackMoveWalking = false;
+	bTargetAutoAcquired = false;
+	LastOrderTime = GetWorld()->GetTimeSeconds();
+
+	SetAttackTargetInternal(NewTarget);
+}
+
+void UMobaCombatComponent::StartAttackMove(const FVector& Destination)
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+
+	bAttackMoving = true;
+	bAttackMoveWalking = false;
+	bTargetAutoAcquired = false;
+	AttackMoveDestination = Destination;
+	LastOrderTime = Now;
+	LastMovingTime = Now;
+	LastScanTime = -1.0;
+
+	SetAttackTargetInternal(nullptr);
+}
+
+void UMobaCombatComponent::SetAttackTargetInternal(AActor* NewTarget)
 {
 	if (NewTarget && !MobaCombat::IsValidEnemyTarget(GetOwner(), NewTarget))
 	{
@@ -62,6 +122,7 @@ void UMobaCombatComponent::SetAttackTarget(AActor* NewTarget)
 	AttackTarget = NewTarget;
 	bChasing = false;
 	LastChaseTime = -1.0;
+	bStopPending = NewTarget != nullptr;
 
 	if (GetOwner()->HasAuthority())
 	{
@@ -91,7 +152,7 @@ void UMobaCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
 	if (OwnerPawn && OwnerPawn->IsLocallyControlled())
 	{
-		UpdateChase();
+		UpdateOrders();
 	}
 
 	if (GetOwner()->HasAuthority())
@@ -100,27 +161,127 @@ void UMobaCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 	}
 }
 
-void UMobaCombatComponent::UpdateChase()
-{
-	if (!AttackTarget)
-	{
-		return;
-	}
+// ---------------------------------------------------------------------------------------------------------------------
+// 조종하는 쪽: 대상 찾기와 추격
 
+void UMobaCombatComponent::UpdateOrders()
+{
 	AController* Controller = GetOwnerController();
 	if (!Controller)
 	{
 		return;
 	}
 
+	if (GetOwner()->GetVelocity().Size2D() > IdleSpeed)
+	{
+		LastMovingTime = GetWorld()->GetTimeSeconds();
+	}
+
+	if (AttackTarget)
+	{
+		UpdateChase(Controller);
+	}
+	else if (!CanOwnerAct())
+	{
+		bAttackMoving = false;
+		bAttackMoveWalking = false;
+	}
+	else if (bAttackMoving)
+	{
+		UpdateAttackMove(Controller);
+	}
+	else if (bAutoAcquireWhenIdle)
+	{
+		UpdateIdleAutoAcquire();
+	}
+}
+
+AActor* UMobaCombatComponent::FindNearestEnemy(float Range, bool bIncludeStructures) const
+{
+	// 가장자리까지의 거리로 판정하므로, 큰 대상도 놓치지 않게 검색 반경은 넉넉히 잡는다.
+	TArray<AActor*> Enemies;
+	MobaAbility::FindEnemiesInRadius(GetOwner(), GetOwner()->GetActorLocation(), Range + 400.0f, Enemies, bIncludeStructures);
+
+	AActor* Nearest = nullptr;
+	float NearestDistance = Range;
+	for (AActor* Enemy : Enemies)
+	{
+		const float Distance = MobaCombat::GetDistanceToTargetEdge(GetOwner(), Enemy);
+		if (Distance <= NearestDistance)
+		{
+			Nearest = Enemy;
+			NearestDistance = Distance;
+		}
+	}
+	return Nearest;
+}
+
+void UMobaCombatComponent::UpdateIdleAutoAcquire()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (Now - LastOrderTime < IdleDelayAfterOrder || Now - LastMovingTime < IdleDelayAfterOrder || Now - LastScanTime < EnemyScanInterval)
+	{
+		return;
+	}
+	LastScanTime = Now;
+
+	// 가만히 서 있을 때는 건물을 알아서 치지 않는다.
+	if (AActor* Enemy = FindNearestEnemy(GetAttackRange(), false))
+	{
+		bTargetAutoAcquired = true;
+		SetAttackTargetInternal(Enemy);
+	}
+}
+
+void UMobaCombatComponent::UpdateAttackMove(AController* Controller)
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+
+	if (Now - LastScanTime >= EnemyScanInterval)
+	{
+		LastScanTime = Now;
+		if (AActor* Enemy = FindNearestEnemy(GetAttackRange() + AttackMoveAcquisitionBonus, true))
+		{
+			SetAttackTargetInternal(Enemy);
+			return;
+		}
+	}
+
+	if (FVector::Dist2D(GetOwner()->GetActorLocation(), AttackMoveDestination) <= AttackMoveArrivalDistance)
+	{
+		bAttackMoving = false;
+		bAttackMoveWalking = false;
+		return;
+	}
+
+	if (!bAttackMoveWalking)
+	{
+		UAIBlueprintHelperLibrary::SimpleMoveToLocation(Controller, AttackMoveDestination);
+		bAttackMoveWalking = true;
+		LastMovingTime = Now;
+	}
+	else if (Now - LastMovingTime > AttackMoveStallTime)
+	{
+		// 더 갈 수 없는 곳이다.
+		bAttackMoving = false;
+		bAttackMoveWalking = false;
+	}
+}
+
+void UMobaCombatComponent::UpdateChase(AController* Controller)
+{
 	if (MobaCombat::IsDead(GetOwner()) || !MobaCombat::IsValidEnemyTarget(GetOwner(), AttackTarget))
 	{
 		if (bChasing)
 		{
 			Controller->StopMovement();
 		}
+
+		// 서버도 같은 판단으로 대상을 비우므로 따로 알리지 않는다. 공격 이동 중이었다면 다음 틱에 다시 걷기 시작한다.
 		AttackTarget = nullptr;
 		bChasing = false;
+		bAttackMoveWalking = false;
+		bTargetAutoAcquired = false;
 		return;
 	}
 
@@ -132,23 +293,61 @@ void UMobaCombatComponent::UpdateChase()
 		return;
 	}
 
+	const float Range = GetAttackRange();
 	const float Distance = MobaCombat::GetDistanceToTargetEdge(GetOwner(), AttackTarget);
-	if (Distance > GetAttackRange() * ChaseRangeFraction)
+
+	// 자동으로 잡은 대상은 사거리를 벗어나면 쫓아가지 않고 놓는다.
+	if (bTargetAutoAcquired && Distance > Range)
+	{
+		bTargetAutoAcquired = false;
+		SetAttackTargetInternal(nullptr);
+		return;
+	}
+
+	if (Distance > Range * ChaseRangeFraction)
 	{
 		const double Now = GetWorld()->GetTimeSeconds();
 		if (!bChasing || Now - LastChaseTime >= ChaseRepathInterval)
 		{
-			UAIBlueprintHelperLibrary::SimpleMoveToLocation(Controller, AttackTarget->GetActorLocation());
+			// 건물처럼 걸을 수 없는 자리를 차지한 대상도 쫓아갈 수 있도록, 대상의 가장자리에서 내 쪽으로 조금 나온 지점을 목표로 삼는다.
+			const FVector OwnerLocation = GetOwner()->GetActorLocation();
+			FVector ToOwner = OwnerLocation - AttackTarget->GetActorLocation();
+			ToOwner.Z = 0.0;
+			FVector Goal = AttackTarget->GetActorLocation() + ToOwner.GetSafeNormal() * (AttackTarget->GetSimpleCollisionRadius() + 60.0f);
+			Goal.Z = OwnerLocation.Z;
+
+			const UNavigationSystemV1* NavSystem = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+			FNavLocation NavLocation;
+			if (NavSystem && NavSystem->ProjectPointToNavigation(Goal, NavLocation, FVector(200.0, 200.0, 300.0)))
+			{
+				Goal = NavLocation.Location;
+			}
+
+			UAIBlueprintHelperLibrary::SimpleMoveToLocation(Controller, Goal);
 			LastChaseTime = Now;
 			bChasing = true;
 		}
 	}
-	else if (bChasing)
+	else if (bChasing || bAttackMoveWalking || bStopPending)
 	{
+		// 사거리 안이다. 걷던 중이었다면 감속 없이 그 자리에 바로 멈춰야 서버가 곧바로 공격을 시작한다.
 		Controller->StopMovement();
+		if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+		{
+			if (UPawnMovementComponent* Movement = OwnerPawn->GetMovementComponent())
+			{
+				Movement->StopMovementImmediately();
+			}
+		}
+
 		bChasing = false;
+		bAttackMoveWalking = false;
+		bStopPending = false;
 	}
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 서버: 공격 주기
 
 void UMobaCombatComponent::UpdateAttack()
 {
@@ -158,7 +357,7 @@ void UMobaCombatComponent::UpdateAttack()
 		return;
 	}
 
-	if (MobaCombat::IsDead(GetOwner()) || !MobaCombat::IsValidEnemyTarget(GetOwner(), AttackTarget))
+	if (MobaCombat::IsDead(GetOwner()) || MobaCombat::IsMatchOver(this) || !MobaCombat::IsValidEnemyTarget(GetOwner(), AttackTarget))
 	{
 		AttackTarget = nullptr;
 		bWindingUp = false;
@@ -218,8 +417,7 @@ void UMobaCombatComponent::UpdateAttack()
 void UMobaCombatComponent::FireAttack(AActor* Target)
 {
 	UAbilitySystemComponent* SourceAbilitySystem = MobaCombat::GetAbilitySystem(GetOwner());
-	UAbilitySystemComponent* TargetAbilitySystem = MobaCombat::GetAbilitySystem(Target);
-	if (!SourceAbilitySystem || !TargetAbilitySystem)
+	if (!SourceAbilitySystem || !MobaCombat::GetAbilitySystem(Target) || !ProjectileClass)
 	{
 		return;
 	}
@@ -231,20 +429,14 @@ void UMobaCombatComponent::FireAttack(AActor* Target)
 		return;
 	}
 
-	if (bRangedAttack && ProjectileClass)
-	{
-		FActorSpawnParameters SpawnParams;
-		SpawnParams.Owner = GetOwner();
-		SpawnParams.Instigator = Cast<APawn>(GetOwner());
-		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = GetOwner();
+	SpawnParams.Instigator = Cast<APawn>(GetOwner());
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-		if (AMobaProjectile* Projectile = GetWorld()->SpawnActor<AMobaProjectile>(ProjectileClass, GetOwner()->GetActorLocation(), GetOwner()->GetActorRotation(), SpawnParams))
-		{
-			Projectile->InitHoming(Target, Spec, ProjectileSpeed);
-		}
-	}
-	else
+	const FVector SpawnLocation = GetOwner()->GetActorLocation() + ProjectileSpawnOffset;
+	if (AMobaProjectile* Projectile = GetWorld()->SpawnActor<AMobaProjectile>(ProjectileClass, SpawnLocation, GetOwner()->GetActorRotation(), SpawnParams))
 	{
-		SourceAbilitySystem->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetAbilitySystem);
+		Projectile->InitHoming(Target, Spec, bRangedAttack ? ProjectileSpeed : MeleeProjectileSpeed, ProjectileVisualScale, MobaCombat::GetTeam(GetOwner()));
 	}
 }

@@ -146,6 +146,7 @@ UMobaAbility_GroundAoE::UMobaAbility_GroundAoE()
 	CastRange = 800.0f;
 	ManaCost = 100.0f;
 	CooldownDuration = 40.0f;
+	bUltimate = true;
 
 	IndicatorClass = AMobaAreaIndicator::StaticClass();
 }

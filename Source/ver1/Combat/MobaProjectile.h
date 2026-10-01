@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Game/MobaTypes.h"
 #include "GameplayEffectTypes.h"
 #include "MobaProjectile.generated.h"
 
@@ -17,12 +18,19 @@ public:
 	AMobaProjectile();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 
 	/** 서버 전용. 생성 직후 호출한다. */
-	void InitHoming(AActor* InTarget, const FGameplayEffectSpecHandle& InEffectSpec, float InSpeed);
+	void InitHoming(AActor* InTarget, const FGameplayEffectSpecHandle& InEffectSpec, float InSpeed, float InVisualScale, EMobaTeam InSourceTeam);
 
 protected:
+	UFUNCTION()
+	void OnRep_Visual();
+
+	/** 크기와 쏜 팀의 색을 외형에 반영한다. */
+	void ApplyVisual();
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> Mesh;
 
@@ -30,9 +38,15 @@ protected:
 	TObjectPtr<AActor> Target;
 
 	UPROPERTY(Replicated)
-	float Speed = 2000.0f;
+	float Speed = 1600.0f;
 
-	/** 대상 중심에서 이 거리 안에 들어오면 명중으로 본다. */
+	UPROPERTY(ReplicatedUsing = OnRep_Visual)
+	float VisualScale = 0.4f;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Visual)
+	EMobaTeam SourceTeam = EMobaTeam::None;
+
+	/** 대상의 조준점에서 이 거리 안에 들어오면 명중으로 본다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Projectile")
 	float HitRadius = 30.0f;
 

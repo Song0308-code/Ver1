@@ -8,6 +8,7 @@ namespace MobaTags
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Stunned);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Slowed);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Hasted);
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Invulnerable);
 
 	/** 스킬이 어느 칸(QWER)에 들어 있는지. 어빌리티 스펙에 붙인다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Slot_Q);

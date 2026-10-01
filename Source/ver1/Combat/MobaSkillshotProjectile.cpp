@@ -18,6 +18,7 @@ AMobaSkillshotProjectile::AMobaSkillshotProjectile()
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	RootComponent = Mesh;
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Mesh->SetCastShadow(false);
 
 	// 실제 이펙트가 들어오기 전까지 쓰는 임시 외형.
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
@@ -35,13 +36,14 @@ void AMobaSkillshotProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(AMobaSkillshotProjectile, Speed);
 	DOREPLIFETIME(AMobaSkillshotProjectile, MaxRange);
 	DOREPLIFETIME(AMobaSkillshotProjectile, Radius);
+	DOREPLIFETIME(AMobaSkillshotProjectile, SourceTeam);
 }
 
 void AMobaSkillshotProjectile::BeginPlay()
 {
 	Super::BeginPlay();
 
-	ApplyRadiusToMesh();
+	ApplyVisual();
 }
 
 void AMobaSkillshotProjectile::Launch(AActor* InSource, const FVector& InDirection, float InSpeed, float InMaxRange, float InRadius, const TArray<FGameplayEffectSpecHandle>& InHitEffects)
@@ -51,20 +53,24 @@ void AMobaSkillshotProjectile::Launch(AActor* InSource, const FVector& InDirecti
 	Speed = InSpeed;
 	MaxRange = InMaxRange;
 	Radius = InRadius;
+	SourceTeam = MobaCombat::GetTeam(InSource);
 	HitEffects = InHitEffects;
 
-	ApplyRadiusToMesh();
+	ApplyVisual();
 }
 
-void AMobaSkillshotProjectile::OnRep_Radius()
+void AMobaSkillshotProjectile::OnRep_Visual()
 {
-	ApplyRadiusToMesh();
+	ApplyVisual();
 }
 
-void AMobaSkillshotProjectile::ApplyRadiusToMesh()
+void AMobaSkillshotProjectile::ApplyVisual()
 {
 	// 엔진 기본 구의 지름은 100이다.
 	Mesh->SetWorldScale3D(FVector(Radius / 50.0f));
+
+	const FLinearColor Color = FMath::Lerp(MobaTeam::GetTeamColor(SourceTeam), FLinearColor::White, 0.45f);
+	Mesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(Color.R, Color.G, Color.B));
 }
 
 void AMobaSkillshotProjectile::Tick(float DeltaSeconds)

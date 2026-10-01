@@ -27,6 +27,7 @@ public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void BeginPlay() override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
 
@@ -51,6 +52,15 @@ public:
 
 	/** 해당 칸에 들어 있는 스킬의 기본 정보(CDO). 조종하는 클라이언트와 서버에서만 유효하다. */
 	const UMobaGameplayAbility* GetAbilityInSlot(EMobaAbilitySlot Slot) const;
+
+	/** 해당 칸 스킬의 현재 단계. 아직 찍지 않았으면 0. */
+	int32 GetAbilityLevel(EMobaAbilitySlot Slot) const;
+
+	/** 지금 스킬 포인트를 써서 해당 칸을 한 단계 올릴 수 있는지. */
+	bool CanLevelUpAbility(EMobaAbilitySlot Slot) const;
+
+	/** 조종하는 클라이언트 또는 서버에서 호출한다. 스킬 포인트를 써서 해당 칸을 한 단계 올린다. */
+	void LevelUpAbility(EMobaAbilitySlot Slot);
 
 	/** 해당 칸의 남은 재사용 대기 시간과 전체 시간. 대기 중이 아니면 false. */
 	bool GetCooldownRemaining(EMobaAbilitySlot Slot, float& OutRemaining, float& OutDuration) const;
@@ -80,6 +90,18 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerCastAbility(EMobaAbilitySlot Slot, FVector_NetQuantize TargetLocation);
 
+	UFUNCTION(Server, Reliable)
+	void ServerLevelUpAbility(EMobaAbilitySlot Slot);
+
+	/** 서버 전용. 레벨이 올랐을 때 성장 스탯을 더한다. */
+	void HandleLevelUp(int32 NewLevel);
+
+	/** 서버 전용. 기본 재생과 우물 회복을 적용한다. */
+	void TickRegen();
+
+	const FMobaBaseStats& GetBaseStats() const;
+	const FMobaStatGrowth& GetStatGrowth() const;
+
 	/** 서버가 옮긴 위치를 조종하는 클라이언트에도 즉시 반영한다. */
 	UFUNCTION(Client, Reliable)
 	void ClientTeleport(const FVector& Location, const FRotator& Rotation);
@@ -99,9 +121,25 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Champion|Fallback")
 	FMobaBaseStats BaseStats;
 
+	/** 챔피언 데이터가 없을 때 쓰는 레벨당 성장 스탯. */
+	UPROPERTY(EditDefaultsOnly, Category = "Champion|Fallback")
+	FMobaStatGrowth StatGrowth;
+
 	/** 챔피언 데이터가 없을 때 쓰는 기본 스킬. */
 	UPROPERTY(EditDefaultsOnly, Category = "Champion|Fallback")
 	TMap<EMobaAbilitySlot, TSubclassOf<UMobaGameplayAbility>> DefaultAbilities;
+
+	/** 처음 스폰된 자기 팀 우물의 위치. 이 근처에서는 체력과 마나가 빠르게 찬다. */
+	FVector HomeLocation = FVector::ZeroVector;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Fountain")
+	float FountainRadius = 900.0f;
+
+	/** 우물 안에서 1초에 회복하는 최대 체력·마나의 비율. */
+	UPROPERTY(EditDefaultsOnly, Category = "Fountain")
+	float FountainHealFractionPerSecond = 0.085f;
+
+	FTimerHandle RegenTimer;
 
 	/** 이미 연결을 마친 능력 시스템. 중복 바인딩을 막는다. */
 	TWeakObjectPtr<UAbilitySystemComponent> BoundAbilitySystem;

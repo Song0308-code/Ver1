@@ -29,6 +29,21 @@ enum class EMobaAbilitySlot : uint8
 	R
 };
 
+UENUM(BlueprintType)
+enum class EMobaStructureType : uint8
+{
+	Tower,
+	Inhibitor,
+	Nexus
+};
+
+UENUM(BlueprintType)
+enum class EMobaMinionType : uint8
+{
+	Melee,
+	Caster
+};
+
 /** 스킬을 쓸 때 무엇을 지정해야 하는지. */
 UENUM(BlueprintType)
 enum class EMobaTargetingMode : uint8

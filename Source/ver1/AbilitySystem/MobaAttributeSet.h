@@ -38,6 +38,38 @@ struct FMobaBaseStats
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
 	float AttackRange = 550.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
+	float HealthRegenPerSecond = 1.4f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
+	float ManaRegenPerSecond = 1.6f;
+};
+
+/** 챔피언 레벨이 1 오를 때마다 더해지는 스탯. */
+USTRUCT(BlueprintType)
+struct FMobaStatGrowth
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Growth")
+	float MaxHealth = 95.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Growth")
+	float MaxMana = 40.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Growth")
+	float AttackDamage = 3.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Growth")
+	float Armor = 4.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Growth")
+	float MagicResist = 1.3f;
+
+	/** 기본 공격 속도에 곱해 더하는 비율. 0.025면 레벨당 2.5%. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Growth")
+	float AttackSpeedFraction = 0.025f;
 };
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMobaOutOfHealth, AActor* /*Instigator*/);

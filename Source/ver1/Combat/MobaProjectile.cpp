@@ -1,5 +1,5 @@
 #include "Combat/MobaProjectile.h"
-#include "AbilitySystemComponent.h"
+#include "AbilitySystem/MobaAbilityLibrary.h"
 #include "Combat/MobaCombatLibrary.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -17,7 +17,7 @@ AMobaProjectile::AMobaProjectile()
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	RootComponent = Mesh;
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Mesh->SetRelativeScale3D(FVector(0.3f));
+	Mesh->SetCastShadow(false);
 
 	// 실제 이펙트가 들어오기 전까지 쓰는 임시 외형.
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
@@ -33,13 +33,40 @@ void AMobaProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 
 	DOREPLIFETIME(AMobaProjectile, Target);
 	DOREPLIFETIME(AMobaProjectile, Speed);
+	DOREPLIFETIME(AMobaProjectile, VisualScale);
+	DOREPLIFETIME(AMobaProjectile, SourceTeam);
 }
 
-void AMobaProjectile::InitHoming(AActor* InTarget, const FGameplayEffectSpecHandle& InEffectSpec, float InSpeed)
+void AMobaProjectile::BeginPlay()
+{
+	Super::BeginPlay();
+
+	ApplyVisual();
+}
+
+void AMobaProjectile::InitHoming(AActor* InTarget, const FGameplayEffectSpecHandle& InEffectSpec, float InSpeed, float InVisualScale, EMobaTeam InSourceTeam)
 {
 	Target = InTarget;
 	EffectSpec = InEffectSpec;
 	Speed = InSpeed;
+	VisualScale = InVisualScale;
+	SourceTeam = InSourceTeam;
+
+	ApplyVisual();
+}
+
+void AMobaProjectile::OnRep_Visual()
+{
+	ApplyVisual();
+}
+
+void AMobaProjectile::ApplyVisual()
+{
+	Mesh->SetWorldScale3D(FVector(VisualScale));
+
+	// 어두운 바닥 위에서도 잘 보이도록 팀 색을 밝게 띄운다.
+	const FLinearColor Color = FMath::Lerp(MobaTeam::GetTeamColor(SourceTeam), FLinearColor::White, 0.45f);
+	Mesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(Color.R, Color.G, Color.B));
 }
 
 void AMobaProjectile::Tick(float DeltaSeconds)
@@ -56,7 +83,7 @@ void AMobaProjectile::Tick(float DeltaSeconds)
 		return;
 	}
 
-	const FVector ToTarget = Target->GetActorLocation() - GetActorLocation();
+	const FVector ToTarget = MobaCombat::GetAimLocation(Target) - GetActorLocation();
 	const float Distance = ToTarget.Size();
 	const float Step = Speed * DeltaSeconds;
 
@@ -64,11 +91,7 @@ void AMobaProjectile::Tick(float DeltaSeconds)
 	{
 		if (HasAuthority())
 		{
-			UAbilitySystemComponent* TargetAbilitySystem = MobaCombat::GetAbilitySystem(Target);
-			if (TargetAbilitySystem && EffectSpec.IsValid())
-			{
-				TargetAbilitySystem->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
-			}
+			MobaAbility::ApplySpecToTarget(EffectSpec, Target);
 			Destroy();
 		}
 		else

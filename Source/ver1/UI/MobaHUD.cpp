@@ -3,23 +3,31 @@
 #include "AbilitySystem/MobaGameplayAbility.h"
 #include "AbilitySystemComponent.h"
 #include "Character/MobaCharacter.h"
+#include "Combat/MobaCombatComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
-#include "GameFramework/GameStateBase.h"
+#include "Game/MobaGameState.h"
 #include "Player/MobaPlayerController.h"
 #include "Player/MobaPlayerState.h"
+#include "Structures/MobaStructure.h"
+#include "Units/MobaMinion.h"
 
 void AMobaHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+	if (!Canvas)
 	{
-		DrawHealthBar(*It);
+		return;
 	}
 
+	DrawStructureBars();
+	DrawMinionBars();
+	DrawChampionBars();
+
+	DrawMatchInfo();
 	DrawRespawnCountdown();
 
 	if (const AMobaCharacter* LocalCharacter = Cast<AMobaCharacter>(GetOwningPawn()))
@@ -27,6 +35,19 @@ void AMobaHUD::DrawHUD()
 		DrawTargetingIndicator(LocalCharacter);
 		DrawStatusBar(LocalCharacter);
 	}
+
+	DrawMatchResult();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 공용 그리기
+
+void AMobaHUD::DrawCenteredText(const FString& Text, const FLinearColor& Color, float CenterX, float Y, UFont* Font, float Scale)
+{
+	float TextWidth = 0.0f;
+	float TextHeight = 0.0f;
+	GetTextSize(Text, TextWidth, TextHeight, Font, Scale);
+	DrawText(Text, Color, CenterX - TextWidth * 0.5f, Y, Font, Scale);
 }
 
 void AMobaHUD::DrawGroundLine(const FVector& Start, const FVector& End, const FLinearColor& Color, float Thickness)
@@ -52,11 +73,186 @@ void AMobaHUD::DrawGroundCircle(const FVector& Center, float Radius, const FLine
 	}
 }
 
+FLinearColor AMobaHUD::GetRelationColor(EMobaTeam UnitTeam, bool bIsLocalUnit) const
+{
+	if (bIsLocalUnit)
+	{
+		return FLinearColor(0.15f, 0.8f, 0.2f);
+	}
+
+	const AMobaPlayerState* LocalState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (LocalState && LocalState->GetTeam() == UnitTeam)
+	{
+		return FLinearColor(0.2f, 0.5f, 1.0f);
+	}
+	return FLinearColor(0.85f, 0.1f, 0.1f);
+}
+
+void AMobaHUD::DrawUnitBar(const UAbilitySystemComponent* AbilitySystem, const FVector& WorldLocation, const FVector2D& Size, const FLinearColor& FillColor, bool bShowMana, const FString& Label)
+{
+	const float MaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
+	if (MaxHealth <= 0.0f)
+	{
+		return;
+	}
+
+	const FVector ScreenLocation = Project(WorldLocation);
+	if (ScreenLocation.Z <= 0.0 || ScreenLocation.X < -Size.X || ScreenLocation.X > Canvas->ClipX + Size.X || ScreenLocation.Y < -50.0 || ScreenLocation.Y > Canvas->ClipY + 50.0)
+	{
+		return;
+	}
+
+	const float HealthFraction = FMath::Clamp(AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetHealthAttribute()) / MaxHealth, 0.0f, 1.0f);
+	const float Left = ScreenLocation.X - Size.X * 0.5f;
+	const float Top = ScreenLocation.Y - Size.Y;
+
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), Left - 1.0f, Top - 1.0f, Size.X + 2.0f, Size.Y + 2.0f);
+	DrawRect(FillColor, Left, Top, Size.X * HealthFraction, Size.Y);
+
+	if (bShowMana)
+	{
+		const float MaxMana = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxManaAttribute());
+		if (MaxMana > 0.0f)
+		{
+			const float ManaFraction = FMath::Clamp(AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetManaAttribute()) / MaxMana, 0.0f, 1.0f);
+			const float ManaHeight = 4.0f;
+			DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), Left - 1.0f, Top + Size.Y + 1.0f, Size.X + 2.0f, ManaHeight + 1.0f);
+			DrawRect(FLinearColor(0.2f, 0.45f, 1.0f), Left, Top + Size.Y + 1.0f, Size.X * ManaFraction, ManaHeight);
+		}
+	}
+
+	if (!Label.IsEmpty())
+	{
+		DrawText(Label, FLinearColor::White, Left - 18.0f, Top - 3.0f, GEngine->GetSmallFont(), 1.0f);
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 머리 위 체력바
+
+void AMobaHUD::DrawChampionBars()
+{
+	const AMobaCharacter* LocalCharacter = Cast<AMobaCharacter>(GetOwningPawn());
+
+	for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+	{
+		const AMobaCharacter* Character = *It;
+		const UAbilitySystemComponent* AbilitySystem = Character->GetAbilitySystemComponent();
+		if (!AbilitySystem || Character->IsDead())
+		{
+			continue;
+		}
+
+		const AMobaPlayerState* PlayerState = Character->GetPlayerState<AMobaPlayerState>();
+		const FString LevelLabel = PlayerState ? FString::FromInt(PlayerState->GetChampionLevel()) : FString();
+		const FVector BarLocation = Character->GetActorLocation() + FVector(0.0, 0.0, Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + HealthBarHeightOffset);
+		const bool bIsLocal = Character == LocalCharacter;
+
+		DrawUnitBar(AbilitySystem, BarLocation, ChampionBarSize, GetRelationColor(Character->GetTeam(), bIsLocal), bIsLocal, LevelLabel);
+	}
+}
+
+void AMobaHUD::DrawMinionBars()
+{
+	for (TActorIterator<AMobaMinion> It(GetWorld()); It; ++It)
+	{
+		const AMobaMinion* Minion = *It;
+		if (Minion->IsHidden())
+		{
+			continue;
+		}
+
+		const FVector BarLocation = Minion->GetActorLocation() + FVector(0.0, 0.0, Minion->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 30.0f);
+		DrawUnitBar(Minion->GetAbilitySystemComponent(), BarLocation, MinionBarSize, GetRelationColor(Minion->GetTeam(), false), false, FString());
+	}
+}
+
+void AMobaHUD::DrawStructureBars()
+{
+	for (TActorIterator<AMobaStructure> It(GetWorld()); It; ++It)
+	{
+		const AMobaStructure* Structure = *It;
+		if (Structure->IsDestroyed())
+		{
+			continue;
+		}
+
+		// 아직 공격할 수 없는 건물은 회색으로 표시한다.
+		const FLinearColor FillColor = Structure->IsInvulnerable() ? FLinearColor(0.45f, 0.45f, 0.45f) : GetRelationColor(Structure->GetTeam(), false);
+		const FVector BarLocation = Structure->GetActorLocation() + FVector(0.0, 0.0, Structure->GetHealthBarHeight());
+		DrawUnitBar(Structure->GetAbilitySystemComponent(), BarLocation, StructureBarSize, FillColor, false, FString());
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 경기 정보
+
+void AMobaHUD::DrawMatchInfo()
+{
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	const AMobaPlayerState* PlayerState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!GameState || !PlayerState)
+	{
+		return;
+	}
+
+	const int32 TotalSeconds = FMath::FloorToInt(GameState->GetServerWorldTimeSeconds());
+	const FString Text = FString::Printf(TEXT("%02d:%02d    K %d / D %d"), TotalSeconds / 60, TotalSeconds % 60, PlayerState->GetKills(), PlayerState->GetDeaths());
+	DrawCenteredText(Text, FLinearColor::White, Canvas->ClipX * 0.5f, 12.0f, GEngine->GetSmallFont(), 1.3f);
+}
+
+void AMobaHUD::DrawRespawnCountdown()
+{
+	const AMobaPlayerState* PlayerState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	if (!PlayerState || !GameState || PlayerState->GetRespawnServerTime() <= 0.0f)
+	{
+		return;
+	}
+
+	const float Remaining = PlayerState->GetRespawnServerTime() - GameState->GetServerWorldTimeSeconds();
+	if (Remaining > 0.0f)
+	{
+		DrawCenteredText(FString::Printf(TEXT("부활까지 %d초"), FMath::CeilToInt(Remaining)), FLinearColor::White, Canvas->ClipX * 0.5f, Canvas->ClipY * 0.3f, GEngine->GetLargeFont(), 2.0f);
+	}
+}
+
+void AMobaHUD::DrawMatchResult()
+{
+	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
+	const AMobaPlayerState* PlayerState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!GameState || !PlayerState || !GameState->IsMatchOver())
+	{
+		return;
+	}
+
+	const bool bWon = GameState->GetWinningTeam() == PlayerState->GetTeam();
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.5f), 0.0f, Canvas->ClipY * 0.35f, Canvas->ClipX, Canvas->ClipY * 0.2f);
+	DrawCenteredText(bWon ? TEXT("승리") : TEXT("패배"), bWon ? FLinearColor(0.3f, 0.7f, 1.0f) : FLinearColor(1.0f, 0.3f, 0.25f), Canvas->ClipX * 0.5f, Canvas->ClipY * 0.4f, GEngine->GetLargeFont(), 4.0f);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 조준 표시
+
 void AMobaHUD::DrawTargetingIndicator(const AMobaCharacter* Character)
 {
 	const AMobaPlayerController* MobaController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+	if (!MobaController)
+	{
+		return;
+	}
+
+	// A키로 공격 대상을 고르는 중이면 기본 공격 사거리를 빨간 원으로 보여 준다.
+	if (MobaController->IsAttackTargeting())
+	{
+		FVector Feet = Character->GetActorLocation();
+		Feet.Z -= Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+		DrawGroundCircle(Feet, Character->GetCombatComponent()->GetAttackRange(), FLinearColor(1.0f, 0.25f, 0.2f, 0.9f), 2.0f);
+		return;
+	}
+
 	EMobaAbilitySlot Slot;
-	if (!MobaController || !MobaController->GetTargetingSlot(Slot))
+	if (!MobaController->GetTargetingSlot(Slot))
 	{
 		return;
 	}
@@ -96,10 +292,14 @@ void AMobaHUD::DrawTargetingIndicator(const AMobaCharacter* Character)
 	}
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// 하단 상태 바
+
 void AMobaHUD::DrawStatusBar(const AMobaCharacter* Character)
 {
 	const UAbilitySystemComponent* AbilitySystem = Character->GetAbilitySystemComponent();
-	if (!AbilitySystem || !Canvas)
+	const AMobaPlayerState* PlayerState = Character->GetPlayerState<AMobaPlayerState>();
+	if (!AbilitySystem || !PlayerState)
 	{
 		return;
 	}
@@ -118,6 +318,17 @@ void AMobaHUD::DrawStatusBar(const AMobaCharacter* Character)
 	const float BarHeight = 16.0f;
 	const float BoxTop = Canvas->ClipY - AbilityBoxSize - BarHeight * 2.0f - 28.0f;
 
+	// 레벨, 경험치, 골드.
+	const float InfoTop = BoxTop - 44.0f;
+	const float NeededExperience = AMobaPlayerState::GetExperienceForNextLevel(PlayerState->GetChampionLevel());
+	const float ExperienceFraction = PlayerState->GetChampionLevel() >= AMobaPlayerState::MaxChampionLevel ? 1.0f : FMath::Clamp(PlayerState->GetExperience() / NeededExperience, 0.0f, 1.0f);
+
+	DrawText(FString::Printf(TEXT("Lv %d"), PlayerState->GetChampionLevel()), FLinearColor::White, Left, InfoTop, Font, 1.2f);
+	DrawText(FString::Printf(TEXT("%d G"), FMath::FloorToInt(PlayerState->GetGold())), FLinearColor(1.0f, 0.85f, 0.3f), Left + TotalWidth - 70.0f, InfoTop, Font, 1.2f);
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), Left - 1.0f, InfoTop + 20.0f, TotalWidth + 2.0f, 6.0f);
+	DrawRect(FLinearColor(0.6f, 0.3f, 0.9f), Left, InfoTop + 21.0f, TotalWidth * ExperienceFraction, 4.0f);
+
+	// QWER 스킬 칸.
 	for (int32 Index = 0; Index < 4; ++Index)
 	{
 		const UMobaGameplayAbility* Ability = Character->GetAbilityInSlot(Slots[Index]);
@@ -129,8 +340,20 @@ void AMobaHUD::DrawStatusBar(const AMobaCharacter* Character)
 			continue;
 		}
 
+		const int32 AbilityLevel = Character->GetAbilityLevel(Slots[Index]);
 		const bool bEnoughMana = Mana >= Ability->GetManaCost();
-		DrawRect(bEnoughMana ? FLinearColor(0.15f, 0.3f, 0.45f) : FLinearColor(0.12f, 0.12f, 0.3f), BoxLeft, BoxTop, AbilityBoxSize, AbilityBoxSize);
+
+		// 아직 찍지 않은 스킬은 회색, 마나가 모자라면 어두운 파랑.
+		FLinearColor BoxColor(0.15f, 0.3f, 0.45f);
+		if (AbilityLevel <= 0)
+		{
+			BoxColor = FLinearColor(0.12f, 0.12f, 0.12f);
+		}
+		else if (!bEnoughMana)
+		{
+			BoxColor = FLinearColor(0.12f, 0.12f, 0.3f);
+		}
+		DrawRect(BoxColor, BoxLeft, BoxTop, AbilityBoxSize, AbilityBoxSize);
 
 		float Remaining = 0.0f;
 		float Duration = 0.0f;
@@ -142,7 +365,15 @@ void AMobaHUD::DrawStatusBar(const AMobaCharacter* Character)
 		}
 
 		DrawText(SlotKeys[Index], FLinearColor::White, BoxLeft + 4.0f, BoxTop + 2.0f, Font, 1.2f);
+		DrawText(FString::Printf(TEXT("%d/%d"), AbilityLevel, Ability->GetMaxLevel()), FLinearColor(0.85f, 0.85f, 0.85f), BoxLeft + AbilityBoxSize - 26.0f, BoxTop + 2.0f, Font, 1.0f);
 		DrawText(FString::FromInt(FMath::RoundToInt(Ability->GetManaCost())), FLinearColor(0.5f, 0.75f, 1.0f), BoxLeft + 4.0f, BoxTop + AbilityBoxSize - 16.0f, Font, 1.0f);
+
+		// 스킬 포인트로 올릴 수 있으면 누를 키를 알려 준다.
+		if (Character->CanLevelUpAbility(Slots[Index]))
+		{
+			DrawRect(FLinearColor(0.9f, 0.75f, 0.1f), BoxLeft, BoxTop - 20.0f, AbilityBoxSize, 16.0f);
+			DrawCenteredText(FString::Printf(TEXT("Ctrl+%s"), SlotKeys[Index]), FLinearColor::Black, BoxLeft + AbilityBoxSize * 0.5f, BoxTop - 20.0f, Font, 1.0f);
+		}
 	}
 
 	// 체력·마나 수치 바.
@@ -155,83 +386,4 @@ void AMobaHUD::DrawStatusBar(const AMobaCharacter* Character)
 	DrawRect(FLinearColor(0.2f, 0.45f, 1.0f), Left, BarsTop + BarHeight + 2.0f, TotalWidth * ManaFraction, BarHeight);
 	DrawText(FString::Printf(TEXT("%d / %d"), FMath::CeilToInt(Health), FMath::RoundToInt(MaxHealth)), FLinearColor::White, Left + 6.0f, BarsTop + 1.0f, Font, 1.0f);
 	DrawText(FString::Printf(TEXT("%d / %d"), FMath::FloorToInt(Mana), FMath::RoundToInt(MaxMana)), FLinearColor::White, Left + 6.0f, BarsTop + BarHeight + 3.0f, Font, 1.0f);
-}
-
-void AMobaHUD::DrawHealthBar(const AMobaCharacter* Character)
-{
-	const UAbilitySystemComponent* AbilitySystem = Character->GetAbilitySystemComponent();
-	if (!AbilitySystem || Character->IsDead())
-	{
-		return;
-	}
-
-	const float MaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
-	if (MaxHealth <= 0.0f)
-	{
-		return;
-	}
-
-	const FVector WorldLocation = Character->GetActorLocation() + FVector(0.0, 0.0, Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + HealthBarHeightOffset);
-	const FVector ScreenLocation = Project(WorldLocation);
-	if (ScreenLocation.Z <= 0.0)
-	{
-		return;
-	}
-
-	const APawn* LocalPawn = GetOwningPawn();
-	const AMobaCharacter* LocalCharacter = Cast<AMobaCharacter>(LocalPawn);
-
-	// 내 챔피언은 초록, 아군은 파랑, 적은 빨강.
-	FLinearColor FillColor = FLinearColor(0.85f, 0.1f, 0.1f);
-	if (Character == LocalCharacter)
-	{
-		FillColor = FLinearColor(0.15f, 0.8f, 0.2f);
-	}
-	else if (LocalCharacter && LocalCharacter->GetTeam() == Character->GetTeam())
-	{
-		FillColor = FLinearColor(0.2f, 0.5f, 1.0f);
-	}
-
-	const float HealthFraction = FMath::Clamp(AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetHealthAttribute()) / MaxHealth, 0.0f, 1.0f);
-	const float Left = ScreenLocation.X - HealthBarSize.X * 0.5f;
-	const float Top = ScreenLocation.Y - HealthBarSize.Y;
-
-	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), Left - 1.0f, Top - 1.0f, HealthBarSize.X + 2.0f, HealthBarSize.Y + 2.0f);
-	DrawRect(FillColor, Left, Top, HealthBarSize.X * HealthFraction, HealthBarSize.Y);
-
-	if (Character == LocalCharacter)
-	{
-		const float MaxMana = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxManaAttribute());
-		if (MaxMana > 0.0f)
-		{
-			const float ManaFraction = FMath::Clamp(AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetManaAttribute()) / MaxMana, 0.0f, 1.0f);
-			const float ManaHeight = 4.0f;
-			DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), Left - 1.0f, Top + HealthBarSize.Y + 1.0f, HealthBarSize.X + 2.0f, ManaHeight + 1.0f);
-			DrawRect(FLinearColor(0.2f, 0.45f, 1.0f), Left, Top + HealthBarSize.Y + 1.0f, HealthBarSize.X * ManaFraction, ManaHeight);
-		}
-	}
-}
-
-void AMobaHUD::DrawRespawnCountdown()
-{
-	const APlayerController* PlayerController = GetOwningPlayerController();
-	const AMobaPlayerState* PlayerState = PlayerController ? PlayerController->GetPlayerState<AMobaPlayerState>() : nullptr;
-	const AGameStateBase* GameState = GetWorld()->GetGameState();
-	if (!PlayerState || !GameState || !Canvas || PlayerState->GetRespawnServerTime() <= 0.0f)
-	{
-		return;
-	}
-
-	const float Remaining = PlayerState->GetRespawnServerTime() - GameState->GetServerWorldTimeSeconds();
-	if (Remaining <= 0.0f)
-	{
-		return;
-	}
-
-	const FString Text = FString::Printf(TEXT("부활까지 %d초"), FMath::CeilToInt(Remaining));
-	UFont* Font = GEngine->GetLargeFont();
-	float TextWidth = 0.0f;
-	float TextHeight = 0.0f;
-	GetTextSize(Text, TextWidth, TextHeight, Font, 2.0f);
-	DrawText(Text, FLinearColor::White, (Canvas->ClipX - TextWidth) * 0.5f, Canvas->ClipY * 0.3f, Font, 2.0f);
 }

@@ -6,6 +6,7 @@
 #include "AbilitySystemComponent.h"
 #include "Character/MobaChampionData.h"
 #include "Combat/MobaCombatComponent.h"
+#include "Combat/MobaCombatLibrary.h"
 #include "Game/MobaGameMode.h"
 #include "Game/MobaGameplayTags.h"
 #include "GameFramework/Controller.h"
@@ -15,6 +16,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/MobaPlayerState.h"
+#include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMobaCharacter::AMobaCharacter()
@@ -56,6 +58,7 @@ AMobaCharacter::AMobaCharacter()
 	}
 
 	CombatComponent = CreateDefaultSubobject<UMobaCombatComponent>(TEXT("CombatComponent"));
+	CombatComponent->SetAutoAcquireWhenIdle(true);
 
 	DefaultAbilities.Add(EMobaAbilitySlot::Q, UMobaAbility_Skillshot::StaticClass());
 	DefaultAbilities.Add(EMobaAbilitySlot::W, UMobaAbility_SelfBuff::StaticClass());
@@ -68,6 +71,26 @@ void AMobaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMobaCharacter, ChampionData);
+}
+
+void AMobaCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (HasAuthority())
+	{
+		GetWorldTimerManager().SetTimer(RegenTimer, this, &AMobaCharacter::TickRegen, 0.25f, true);
+	}
+}
+
+const FMobaBaseStats& AMobaCharacter::GetBaseStats() const
+{
+	return ChampionData ? ChampionData->BaseStats : BaseStats;
+}
+
+const FMobaStatGrowth& AMobaCharacter::GetStatGrowth() const
+{
+	return ChampionData ? ChampionData->StatGrowth : StatGrowth;
 }
 
 EMobaTeam AMobaCharacter::GetTeam() const
@@ -97,6 +120,8 @@ bool AMobaCharacter::IsStunned() const
 void AMobaCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
+
+	HomeLocation = GetActorLocation();
 
 	if (!ChampionData)
 	{
@@ -143,6 +168,7 @@ void AMobaCharacter::InitAbilitySystem()
 	if (HasAuthority())
 	{
 		AttributeSet->OnOutOfHealth.AddUObject(this, &AMobaCharacter::HandleOutOfHealth);
+		MobaPlayerState->OnLevelUp.AddUObject(this, &AMobaCharacter::HandleLevelUp);
 
 		if (!MobaPlayerState->bStatsInitialized)
 		{
@@ -164,7 +190,7 @@ void AMobaCharacter::GrantChampionKit(AMobaPlayerState* MobaPlayerState)
 {
 	UAbilitySystemComponent* AbilitySystem = MobaPlayerState->GetAbilitySystemComponent();
 
-	MobaPlayerState->GetAttributeSet()->InitFromBaseStats(ChampionData ? ChampionData->BaseStats : BaseStats);
+	MobaPlayerState->GetAttributeSet()->InitFromBaseStats(GetBaseStats());
 
 	if (ChampionData)
 	{
@@ -176,7 +202,8 @@ void AMobaCharacter::GrantChampionKit(AMobaPlayerState* MobaPlayerState)
 	{
 		if (Entry.Value)
 		{
-			FGameplayAbilitySpec Spec(Entry.Value, 1);
+			// 스킬은 0단계로 받고, 스킬 포인트로 찍어야 쓸 수 있다.
+			FGameplayAbilitySpec Spec(Entry.Value, 0);
 			Spec.GetDynamicSpecSourceTags().AddTag(MobaAbility::GetSlotTag(Entry.Key));
 			AbilitySystem->GiveAbility(Spec);
 		}
@@ -317,6 +344,120 @@ void AMobaCharacter::ServerCastAbility_Implementation(EMobaAbilitySlot Slot, FVe
 
 		AbilitySystem->TriggerAbilityFromGameplayEvent(Spec.Handle, AbilitySystem->AbilityActorInfo.Get(), SlotTag, &Payload, *AbilitySystem);
 		return;
+	}
+}
+
+void AMobaCharacter::HandleLevelUp(int32 NewLevel)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!HasAuthority() || !AbilitySystem)
+	{
+		return;
+	}
+
+	const FMobaStatGrowth& Growth = GetStatGrowth();
+	const auto AddToBase = [AbilitySystem](const FGameplayAttribute& Attribute, float Amount)
+	{
+		AbilitySystem->SetNumericAttributeBase(Attribute, AbilitySystem->GetNumericAttributeBase(Attribute) + Amount);
+	};
+
+	AddToBase(UMobaAttributeSet::GetMaxHealthAttribute(), Growth.MaxHealth);
+	AddToBase(UMobaAttributeSet::GetMaxManaAttribute(), Growth.MaxMana);
+	AddToBase(UMobaAttributeSet::GetAttackDamageAttribute(), Growth.AttackDamage);
+	AddToBase(UMobaAttributeSet::GetArmorAttribute(), Growth.Armor);
+	AddToBase(UMobaAttributeSet::GetMagicResistAttribute(), Growth.MagicResist);
+	AddToBase(UMobaAttributeSet::GetAttackSpeedAttribute(), GetBaseStats().AttackSpeed * Growth.AttackSpeedFraction);
+
+	// 늘어난 최대치만큼 현재 체력과 마나도 채워 준다.
+	if (!IsDead())
+	{
+		AddToBase(UMobaAttributeSet::GetHealthAttribute(), Growth.MaxHealth);
+		AddToBase(UMobaAttributeSet::GetManaAttribute(), Growth.MaxMana);
+	}
+}
+
+void AMobaCharacter::TickRegen()
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!AbilitySystem || IsDead() || MobaCombat::IsMatchOver(this))
+	{
+		return;
+	}
+
+	const float DeltaSeconds = 0.25f;
+	const FMobaBaseStats& Stats = GetBaseStats();
+	const bool bInFountain = FVector::DistSquared2D(GetActorLocation(), HomeLocation) <= FMath::Square(FountainRadius);
+
+	const auto Regenerate = [AbilitySystem, DeltaSeconds, bInFountain, this](const FGameplayAttribute& Attribute, const FGameplayAttribute& MaxAttribute, float RegenPerSecond)
+	{
+		const float Current = AbilitySystem->GetNumericAttributeBase(Attribute);
+		const float Max = AbilitySystem->GetNumericAttribute(MaxAttribute);
+		if (Current >= Max)
+		{
+			return;
+		}
+
+		const float Gain = (RegenPerSecond + (bInFountain ? Max * FountainHealFractionPerSecond : 0.0f)) * DeltaSeconds;
+		AbilitySystem->SetNumericAttributeBase(Attribute, FMath::Min(Current + Gain, Max));
+	};
+
+	Regenerate(UMobaAttributeSet::GetHealthAttribute(), UMobaAttributeSet::GetMaxHealthAttribute(), Stats.HealthRegenPerSecond);
+	Regenerate(UMobaAttributeSet::GetManaAttribute(), UMobaAttributeSet::GetMaxManaAttribute(), Stats.ManaRegenPerSecond);
+}
+
+int32 AMobaCharacter::GetAbilityLevel(EMobaAbilitySlot Slot) const
+{
+	const UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!AbilitySystem)
+	{
+		return 0;
+	}
+
+	const FGameplayTag SlotTag = MobaAbility::GetSlotTag(Slot);
+	for (const FGameplayAbilitySpec& Spec : AbilitySystem->GetActivatableAbilities())
+	{
+		if (Spec.GetDynamicSpecSourceTags().HasTagExact(SlotTag))
+		{
+			return Spec.Level;
+		}
+	}
+	return 0;
+}
+
+bool AMobaCharacter::CanLevelUpAbility(EMobaAbilitySlot Slot) const
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	const UMobaGameplayAbility* Ability = GetAbilityInSlot(Slot);
+	return MobaPlayerState && Ability && MobaPlayerState->GetSkillPoints() > 0
+		&& Ability->CanLevelUp(GetAbilityLevel(Slot), MobaPlayerState->GetChampionLevel());
+}
+
+void AMobaCharacter::LevelUpAbility(EMobaAbilitySlot Slot)
+{
+	if (CanLevelUpAbility(Slot))
+	{
+		ServerLevelUpAbility(Slot);
+	}
+}
+
+void AMobaCharacter::ServerLevelUpAbility_Implementation(EMobaAbilitySlot Slot)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	if (!AbilitySystem || !MobaPlayerState || !CanLevelUpAbility(Slot))
+	{
+		return;
+	}
+
+	const FGameplayTag SlotTag = MobaAbility::GetSlotTag(Slot);
+	for (FGameplayAbilitySpec& Spec : AbilitySystem->GetActivatableAbilities())
+	{
+		if (Spec.GetDynamicSpecSourceTags().HasTagExact(SlotTag) && MobaPlayerState->ConsumeSkillPoint())
+		{
+			++Spec.Level;
+			AbilitySystem->MarkAbilitySpecDirty(Spec);
+			return;
+		}
 	}
 }
 

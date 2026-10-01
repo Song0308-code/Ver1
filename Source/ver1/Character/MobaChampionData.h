@@ -23,12 +23,15 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
 	FMobaBaseStats BaseStats;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
+	FMobaStatGrowth StatGrowth;
+
 	/** true면 기본 공격이 투사체, false면 근접. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Basic Attack")
 	bool bRangedBasicAttack = true;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Basic Attack", meta = (EditCondition = "bRangedBasicAttack"))
-	float BasicAttackProjectileSpeed = 2000.0f;
+	float BasicAttackProjectileSpeed = 1500.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Abilities")
 	TMap<EMobaAbilitySlot, TSubclassOf<UMobaGameplayAbility>> Abilities;

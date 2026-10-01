@@ -7,6 +7,8 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Slowed, "State.Slowed", "이동 속도 감소 중.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Hasted, "State.Hasted", "이동·공격 속도 증가 중.");
 
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Invulnerable, "State.Invulnerable", "무적. 공격 대상이 되지 않는다. 앞선 건물이 남아 있는 건물에 붙는다.");
+
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_Q, "Ability.Slot.Q");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_W, "Ability.Slot.W");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_E, "Ability.Slot.E");

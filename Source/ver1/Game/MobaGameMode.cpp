@@ -1,11 +1,16 @@
 #include "Game/MobaGameMode.h"
+#include "AbilitySystem/MobaAbilityLibrary.h"
 #include "Character/MobaChampionData.h"
 #include "Character/MobaCharacter.h"
+#include "Combat/MobaCombatLibrary.h"
+#include "Components/SplineComponent.h"
 #include "EngineUtils.h"
 #include "Game/MobaGameState.h"
 #include "GameFramework/PlayerStart.h"
+#include "Map/MobaLanePath.h"
 #include "Player/MobaPlayerController.h"
 #include "Player/MobaPlayerState.h"
+#include "Structures/MobaStructure.h"
 #include "TimerManager.h"
 #include "UI/MobaHUD.h"
 
@@ -16,6 +21,201 @@ AMobaGameMode::AMobaGameMode()
 	PlayerStateClass = AMobaPlayerState::StaticClass();
 	GameStateClass = AMobaGameState::StaticClass();
 	HUDClass = AMobaHUD::StaticClass();
+
+	MinionClass = AMobaMinion::StaticClass();
+	ActiveLanes.Add(EMobaLane::Mid);
+
+	MeleeMinion.Stats.MaxHealth = 477.0f;
+	MeleeMinion.Stats.MaxMana = 0.0f;
+	MeleeMinion.Stats.AttackDamage = 12.0f;
+	MeleeMinion.Stats.Armor = 0.0f;
+	MeleeMinion.Stats.MagicResist = 0.0f;
+	MeleeMinion.Stats.AttackSpeed = 1.25f;
+	MeleeMinion.Stats.MoveSpeed = 325.0f;
+	MeleeMinion.Stats.AttackRange = 110.0f;
+	MeleeMinion.bRanged = false;
+	MeleeMinion.GoldReward = 21.0f;
+	MeleeMinion.ExperienceReward = 60.0f;
+
+	CasterMinion.Stats.MaxHealth = 296.0f;
+	CasterMinion.Stats.MaxMana = 0.0f;
+	CasterMinion.Stats.AttackDamage = 23.0f;
+	CasterMinion.Stats.Armor = 0.0f;
+	CasterMinion.Stats.MagicResist = 0.0f;
+	CasterMinion.Stats.AttackSpeed = 0.67f;
+	CasterMinion.Stats.MoveSpeed = 325.0f;
+	CasterMinion.Stats.AttackRange = 550.0f;
+	CasterMinion.bRanged = true;
+	CasterMinion.ProjectileSpeed = 1000.0f;
+	CasterMinion.GoldReward = 14.0f;
+	CasterMinion.ExperienceReward = 30.0f;
+}
+
+void AMobaGameMode::StartPlay()
+{
+	Super::StartPlay();
+
+	GetWorldTimerManager().SetTimer(WaveTimer, this, &AMobaGameMode::SpawnWave, WaveInterval, true, FirstWaveDelay);
+	GetWorldTimerManager().SetTimer(PassiveGoldTimer, this, &AMobaGameMode::GrantPassiveGold, 1.0f, true);
+}
+
+void AMobaGameMode::SpawnWave()
+{
+	if (MobaCombat::IsMatchOver(this))
+	{
+		return;
+	}
+
+	for (TActorIterator<AMobaLanePath> It(GetWorld()); It; ++It)
+	{
+		AMobaLanePath* LanePath = *It;
+		if (!ActiveLanes.Contains(LanePath->GetLane()))
+		{
+			continue;
+		}
+
+		// 근접이 앞장서고 원거리가 뒤따르도록 한 마리씩 간격을 두고 내보낸다.
+		for (int32 Index = 0; Index < MinionsPerType * 2; ++Index)
+		{
+			const EMobaMinionType Type = Index < MinionsPerType ? EMobaMinionType::Melee : EMobaMinionType::Caster;
+			for (const EMobaTeam Team : { EMobaTeam::Blue, EMobaTeam::Red })
+			{
+				FTimerHandle Handle;
+				GetWorldTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(LanePath, [this, LanePath, Team, Type]()
+				{
+					SpawnMinion(LanePath, Team, Type);
+				}), FMath::Max(SpawnStagger * Index, 0.01f), false);
+			}
+		}
+	}
+}
+
+void AMobaGameMode::SpawnMinion(AMobaLanePath* LanePath, EMobaTeam Team, EMobaMinionType Type)
+{
+	if (!MinionClass || !LanePath || MobaCombat::IsMatchOver(this))
+	{
+		return;
+	}
+
+	// 스플라인은 블루 넥서스에서 시작해 레드 넥서스에서 끝난다.
+	const USplineComponent* Spline = LanePath->GetSpline();
+	const float Distance = Team == EMobaTeam::Blue ? SpawnDistanceFromNexus : Spline->GetSplineLength() - SpawnDistanceFromNexus;
+	const FVector Location = Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World) + FVector(0.0, 0.0, 60.0);
+	const FVector Forward = Spline->GetDirectionAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World) * (Team == EMobaTeam::Blue ? 1.0 : -1.0);
+
+	const FTransform SpawnTransform(Forward.Rotation(), Location);
+	if (AMobaMinion* Minion = GetWorld()->SpawnActorDeferred<AMobaMinion>(MinionClass, SpawnTransform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn))
+	{
+		Minion->InitMinion(Team, Type, LanePath, Type == EMobaMinionType::Melee ? MeleeMinion : CasterMinion);
+		Minion->FinishSpawning(SpawnTransform);
+	}
+}
+
+void AMobaGameMode::GrantPassiveGold()
+{
+	if (MobaCombat::IsMatchOver(this) || !GameState)
+	{
+		return;
+	}
+
+	for (APlayerState* PlayerState : GameState->PlayerArray)
+	{
+		if (AMobaPlayerState* MobaPlayerState = Cast<AMobaPlayerState>(PlayerState))
+		{
+			MobaPlayerState->AddGold(PassiveGoldPerSecond);
+		}
+	}
+}
+
+void AMobaGameMode::GrantGoldToTeam(EMobaTeam Team, float Amount)
+{
+	if (!GameState || Amount <= 0.0f)
+	{
+		return;
+	}
+
+	for (APlayerState* PlayerState : GameState->PlayerArray)
+	{
+		AMobaPlayerState* MobaPlayerState = Cast<AMobaPlayerState>(PlayerState);
+		if (MobaPlayerState && MobaPlayerState->GetTeam() == Team)
+		{
+			MobaPlayerState->AddGold(Amount);
+		}
+	}
+}
+
+void AMobaGameMode::HandleMinionKilled(AMobaMinion* Minion, AActor* Killer)
+{
+	if (!Minion || !GameState)
+	{
+		return;
+	}
+
+	// 골드는 막타를 친 챔피언만 받는다.
+	const AMobaCharacter* KillerChampion = Cast<AMobaCharacter>(Killer);
+	if (AMobaPlayerState* KillerState = KillerChampion ? KillerChampion->GetPlayerState<AMobaPlayerState>() : nullptr)
+	{
+		KillerState->AddGold(Minion->GetConfig().GoldReward);
+	}
+
+	// 경험치는 근처에 살아 있는 적 챔피언들이 똑같이 나눠 받는다.
+	TArray<AMobaPlayerState*> Receivers;
+	for (APlayerState* PlayerState : GameState->PlayerArray)
+	{
+		AMobaPlayerState* MobaPlayerState = Cast<AMobaPlayerState>(PlayerState);
+		const AMobaCharacter* Champion = MobaPlayerState ? Cast<AMobaCharacter>(MobaPlayerState->GetPawn()) : nullptr;
+		if (Champion && !Champion->IsDead() && Champion->GetTeam() != Minion->GetTeam()
+			&& FVector::Dist2D(Champion->GetActorLocation(), Minion->GetActorLocation()) <= ExperienceShareRange)
+		{
+			Receivers.Add(MobaPlayerState);
+		}
+	}
+
+	for (AMobaPlayerState* Receiver : Receivers)
+	{
+		Receiver->AddExperience(Minion->GetConfig().ExperienceReward / Receivers.Num());
+	}
+}
+
+void AMobaGameMode::HandleStructureDestroyed(AMobaStructure* Structure, AActor* Killer)
+{
+	if (!Structure)
+	{
+		return;
+	}
+
+	const EMobaTeam WinningSide = Structure->GetTeam() == EMobaTeam::Blue ? EMobaTeam::Red : EMobaTeam::Blue;
+	GrantGoldToTeam(WinningSide, Structure->GetGoldReward());
+
+	if (Structure->GetStructureType() == EMobaStructureType::Nexus)
+	{
+		EndMatch(WinningSide);
+	}
+}
+
+void AMobaGameMode::EndMatch(EMobaTeam WinningTeam)
+{
+	AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	if (!MobaGameState || MobaGameState->IsMatchOver())
+	{
+		return;
+	}
+
+	MobaGameState->SetMatchResult(WinningTeam);
+
+	GetWorldTimerManager().ClearTimer(WaveTimer);
+	GetWorldTimerManager().ClearTimer(PassiveGoldTimer);
+
+	for (TActorIterator<AMobaMinion> It(GetWorld()); It; ++It)
+	{
+		It->StopActing();
+	}
+
+	// 챔피언은 긴 기절을 걸어 이동·공격·스킬을 모두 막는다.
+	for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+	{
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeStunSpec(It->GetAbilitySystemComponent(), *It, 100000.0f), *It);
+	}
 }
 
 FString AMobaGameMode::InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
@@ -96,6 +296,8 @@ void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)
 	if (AMobaPlayerState* KillerState = KillerPawn ? KillerPawn->GetPlayerState<AMobaPlayerState>() : nullptr)
 	{
 		KillerState->AddKill();
+		KillerState->AddGold(ChampionKillGold);
+		KillerState->AddExperience(ChampionKillExperience);
 	}
 
 	FTimerHandle TimerHandle;
@@ -107,7 +309,7 @@ void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)
 
 void AMobaGameMode::RespawnChampion(AMobaCharacter* Champion)
 {
-	if (!Champion)
+	if (!Champion || MobaCombat::IsMatchOver(this))
 	{
 		return;
 	}

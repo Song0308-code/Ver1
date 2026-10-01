@@ -2,11 +2,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+#include "Game/MobaTypes.h"
 #include "MobaHUD.generated.h"
 
 class AMobaCharacter;
+class UAbilitySystemComponent;
 
-/** UMG 화면이 들어오기 전까지 캔버스로 그리는 임시 HUD. 머리 위 체력바와 부활 대기 시간을 표시한다. */
+/** UMG 화면이 들어오기 전까지 캔버스로 그리는 임시 HUD. */
 UCLASS()
 class VER1_API AMobaHUD : public AHUD
 {
@@ -16,10 +18,25 @@ public:
 	virtual void DrawHUD() override;
 
 protected:
-	void DrawHealthBar(const AMobaCharacter* Character);
+	/** 유닛 머리 위 체력바. bShowMana면 바로 아래에 마나바도 그린다. */
+	void DrawUnitBar(const UAbilitySystemComponent* AbilitySystem, const FVector& WorldLocation, const FVector2D& Size, const FLinearColor& FillColor, bool bShowMana, const FString& Label);
+
+	/** 내 유닛은 초록, 아군은 파랑, 적은 빨강. */
+	FLinearColor GetRelationColor(EMobaTeam UnitTeam, bool bIsLocalUnit) const;
+
+	void DrawChampionBars();
+	void DrawMinionBars();
+	void DrawStructureBars();
+
 	void DrawRespawnCountdown();
 
-	/** 화면 아래의 체력·마나 수치와 QWER 스킬 칸. */
+	/** 화면 위쪽의 경기 시간과 킬/데스. */
+	void DrawMatchInfo();
+
+	/** 경기가 끝났을 때 승패 문구. */
+	void DrawMatchResult();
+
+	/** 화면 아래의 레벨·경험치·골드, 체력·마나 수치, QWER 스킬 칸. */
 	void DrawStatusBar(const AMobaCharacter* Character);
 
 	/** 스킬 조준 중일 때 사거리와 범위를 지면에 그린다. */
@@ -30,8 +47,16 @@ protected:
 
 	void DrawGroundLine(const FVector& Start, const FVector& End, const FLinearColor& Color, float Thickness);
 
+	void DrawCenteredText(const FString& Text, const FLinearColor& Color, float CenterX, float Y, UFont* Font, float Scale);
+
 	UPROPERTY(EditDefaultsOnly, Category = "Health Bar")
-	FVector2D HealthBarSize = FVector2D(110.0, 12.0);
+	FVector2D ChampionBarSize = FVector2D(110.0, 12.0);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Health Bar")
+	FVector2D MinionBarSize = FVector2D(56.0, 6.0);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Health Bar")
+	FVector2D StructureBarSize = FVector2D(150.0, 12.0);
 
 	/** 캡슐 꼭대기에서 체력바까지의 높이. */
 	UPROPERTY(EditDefaultsOnly, Category = "Health Bar")

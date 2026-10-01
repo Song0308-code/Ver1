@@ -1,4 +1,5 @@
 #include "Player/MobaPlayerController.h"
+#include "AbilitySystem/MobaAbilityLibrary.h"
 #include "AbilitySystem/MobaGameplayAbility.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "Character/MobaCharacter.h"
@@ -36,6 +37,9 @@ void AMobaPlayerController::BeginPlay()
 	}
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// 입력 구성
+
 void AMobaPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
@@ -62,6 +66,7 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(AbilityWAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityW);
 		EnhancedInput->BindAction(AbilityEAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityE);
 		EnhancedInput->BindAction(AbilityRAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityR);
+		EnhancedInput->BindAction(AttackModeAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAttackModeStarted);
 		EnhancedInput->BindAction(ConfirmTargetAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnConfirmTarget);
 	}
 }
@@ -82,6 +87,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	AbilityWAction = NewObject<UInputAction>(this, TEXT("IA_AbilityW"));
 	AbilityEAction = NewObject<UInputAction>(this, TEXT("IA_AbilityE"));
 	AbilityRAction = NewObject<UInputAction>(this, TEXT("IA_AbilityR"));
+	AttackModeAction = NewObject<UInputAction>(this, TEXT("IA_AttackMode"));
 	ConfirmTargetAction = NewObject<UInputAction>(this, TEXT("IA_ConfirmTarget"));
 
 	DefaultMappingContext = NewObject<UInputMappingContext>(this, TEXT("IMC_Default"));
@@ -89,12 +95,19 @@ void AMobaPlayerController::CreateDefaultInput()
 	DefaultMappingContext->MapKey(CameraLockAction, EKeys::Y);
 	DefaultMappingContext->MapKey(CameraCenterAction, EKeys::SpaceBar);
 	DefaultMappingContext->MapKey(CameraZoomAction, EKeys::MouseWheelAxis);
+
+	// Ctrl과 함께 누르면 같은 키가 스킬 단계 올리기로 쓰인다(HandleAbilityKey 참고).
 	DefaultMappingContext->MapKey(AbilityQAction, EKeys::Q);
 	DefaultMappingContext->MapKey(AbilityWAction, EKeys::W);
 	DefaultMappingContext->MapKey(AbilityEAction, EKeys::E);
 	DefaultMappingContext->MapKey(AbilityRAction, EKeys::R);
+
+	DefaultMappingContext->MapKey(AttackModeAction, EKeys::A);
 	DefaultMappingContext->MapKey(ConfirmTargetAction, EKeys::LeftMouseButton);
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 틱
 
 void AMobaPlayerController::PlayerTick(float DeltaTime)
 {
@@ -103,19 +116,39 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 	UpdateCamera(DeltaTime);
 
 #if WITH_EDITORONLY_DATA
-	if (bDebugIssueMove && IsLocalController())
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	if (bDebugIssueMove)
 	{
 		bDebugIssueMove = false;
 		IssueMoveTo(DebugMoveGoal);
 	}
 
-	if (bDebugIssueAttack && IsLocalController())
+	if (bDebugIssueAttackMove)
+	{
+		bDebugIssueAttackMove = false;
+		IssueAttackMoveTo(DebugMoveGoal);
+	}
+
+	if (bDebugIssueAttack)
 	{
 		bDebugIssueAttack = false;
 		IssueAttack(DebugAttackTarget);
 	}
 
-	if (bDebugIssueCast && IsLocalController())
+	if (bDebugLevelUp)
+	{
+		bDebugLevelUp = false;
+		if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
+		{
+			MobaCharacter->LevelUpAbility(DebugCastSlot);
+		}
+	}
+
+	if (bDebugIssueCast)
 	{
 		bDebugIssueCast = false;
 		if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
@@ -181,10 +214,98 @@ void AMobaPlayerController::UpdateCamera(float DeltaTime)
 	}
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// 커서
+
+bool AMobaPlayerController::GetCursorGroundLocation(FVector& OutLocation) const
+{
+	FHitResult GroundHit;
+	if (GetHitResultUnderCursor(ECC_Visibility, false, GroundHit))
+	{
+		OutLocation = GroundHit.Location;
+		return true;
+	}
+	return false;
+}
+
+AActor* AMobaPlayerController::FindEnemyAtCursor(FVector& OutCursorLocation) const
+{
+	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	if (!MobaCharacter)
+	{
+		return nullptr;
+	}
+
+	// 챔피언·미니언(폰), 건물(동적 오브젝트), 지형(정적 오브젝트) 중 커서에 가장 먼저 닿는 것을 본다.
+	static const TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes = {
+		UEngineTypes::ConvertToObjectType(ECC_Pawn),
+		UEngineTypes::ConvertToObjectType(ECC_WorldDynamic),
+		UEngineTypes::ConvertToObjectType(ECC_WorldStatic)
+	};
+
+	FHitResult Hit;
+	if (!GetHitResultUnderCursorForObjects(ObjectTypes, false, Hit))
+	{
+		return nullptr;
+	}
+
+	OutCursorLocation = Hit.Location;
+
+	if (MobaCombat::IsValidEnemyTarget(MobaCharacter, Hit.GetActor()))
+	{
+		return Hit.GetActor();
+	}
+
+	// 정확히 겹치지 않았더라도 커서 근처의 적 중 가장 가까운 것을 잡아 준다.
+	TArray<AActor*> Enemies;
+	MobaAbility::FindEnemiesInRadius(MobaCharacter, Hit.Location, ClickSelectMargin + 400.0f, Enemies, true);
+
+	AActor* Nearest = nullptr;
+	float NearestDistance = ClickSelectMargin;
+	for (AActor* Enemy : Enemies)
+	{
+		const float Distance = FMath::Max(FVector::Dist2D(Hit.Location, Enemy->GetActorLocation()) - Enemy->GetSimpleCollisionRadius(), 0.0f);
+		if (Distance <= NearestDistance)
+		{
+			Nearest = Enemy;
+			NearestDistance = Distance;
+		}
+	}
+	return Nearest;
+}
+
+bool AMobaPlayerController::ProjectToNavigation(const FVector& WorldLocation, FVector& OutLocation) const
+{
+	// 경로 탐색은 조종하는 클라이언트에서 수행한다. 프로젝트 설정의 클라이언트 측 내비게이션이 켜져 있어야 한다.
+	const UNavigationSystemV1* NavSystem = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	if (!NavSystem)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("이동 명령 실패: 내비게이션 시스템이 없습니다 (bAllowClientSideNavigation 확인)."));
+		return false;
+	}
+
+	FNavLocation NavLocation;
+	if (NavSystem->ProjectPointToNavigation(WorldLocation, NavLocation, NavProjectExtent))
+	{
+		OutLocation = NavLocation.Location;
+		return true;
+	}
+	return false;
+}
+
+bool AMobaPlayerController::IsControlKeyDown() const
+{
+	return IsInputKeyDown(EKeys::LeftControl) || IsInputKeyDown(EKeys::RightControl);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 이동·공격 명령
+
 void AMobaPlayerController::OnMoveCommandStarted()
 {
 	// 조준 중 우클릭은 조준을 취소하고 평소대로 이동·공격 명령을 내린다.
 	bTargeting = false;
+	bAttackTargeting = false;
 
 	LastHeldMoveTime = GetWorld()->GetTimeSeconds();
 	IssueCommandAtCursor();
@@ -202,38 +323,97 @@ void AMobaPlayerController::OnMoveCommandHeld()
 
 void AMobaPlayerController::IssueCommandAtCursor()
 {
+	FVector CursorLocation;
+	if (AActor* Enemy = FindEnemyAtCursor(CursorLocation))
+	{
+		IssueAttack(Enemy);
+	}
+	else if (GetCursorGroundLocation(CursorLocation))
+	{
+		IssueMoveTo(CursorLocation);
+	}
+}
+
+void AMobaPlayerController::IssueAttackCommandAtCursor()
+{
+	FVector CursorLocation;
+	if (AActor* Enemy = FindEnemyAtCursor(CursorLocation))
+	{
+		IssueAttack(Enemy);
+	}
+	else if (GetCursorGroundLocation(CursorLocation))
+	{
+		IssueAttackMoveTo(CursorLocation);
+	}
+}
+
+void AMobaPlayerController::IssueAttack(AActor* Target)
+{
+	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	if (MobaCharacter && MobaCharacter->CanAct())
+	{
+		MobaCharacter->GetCombatComponent()->SetAttackTarget(Target);
+	}
+}
+
+void AMobaPlayerController::IssueMoveTo(const FVector& WorldLocation)
+{
 	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
 	if (!MobaCharacter || !MobaCharacter->CanAct())
 	{
 		return;
 	}
 
-	static const TArray<TEnumAsByte<EObjectTypeQuery>> PawnObjectTypes = { UEngineTypes::ConvertToObjectType(ECC_Pawn) };
+	MobaCharacter->GetCombatComponent()->SetAttackTarget(nullptr);
 
-	FHitResult PawnHit;
-	if (GetHitResultUnderCursorForObjects(PawnObjectTypes, false, PawnHit) && MobaCombat::IsValidEnemyTarget(MobaCharacter, PawnHit.GetActor()))
+	FVector NavLocation;
+	if (ProjectToNavigation(WorldLocation, NavLocation))
 	{
-		IssueAttack(PawnHit.GetActor());
+		UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, NavLocation);
+	}
+}
+
+void AMobaPlayerController::IssueAttackMoveTo(const FVector& WorldLocation)
+{
+	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	if (!MobaCharacter || !MobaCharacter->CanAct())
+	{
 		return;
 	}
 
-	FVector GroundLocation;
-	if (GetCursorGroundLocation(GroundLocation))
+	FVector NavLocation;
+	if (ProjectToNavigation(WorldLocation, NavLocation))
 	{
-		IssueMoveTo(GroundLocation);
+		MobaCharacter->GetCombatComponent()->StartAttackMove(NavLocation);
 	}
 }
 
-bool AMobaPlayerController::GetCursorGroundLocation(FVector& OutLocation) const
+void AMobaPlayerController::OnAttackModeStarted()
 {
-	FHitResult GroundHit;
-	if (GetHitResultUnderCursor(ECC_Visibility, false, GroundHit))
+	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	if (MobaCharacter && MobaCharacter->CanAct())
 	{
-		OutLocation = GroundHit.Location;
-		return true;
+		bTargeting = false;
+		bAttackTargeting = true;
 	}
-	return false;
 }
+
+void AMobaPlayerController::OnConfirmTarget()
+{
+	if (bTargeting)
+	{
+		bTargeting = false;
+		CastAbilityAtCursor(TargetingSlot);
+	}
+	else if (bAttackTargeting)
+	{
+		bAttackTargeting = false;
+		IssueAttackCommandAtCursor();
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 스킬
 
 bool AMobaPlayerController::GetTargetingSlot(EMobaAbilitySlot& OutSlot) const
 {
@@ -264,11 +444,25 @@ void AMobaPlayerController::OnAbilityR()
 void AMobaPlayerController::HandleAbilityKey(EMobaAbilitySlot Slot)
 {
 	AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
-	const UMobaGameplayAbility* Ability = MobaCharacter ? MobaCharacter->GetAbilityInSlot(Slot) : nullptr;
+	if (!MobaCharacter)
+	{
+		return;
+	}
+
+	// Ctrl + 스킬 키는 스킬 포인트로 그 스킬의 단계를 올린다. 죽어 있거나 기절 중이어도 올릴 수 있다.
+	if (IsControlKeyDown())
+	{
+		MobaCharacter->LevelUpAbility(Slot);
+		return;
+	}
+
+	const UMobaGameplayAbility* Ability = MobaCharacter->GetAbilityInSlot(Slot);
 	if (!Ability || !MobaCharacter->CanAct())
 	{
 		return;
 	}
+
+	bAttackTargeting = false;
 
 	if (Ability->GetTargetingMode() == EMobaTargetingMode::None)
 	{
@@ -286,15 +480,6 @@ void AMobaPlayerController::HandleAbilityKey(EMobaAbilitySlot Slot)
 	}
 }
 
-void AMobaPlayerController::OnConfirmTarget()
-{
-	if (bTargeting)
-	{
-		bTargeting = false;
-		CastAbilityAtCursor(TargetingSlot);
-	}
-}
-
 void AMobaPlayerController::CastAbilityAtCursor(EMobaAbilitySlot Slot)
 {
 	AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
@@ -305,39 +490,8 @@ void AMobaPlayerController::CastAbilityAtCursor(EMobaAbilitySlot Slot)
 	}
 }
 
-void AMobaPlayerController::IssueAttack(AActor* Target)
-{
-	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
-	if (MobaCharacter && MobaCharacter->CanAct())
-	{
-		MobaCharacter->GetCombatComponent()->SetAttackTarget(Target);
-	}
-}
-
-void AMobaPlayerController::IssueMoveTo(const FVector& WorldLocation)
-{
-	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
-	if (!MobaCharacter || !MobaCharacter->CanAct())
-	{
-		return;
-	}
-
-	MobaCharacter->GetCombatComponent()->SetAttackTarget(nullptr);
-
-	// 경로 탐색은 조종하는 클라이언트에서 수행한다. 프로젝트 설정의 클라이언트 측 내비게이션이 켜져 있어야 한다.
-	const UNavigationSystemV1* NavSystem = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
-	if (!NavSystem)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("이동 명령 실패: 내비게이션 시스템이 없습니다 (bAllowClientSideNavigation 확인)."));
-		return;
-	}
-
-	FNavLocation NavLocation;
-	if (NavSystem->ProjectPointToNavigation(WorldLocation, NavLocation, NavProjectExtent))
-	{
-		UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, NavLocation.Location);
-	}
-}
+// ---------------------------------------------------------------------------------------------------------------------
+// 카메라
 
 void AMobaPlayerController::OnCameraLockToggled()
 {

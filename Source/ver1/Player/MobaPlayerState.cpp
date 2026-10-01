@@ -23,6 +23,10 @@ void AMobaPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMobaPlayerState, Kills);
 	DOREPLIFETIME(AMobaPlayerState, Deaths);
 	DOREPLIFETIME(AMobaPlayerState, RespawnServerTime);
+	DOREPLIFETIME(AMobaPlayerState, ChampionLevel);
+	DOREPLIFETIME(AMobaPlayerState, Experience);
+	DOREPLIFETIME(AMobaPlayerState, Gold);
+	DOREPLIFETIME(AMobaPlayerState, SkillPoints);
 }
 
 UAbilitySystemComponent* AMobaPlayerState::GetAbilitySystemComponent() const
@@ -44,4 +48,42 @@ void AMobaPlayerState::SetTeam(EMobaTeam NewTeam)
 void AMobaPlayerState::OnRep_Team()
 {
 	OnTeamChanged.Broadcast(Team);
+}
+
+float AMobaPlayerState::GetExperienceForNextLevel(int32 Level)
+{
+	return 280.0f + 100.0f * FMath::Max(Level - 1, 0);
+}
+
+void AMobaPlayerState::AddExperience(float Amount)
+{
+	if (!HasAuthority() || ChampionLevel >= MaxChampionLevel)
+	{
+		return;
+	}
+
+	Experience += Amount;
+	while (ChampionLevel < MaxChampionLevel && Experience >= GetExperienceForNextLevel(ChampionLevel))
+	{
+		Experience -= GetExperienceForNextLevel(ChampionLevel);
+		++ChampionLevel;
+		++SkillPoints;
+		OnLevelUp.Broadcast(ChampionLevel);
+	}
+
+	if (ChampionLevel >= MaxChampionLevel)
+	{
+		Experience = 0.0f;
+	}
+}
+
+bool AMobaPlayerState::ConsumeSkillPoint()
+{
+	if (!HasAuthority() || SkillPoints <= 0)
+	{
+		return false;
+	}
+
+	--SkillPoints;
+	return true;
 }

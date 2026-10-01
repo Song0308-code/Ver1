@@ -1,8 +1,11 @@
 #include "Combat/MobaCombatLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
+#include "Engine/World.h"
+#include "Game/MobaGameState.h"
 #include "Game/MobaGameplayTags.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
 
 UAbilitySystemComponent* MobaCombat::GetAbilitySystem(const AActor* Actor)
 {
@@ -35,7 +38,28 @@ bool MobaCombat::IsValidEnemyTarget(const AActor* Source, const AActor* Target)
 		return false;
 	}
 
-	return GetAbilitySystem(Target) != nullptr && !IsDead(Target);
+	const UAbilitySystemComponent* TargetAbilitySystem = GetAbilitySystem(Target);
+	return TargetAbilitySystem
+		&& !TargetAbilitySystem->HasMatchingGameplayTag(MobaTags::State_Dead)
+		&& !TargetAbilitySystem->HasMatchingGameplayTag(MobaTags::State_Invulnerable);
+}
+
+bool MobaCombat::IsMatchOver(const UObject* WorldContextObject)
+{
+	const UWorld* World = WorldContextObject ? WorldContextObject->GetWorld() : nullptr;
+	const AMobaGameState* GameState = World ? World->GetGameState<AMobaGameState>() : nullptr;
+	return GameState && GameState->IsMatchOver();
+}
+
+FVector MobaCombat::GetAimLocation(const AActor* Target)
+{
+	// 폰은 캡슐 중심이 원점이라 그대로 쓴다.
+	if (Target->IsA<APawn>())
+	{
+		return Target->GetActorLocation();
+	}
+
+	return Target->GetActorLocation() + FVector(0.0, 0.0, FMath::Min(Target->GetSimpleCollisionHalfHeight(), 150.0f));
 }
 
 float MobaCombat::GetDistanceToTargetEdge(const AActor* Source, const AActor* Target)

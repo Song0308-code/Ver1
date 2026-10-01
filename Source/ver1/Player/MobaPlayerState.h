@@ -10,6 +10,7 @@ class UAbilitySystemComponent;
 class UMobaAttributeSet;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMobaTeamChanged, EMobaTeam);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnMobaLevelUp, int32 /*NewLevel*/);
 
 UCLASS()
 class VER1_API AMobaPlayerState : public APlayerState, public IMobaTeamInterface, public IAbilitySystemInterface
@@ -33,6 +34,28 @@ public:
 	void AddKill() { ++Kills; }
 	void AddDeath() { ++Deaths; }
 	void SetRespawnServerTime(float NewTime) { RespawnServerTime = NewTime; }
+
+	/** 서버 전용. */
+	void AddGold(float Amount) { Gold += Amount; }
+
+	/** 서버 전용. 경험치를 더하고 필요한 만큼 레벨을 올린다. */
+	void AddExperience(float Amount);
+
+	/** 서버 전용. 스킬 포인트가 있으면 하나 쓰고 true를 돌려준다. */
+	bool ConsumeSkillPoint();
+
+	int32 GetChampionLevel() const { return ChampionLevel; }
+	float GetExperience() const { return Experience; }
+	float GetGold() const { return Gold; }
+	int32 GetSkillPoints() const { return SkillPoints; }
+
+	/** 해당 레벨에서 다음 레벨까지 필요한 경험치. */
+	static float GetExperienceForNextLevel(int32 Level);
+
+	static constexpr int32 MaxChampionLevel = 18;
+
+	/** 서버에서 레벨이 오를 때마다 호출된다. */
+	FOnMobaLevelUp OnLevelUp;
 
 	int32 GetKills() const { return Kills; }
 	int32 GetDeaths() const { return Deaths; }
@@ -68,4 +91,17 @@ protected:
 
 	UPROPERTY(Replicated)
 	float RespawnServerTime = 0.0f;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Progression")
+	int32 ChampionLevel = 1;
+
+	/** 현재 레벨에서 쌓은 경험치. 레벨이 오르면 필요량만큼 빠진다. */
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Progression")
+	float Experience = 0.0f;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Progression")
+	float Gold = 500.0f;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Progression")
+	int32 SkillPoints = 1;
 };
