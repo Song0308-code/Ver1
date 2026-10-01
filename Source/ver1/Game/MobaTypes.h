@@ -12,6 +12,14 @@ enum class EMobaTeam : uint8
 	Red
 };
 
+UENUM(BlueprintType)
+enum class EMobaLane : uint8
+{
+	Top,
+	Mid,
+	Bot
+};
+
 namespace MobaTeam
 {
 	/** PlayerStart 등 레벨 액터에서 팀을 구분할 때 쓰는 태그 이름 ("Blue" / "Red"). */

@@ -1,10 +1,8 @@
 #include "Character/MobaCharacter.h"
-#include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/SpringArmComponent.h"
 #include "Player/MobaPlayerState.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -12,12 +10,25 @@ AMobaCharacter::AMobaCharacter()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
+	// 챔피언은 수가 적고 미니맵·전역 스킬에 필요하므로 거리와 무관하게 항상 복제한다.
+	bAlwaysRelevant = true;
+
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
-	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.0, 720.0, 0.0);
+	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	Movement->bOrientRotationToMovement = true;
+	Movement->RotationRate = FRotator(0.0, 1440.0, 0.0);
+	Movement->MaxWalkSpeed = 335.0f;
+
+	// 가속·감속 없이 즉시 출발하고 멈춘다.
+	Movement->MaxAcceleration = 8192.0f;
+	Movement->BrakingDecelerationWalking = 8192.0f;
+	Movement->GroundFriction = 8.0f;
+
+	// 경로 추종이 이동 입력으로 들어가야 클라이언트 예측 이동이 그대로 동작한다.
+	Movement->GetNavMovementProperties()->bUseAccelerationForPaths = true;
 
 	PlaceholderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PlaceholderMesh"));
 	PlaceholderMesh->SetupAttachment(RootComponent);
@@ -32,17 +43,6 @@ AMobaCharacter::AMobaCharacter()
 		const float HalfHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 		PlaceholderMesh->SetRelativeScale3D(FVector(Radius / 50.0f, Radius / 50.0f, HalfHeight / 50.0f));
 	}
-
-	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->SetUsingAbsoluteRotation(true);
-	CameraBoom->SetRelativeRotation(FRotator(-55.0, 0.0, 0.0));
-	CameraBoom->TargetArmLength = 1400.0f;
-	CameraBoom->bDoCollisionTest = false;
-
-	TopDownCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("TopDownCamera"));
-	TopDownCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
-	TopDownCamera->bUsePawnControlRotation = false;
 }
 
 EMobaTeam AMobaCharacter::GetTeam() const

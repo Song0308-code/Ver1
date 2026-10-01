@@ -5,8 +5,6 @@
 #include "Game/MobaTypes.h"
 #include "MobaCharacter.generated.h"
 
-class UCameraComponent;
-class USpringArmComponent;
 class UStaticMeshComponent;
 
 /** 플레이어가 조종하는 챔피언의 기본 클래스. */
@@ -32,10 +30,4 @@ protected:
 	/** 실제 메시가 들어오기 전까지 쓰는 임시 외형. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> PlaceholderMesh;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<USpringArmComponent> CameraBoom;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UCameraComponent> TopDownCamera;
 };
