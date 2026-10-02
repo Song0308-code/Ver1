@@ -22,6 +22,9 @@ AMobaMinion::AMobaMinion()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
+	// 미니맵과 시야 계산에 필요하므로 거리와 무관하게 복제한다.
+	bAlwaysRelevant = true;
+
 	AIControllerClass = AAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
@@ -116,8 +119,16 @@ void AMobaMinion::OnRep_Appearance()
 
 void AMobaMinion::ApplyAppearance()
 {
-	// 근접은 넓적한 상자, 원거리는 가늘고 긴 상자로 구분한다.
-	const FVector Scale = MinionType == EMobaMinionType::Melee ? FVector(0.55f, 0.55f, 0.8f) : FVector(0.35f, 0.35f, 1.0f);
+	// 근접은 넓적한 상자, 원거리는 가늘고 긴 상자, 슈퍼 미니언은 큰 상자로 구분한다.
+	FVector Scale(0.55f, 0.55f, 0.8f);
+	if (MinionType == EMobaMinionType::Caster)
+	{
+		Scale = FVector(0.35f, 0.35f, 1.0f);
+	}
+	else if (MinionType == EMobaMinionType::Super)
+	{
+		Scale = FVector(0.9f, 0.9f, 1.2f);
+	}
 	PlaceholderMesh->SetRelativeScale3D(Scale);
 
 	const FLinearColor TeamColor = MobaTeam::GetTeamColor(Team);

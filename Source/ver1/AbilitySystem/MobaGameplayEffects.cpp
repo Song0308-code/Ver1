@@ -46,3 +46,11 @@ UMobaTimedTagEffect::UMobaTimedTagEffect()
 	DurationPolicy = EGameplayEffectDurationType::HasDuration;
 	DurationMagnitude = MakeSetByCaller(MobaTags::Data_Duration);
 }
+
+UMobaAttributeBuffEffect::UMobaAttributeBuffEffect()
+{
+	DurationPolicy = EGameplayEffectDurationType::HasDuration;
+	DurationMagnitude = MakeSetByCaller(MobaTags::Data_Duration);
+	Modifiers.Add(MakeModifier(UMobaAttributeSet::GetAttackDamageAttribute(), EGameplayModOp::Additive, MobaTags::Data_Bonus_AttackDamage));
+	Modifiers.Add(MakeModifier(UMobaAttributeSet::GetAbilityPowerAttribute(), EGameplayModOp::Additive, MobaTags::Data_Bonus_AbilityPower));
+}

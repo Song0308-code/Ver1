@@ -9,6 +9,11 @@ namespace MobaTags
 
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Invulnerable, "State.Invulnerable", "무적. 공격 대상이 되지 않는다. 앞선 건물이 남아 있는 건물에 붙는다.");
 
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Blue, "Buff.Blue", "푸른 파수꾼 버프. 마나 재생이 늘고 재사용 대기 시간이 줄어든다.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Red, "Buff.Red", "붉은 덩굴정령 버프. 체력 재생이 늘고 기본 공격이 둔화와 추가 피해를 준다.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon, "Buff.Dragon", "드래곤 처치 보상. 경기 끝까지 유지되고 잡을 때마다 겹친다.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Baron, "Buff.Baron", "내셔 남작 처치 보상.");
+
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_Q, "Ability.Slot.Q");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_W, "Ability.Slot.W");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_E, "Ability.Slot.E");
@@ -27,5 +32,7 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Cost_Mana, "Data.Cost.Mana", "마나 변화량. 소모는 음수로 넘긴다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Duration, "Data.Duration", "지속 시간(초).");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Multiplier_MoveSpeed, "Data.Multiplier.MoveSpeed", "이동 속도 배율. 1이면 변화 없음.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Bonus_AttackDamage, "Data.Bonus.AttackDamage", "더해 줄 공격력.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Bonus_AbilityPower, "Data.Bonus.AbilityPower", "더해 줄 주문력.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Multiplier_AttackSpeed, "Data.Multiplier.AttackSpeed", "공격 속도 배율. 1이면 변화 없음.");
 }

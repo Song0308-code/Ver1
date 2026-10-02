@@ -14,10 +14,12 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/MobaPlayerState.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Vision/MobaWard.h"
 
 AMobaCharacter::AMobaCharacter()
 {
@@ -226,6 +228,13 @@ void AMobaCharacter::HandleOutOfHealth(AActor* DamageInstigator)
 	AbilitySystem->AddLooseGameplayTag(MobaTags::State_Dead, 1, EGameplayTagReplicationState::TagOnly);
 	CombatComponent->SetAttackTarget(nullptr);
 
+	// 정글 버프는 죽으면 사라진다. 드래곤 보상만 남는다.
+	FGameplayTagContainer LostBuffs;
+	LostBuffs.AddTag(MobaTags::Buff_Blue);
+	LostBuffs.AddTag(MobaTags::Buff_Red);
+	LostBuffs.AddTag(MobaTags::Buff_Baron);
+	AbilitySystem->RemoveActiveEffectsWithGrantedTags(LostBuffs);
+
 	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
 	{
 		GameMode->HandleChampionKilled(this, DamageInstigator);
@@ -401,8 +410,64 @@ void AMobaCharacter::TickRegen()
 		AbilitySystem->SetNumericAttributeBase(Attribute, FMath::Min(Current + Gain, Max));
 	};
 
-	Regenerate(UMobaAttributeSet::GetHealthAttribute(), UMobaAttributeSet::GetMaxHealthAttribute(), Stats.HealthRegenPerSecond);
-	Regenerate(UMobaAttributeSet::GetManaAttribute(), UMobaAttributeSet::GetMaxManaAttribute(), Stats.ManaRegenPerSecond);
+	const float MaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
+	const float BonusHealthRegen = AbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Red) ? MaxHealth * RedBuffHealFractionPerSecond : 0.0f;
+	const float BonusManaRegen = AbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Blue) ? BlueBuffManaRegenPerSecond : 0.0f;
+
+	Regenerate(UMobaAttributeSet::GetHealthAttribute(), UMobaAttributeSet::GetMaxHealthAttribute(), Stats.HealthRegenPerSecond + BonusHealthRegen);
+	Regenerate(UMobaAttributeSet::GetManaAttribute(), UMobaAttributeSet::GetMaxManaAttribute(), Stats.ManaRegenPerSecond + BonusManaRegen);
+}
+
+float AMobaCharacter::GetWardCooldownRemaining() const
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	if (!MobaPlayerState || !GameState)
+	{
+		return 0.0f;
+	}
+
+	return FMath::Max(MobaPlayerState->GetNextWardServerTime() - static_cast<float>(GameState->GetServerWorldTimeSeconds()), 0.0f);
+}
+
+void AMobaCharacter::PlaceWard(const FVector& Location)
+{
+	if (CanAct() && GetWardCooldownRemaining() <= 0.0f)
+	{
+		ServerPlaceWard(Location);
+	}
+}
+
+void AMobaCharacter::ServerPlaceWard_Implementation(FVector_NetQuantize Location)
+{
+	AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	if (!MobaPlayerState || !GameState || !CanAct() || MobaCombat::IsMatchOver(this) || GetWardCooldownRemaining() > 0.0f)
+	{
+		return;
+	}
+
+	// 너무 먼 곳을 찍었으면 놓을 수 있는 거리까지만 나간다. 높이는 발밑에 맞춘다.
+	const FVector Feet = GetActorLocation() - FVector(0.0, 0.0, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	FVector Offset = FVector(Location) - Feet;
+	Offset.Z = 0.0;
+	const FVector WardLocation = Feet + Offset.GetClampedToMaxSize(WardPlaceRange);
+
+	AMobaWard* Ward = AMobaWard::SpawnWard(GetWorld(), GetTeam(), WardLocation, WardDuration);
+	if (!Ward)
+	{
+		return;
+	}
+
+	MobaPlayerState->SetNextWardServerTime(static_cast<float>(GameState->GetServerWorldTimeSeconds()) + WardCooldown);
+
+	ActiveWards.RemoveAll([](const TWeakObjectPtr<AMobaWard>& Existing) { return !Existing.IsValid(); });
+	ActiveWards.Add(Ward);
+	while (ActiveWards.Num() > MaxActiveWards)
+	{
+		ActiveWards[0]->Destroy();
+		ActiveWards.RemoveAt(0);
+	}
 }
 
 int32 AMobaCharacter::GetAbilityLevel(EMobaAbilitySlot Slot) const

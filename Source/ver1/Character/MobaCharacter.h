@@ -9,6 +9,7 @@
 #include "MobaCharacter.generated.h"
 
 class AMobaPlayerState;
+class AMobaWard;
 class UMobaChampionData;
 class UMobaCombatComponent;
 class UMobaGameplayAbility;
@@ -65,6 +66,14 @@ public:
 	/** 해당 칸의 남은 재사용 대기 시간과 전체 시간. 대기 중이 아니면 false. */
 	bool GetCooldownRemaining(EMobaAbilitySlot Slot, float& OutRemaining, float& OutDuration) const;
 
+	/** 조종하는 클라이언트 또는 서버에서 호출한다. 지정한 위치(멀면 놓을 수 있는 거리까지)에 와드를 놓는다. */
+	void PlaceWard(const FVector& Location);
+
+	/** 와드를 다시 놓을 수 있을 때까지 남은 시간(초). */
+	float GetWardCooldownRemaining() const;
+
+	float GetWardPlaceRange() const { return WardPlaceRange; }
+
 protected:
 	/** PlayerState의 팀 변경을 구독하고 현재 팀을 외형에 반영한다. */
 	void BindToPlayerStateTeam();
@@ -92,6 +101,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerLevelUpAbility(EMobaAbilitySlot Slot);
+
+	UFUNCTION(Server, Reliable)
+	void ServerPlaceWard(FVector_NetQuantize Location);
 
 	/** 서버 전용. 레벨이 올랐을 때 성장 스탯을 더한다. */
 	void HandleLevelUp(int32 NewLevel);
@@ -138,6 +150,30 @@ protected:
 	/** 우물 안에서 1초에 회복하는 최대 체력·마나의 비율. */
 	UPROPERTY(EditDefaultsOnly, Category = "Fountain")
 	float FountainHealFractionPerSecond = 0.085f;
+
+	/** 블루 버프가 더해 주는 초당 마나 재생. */
+	UPROPERTY(EditDefaultsOnly, Category = "Buffs")
+	float BlueBuffManaRegenPerSecond = 6.0f;
+
+	/** 레드 버프가 1초에 회복시키는 최대 체력의 비율. */
+	UPROPERTY(EditDefaultsOnly, Category = "Buffs")
+	float RedBuffHealFractionPerSecond = 0.005f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Ward")
+	float WardPlaceRange = 600.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Ward")
+	float WardDuration = 90.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Ward")
+	float WardCooldown = 30.0f;
+
+	/** 한 챔피언이 동시에 유지할 수 있는 와드 수. 넘치면 가장 오래된 것이 사라진다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Ward")
+	int32 MaxActiveWards = 3;
+
+	/** 서버에서 관리하는, 이 챔피언이 놓은 와드. */
+	TArray<TWeakObjectPtr<AMobaWard>> ActiveWards;
 
 	FTimerHandle RegenTimer;
 

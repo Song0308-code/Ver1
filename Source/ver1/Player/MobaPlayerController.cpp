@@ -13,6 +13,8 @@
 #include "InputMappingContext.h"
 #include "NavigationSystem.h"
 #include "Player/MobaCameraRig.h"
+#include "UI/MobaHUD.h"
+#include "Vision/MobaVisionSubsystem.h"
 
 AMobaPlayerController::AMobaPlayerController()
 {
@@ -78,6 +80,7 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(AttackModeAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAttackModeStarted);
 		EnhancedInput->BindAction(ConfirmTargetAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnConfirmTarget);
 		EnhancedInput->BindAction(ReturnToMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnReturnToMenu);
+		EnhancedInput->BindAction(PlaceWardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnPlaceWard);
 	}
 }
 
@@ -100,6 +103,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	AttackModeAction = NewObject<UInputAction>(this, TEXT("IA_AttackMode"));
 	ConfirmTargetAction = NewObject<UInputAction>(this, TEXT("IA_ConfirmTarget"));
 	ReturnToMenuAction = NewObject<UInputAction>(this, TEXT("IA_ReturnToMenu"));
+	PlaceWardAction = NewObject<UInputAction>(this, TEXT("IA_PlaceWard"));
 
 	DefaultMappingContext = NewObject<UInputMappingContext>(this, TEXT("IMC_Default"));
 	DefaultMappingContext->MapKey(MoveCommandAction, EKeys::RightMouseButton);
@@ -116,6 +120,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	DefaultMappingContext->MapKey(AttackModeAction, EKeys::A);
 	DefaultMappingContext->MapKey(ConfirmTargetAction, EKeys::LeftMouseButton);
 	DefaultMappingContext->MapKey(ReturnToMenuAction, EKeys::Enter);
+	DefaultMappingContext->MapKey(PlaceWardAction, EKeys::Four);
 }
 
 void AMobaPlayerController::OnReturnToMenu()
@@ -169,6 +174,15 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
 		{
 			MobaCharacter->LevelUpAbility(DebugCastSlot);
+		}
+	}
+
+	if (bDebugPlaceWard)
+	{
+		bDebugPlaceWard = false;
+		if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
+		{
+			MobaCharacter->PlaceWard(DebugCastLocation);
 		}
 	}
 
@@ -275,7 +289,14 @@ AActor* AMobaPlayerController::FindEnemyAtCursor(FVector& OutCursorLocation) con
 
 	OutCursorLocation = Hit.Location;
 
-	if (MobaCombat::IsValidEnemyTarget(MobaCharacter, Hit.GetActor()))
+	// 시야 밖이라 화면에 보이지 않는 적은 클릭할 수 없다.
+	const UMobaVisionSubsystem* Vision = UMobaVisionSubsystem::Get(this);
+	const auto IsSeen = [Vision](const AActor* Actor)
+	{
+		return !Vision || Vision->IsVisibleToLocalPlayer(Actor);
+	};
+
+	if (MobaCombat::IsValidEnemyTarget(MobaCharacter, Hit.GetActor()) && IsSeen(Hit.GetActor()))
 	{
 		return Hit.GetActor();
 	}
@@ -289,13 +310,21 @@ AActor* AMobaPlayerController::FindEnemyAtCursor(FVector& OutCursorLocation) con
 	for (AActor* Enemy : Enemies)
 	{
 		const float Distance = FMath::Max(FVector::Dist2D(Hit.Location, Enemy->GetActorLocation()) - Enemy->GetSimpleCollisionRadius(), 0.0f);
-		if (Distance <= NearestDistance)
+		if (Distance <= NearestDistance && IsSeen(Enemy))
 		{
 			Nearest = Enemy;
 			NearestDistance = Distance;
 		}
 	}
 	return Nearest;
+}
+
+bool AMobaPlayerController::GetCursorMinimapLocation(FVector& OutLocation) const
+{
+	float MouseX = 0.0f;
+	float MouseY = 0.0f;
+	const AMobaHUD* MobaHUD = GetHUD<AMobaHUD>();
+	return MobaHUD && GetMousePosition(MouseX, MouseY) && MobaHUD->GetMinimapWorldLocation(FVector2D(MouseX, MouseY), OutLocation);
 }
 
 bool AMobaPlayerController::ProjectToNavigation(const FVector& WorldLocation, FVector& OutLocation) const
@@ -348,7 +377,12 @@ void AMobaPlayerController::OnMoveCommandHeld()
 void AMobaPlayerController::IssueCommandAtCursor()
 {
 	FVector CursorLocation;
-	if (AActor* Enemy = FindEnemyAtCursor(CursorLocation))
+	if (GetCursorMinimapLocation(CursorLocation))
+	{
+		// 미니맵을 우클릭하면 그 지점으로 걸어간다.
+		IssueMoveTo(CursorLocation);
+	}
+	else if (AActor* Enemy = FindEnemyAtCursor(CursorLocation))
 	{
 		IssueAttack(Enemy);
 	}
@@ -361,7 +395,11 @@ void AMobaPlayerController::IssueCommandAtCursor()
 void AMobaPlayerController::IssueAttackCommandAtCursor()
 {
 	FVector CursorLocation;
-	if (AActor* Enemy = FindEnemyAtCursor(CursorLocation))
+	if (GetCursorMinimapLocation(CursorLocation))
+	{
+		IssueAttackMoveTo(CursorLocation);
+	}
+	else if (AActor* Enemy = FindEnemyAtCursor(CursorLocation))
 	{
 		IssueAttack(Enemy);
 	}
@@ -433,6 +471,26 @@ void AMobaPlayerController::OnConfirmTarget()
 	{
 		bAttackTargeting = false;
 		IssueAttackCommandAtCursor();
+	}
+	else
+	{
+		// 미니맵을 좌클릭하면 카메라를 그 지점으로 옮긴다. 카메라 고정은 풀린다.
+		FVector MapLocation;
+		if (CameraRig && GetCursorMinimapLocation(MapLocation))
+		{
+			bCameraLocked = false;
+			CameraRig->SetFocusLocation(MapLocation);
+		}
+	}
+}
+
+void AMobaPlayerController::OnPlaceWard()
+{
+	AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	FVector GroundLocation;
+	if (MobaCharacter && GetCursorGroundLocation(GroundLocation))
+	{
+		MobaCharacter->PlaceWard(GroundLocation);
 	}
 }
 

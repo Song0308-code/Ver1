@@ -22,6 +22,9 @@ namespace MobaAbility
 	/** 이동·공격 속도 배율 스펙을 만든다. StateTag는 State_Slowed, State_Hasted 등 표시용 태그. */
 	VER1_API FGameplayEffectSpecHandle MakeStatModSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, float MoveSpeedMultiplier, float AttackSpeedMultiplier, const FGameplayTag& StateTag);
 
+	/** 일정 시간 공격력·주문력을 더하고 BuffTag를 부여하는 스펙을 만든다. 수치 없이 태그만 주려면 보너스를 0으로 넘긴다. */
+	VER1_API FGameplayEffectSpecHandle MakeBuffSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, float BonusAttackDamage, float BonusAbilityPower, const FGameplayTag& BuffTag);
+
 	VER1_API FGameplayEffectSpecHandle MakeStunSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration);
 
 	/** 서버 전용. 스펙이 유효하고 대상에게 능력 시스템이 있으면 적용한다. */

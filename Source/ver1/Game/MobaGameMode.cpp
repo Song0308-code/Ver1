@@ -7,14 +7,18 @@
 #include "Components/SplineComponent.h"
 #include "EngineUtils.h"
 #include "Game/MobaGameState.h"
+#include "Game/MobaGameplayTags.h"
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
+#include "Map/MobaJungleCamp.h"
 #include "Map/MobaLanePath.h"
 #include "Player/MobaPlayerController.h"
 #include "Player/MobaPlayerState.h"
 #include "Structures/MobaStructure.h"
 #include "TimerManager.h"
 #include "UI/MobaHUD.h"
+#include "Units/MobaMonster.h"
+#include "Vision/MobaWard.h"
 
 AMobaGameMode::AMobaGameMode()
 {
@@ -25,7 +29,9 @@ AMobaGameMode::AMobaGameMode()
 	HUDClass = AMobaHUD::StaticClass();
 
 	MinionClass = AMobaMinion::StaticClass();
+	ActiveLanes.Add(EMobaLane::Top);
 	ActiveLanes.Add(EMobaLane::Mid);
+	ActiveLanes.Add(EMobaLane::Bot);
 
 	MeleeMinion.Stats.MaxHealth = 477.0f;
 	MeleeMinion.Stats.MaxMana = 0.0f;
@@ -51,6 +57,18 @@ AMobaGameMode::AMobaGameMode()
 	CasterMinion.ProjectileSpeed = 1000.0f;
 	CasterMinion.GoldReward = 14.0f;
 	CasterMinion.ExperienceReward = 30.0f;
+
+	SuperMinion.Stats.MaxHealth = 1500.0f;
+	SuperMinion.Stats.MaxMana = 0.0f;
+	SuperMinion.Stats.AttackDamage = 150.0f;
+	SuperMinion.Stats.Armor = 30.0f;
+	SuperMinion.Stats.MagicResist = 0.0f;
+	SuperMinion.Stats.AttackSpeed = 0.85f;
+	SuperMinion.Stats.MoveSpeed = 325.0f;
+	SuperMinion.Stats.AttackRange = 170.0f;
+	SuperMinion.bRanged = false;
+	SuperMinion.GoldReward = 60.0f;
+	SuperMinion.ExperienceReward = 95.0f;
 }
 
 void AMobaGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -151,12 +169,26 @@ void AMobaGameMode::SpawnWave()
 			continue;
 		}
 
-		// 근접이 앞장서고 원거리가 뒤따르도록 한 마리씩 간격을 두고 내보낸다.
-		for (int32 Index = 0; Index < MinionsPerType * 2; ++Index)
+		for (const EMobaTeam Team : { EMobaTeam::Blue, EMobaTeam::Red })
 		{
-			const EMobaMinionType Type = Index < MinionsPerType ? EMobaMinionType::Melee : EMobaMinionType::Caster;
-			for (const EMobaTeam Team : { EMobaTeam::Blue, EMobaTeam::Red })
+			// 근접이 앞장서고, 슈퍼 미니언이 있으면 그 뒤에, 원거리가 맨 뒤에 서도록 한 마리씩 간격을 두고 내보낸다.
+			TArray<EMobaMinionType> Order;
+			for (int32 Index = 0; Index < MinionsPerType; ++Index)
 			{
+				Order.Add(EMobaMinionType::Melee);
+			}
+			for (int32 Index = 0; Index < GetSuperMinionCount(Team, LanePath->GetLane()); ++Index)
+			{
+				Order.Add(EMobaMinionType::Super);
+			}
+			for (int32 Index = 0; Index < MinionsPerType; ++Index)
+			{
+				Order.Add(EMobaMinionType::Caster);
+			}
+
+			for (int32 Index = 0; Index < Order.Num(); ++Index)
+			{
+				const EMobaMinionType Type = Order[Index];
 				FTimerHandle Handle;
 				GetWorldTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(LanePath, [this, LanePath, Team, Type]()
 				{
@@ -164,6 +196,47 @@ void AMobaGameMode::SpawnWave()
 				}), FMath::Max(SpawnStagger * Index, 0.01f), false);
 			}
 		}
+	}
+}
+
+int32 AMobaGameMode::GetSuperMinionCount(EMobaTeam Team, EMobaLane Lane) const
+{
+	bool bLaneInhibitorDown = false;
+	bool bAllInhibitorsDown = true;
+	int32 EnemyInhibitors = 0;
+
+	for (TActorIterator<AMobaInhibitor> It(GetWorld()); It; ++It)
+	{
+		if (It->GetTeam() == Team || It->GetTeam() == EMobaTeam::None)
+		{
+			continue;
+		}
+
+		++EnemyInhibitors;
+		if (!It->IsDestroyed())
+		{
+			bAllInhibitorsDown = false;
+		}
+		else if (It->GetLane() == Lane)
+		{
+			bLaneInhibitorDown = true;
+		}
+	}
+
+	if (EnemyInhibitors == 0)
+	{
+		return 0;
+	}
+	return bAllInhibitorsDown ? 2 : (bLaneInhibitorDown ? 1 : 0);
+}
+
+const FMobaMinionConfig& AMobaGameMode::GetMinionConfig(EMobaMinionType Type) const
+{
+	switch (Type)
+	{
+	case EMobaMinionType::Caster: return CasterMinion;
+	case EMobaMinionType::Super: return SuperMinion;
+	default: return MeleeMinion;
 	}
 }
 
@@ -183,7 +256,7 @@ void AMobaGameMode::SpawnMinion(AMobaLanePath* LanePath, EMobaTeam Team, EMobaMi
 	const FTransform SpawnTransform(Forward.Rotation(), Location);
 	if (AMobaMinion* Minion = GetWorld()->SpawnActorDeferred<AMobaMinion>(MinionClass, SpawnTransform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn))
 	{
-		Minion->InitMinion(Team, Type, LanePath, Type == EMobaMinionType::Melee ? MeleeMinion : CasterMinion);
+		Minion->InitMinion(Team, Type, LanePath, GetMinionConfig(Type));
 		Minion->FinishSpawning(SpawnTransform);
 	}
 }
@@ -254,6 +327,89 @@ void AMobaGameMode::HandleMinionKilled(AMobaMinion* Minion, AActor* Killer)
 	}
 }
 
+void AMobaGameMode::HandleMonsterKilled(AMobaMonster* Monster, AActor* Killer)
+{
+	const AMobaCharacter* KillerChampion = Cast<AMobaCharacter>(Killer);
+	AMobaPlayerState* KillerState = KillerChampion ? KillerChampion->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (Monster && KillerState)
+	{
+		KillerState->AddGold(Monster->GetConfig().GoldReward);
+		KillerState->AddExperience(Monster->GetConfig().ExperienceReward);
+	}
+}
+
+void AMobaGameMode::HandleCampCleared(AMobaJungleCamp* Camp, AActor* Killer)
+{
+	AMobaCharacter* KillerChampion = Cast<AMobaCharacter>(Killer);
+	if (!Camp || !KillerChampion)
+	{
+		return;
+	}
+
+	const EMobaTeam Team = KillerChampion->GetTeam();
+
+	// 다시 잡기 전에는 끝나지 않을 만큼 긴 시간. 드래곤 보상은 경기 끝까지 간다.
+	const float PermanentDuration = 1000000.0f;
+
+	switch (Camp->GetCampType())
+	{
+	case EMobaCampType::BlueBuff:
+		ApplyBuff(KillerChampion, MobaTags::Buff_Blue, CampBuffDuration, 0.0f, 0.0f);
+		break;
+
+	case EMobaCampType::RedBuff:
+		ApplyBuff(KillerChampion, MobaTags::Buff_Red, CampBuffDuration, 0.0f, 0.0f);
+		break;
+
+	case EMobaCampType::Scuttle:
+		AMobaWard::SpawnWard(GetWorld(), Team, Camp->GetActorLocation(), ScuttleVisionDuration);
+		break;
+
+	case EMobaCampType::Dragon:
+		ApplyBuffToTeam(Team, MobaTags::Buff_Dragon, PermanentDuration, DragonBonusAttackDamage, DragonBonusAbilityPower);
+		break;
+
+	case EMobaCampType::Baron:
+		ApplyBuffToTeam(Team, MobaTags::Buff_Baron, BaronBuffDuration, BaronBonusAttackDamage, BaronBonusAbilityPower);
+		GrantGoldToTeam(Team, BaronTeamGold);
+		break;
+
+	default:
+		break;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("캠프 정리: %s (%s 팀)"), *AMobaJungleCamp::GetDefinition(Camp->GetCampType()).DisplayName, *MobaTeam::GetTeamTag(Team).ToString());
+}
+
+void AMobaGameMode::ApplyBuff(AMobaCharacter* Champion, const FGameplayTag& BuffTag, float Duration, float BonusAttackDamage, float BonusAbilityPower)
+{
+	UAbilitySystemComponent* AbilitySystem = Champion ? Champion->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystem)
+	{
+		return;
+	}
+
+	// 블루·레드·바론은 다시 받으면 겹치지 않고 시간만 새로 시작한다. 드래곤은 겹친다.
+	if (BuffTag != MobaTags::Buff_Dragon)
+	{
+		AbilitySystem->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(BuffTag));
+	}
+
+	MobaAbility::ApplySpecToTarget(MobaAbility::MakeBuffSpec(AbilitySystem, Champion, Duration, BonusAttackDamage, BonusAbilityPower, BuffTag), Champion);
+}
+
+void AMobaGameMode::ApplyBuffToTeam(EMobaTeam Team, const FGameplayTag& BuffTag, float Duration, float BonusAttackDamage, float BonusAbilityPower)
+{
+	for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+	{
+		// 드래곤 보상은 죽어 있는 팀원도 받는다. 나머지는 살아 있는 팀원만 받는다.
+		if (It->GetTeam() == Team && (BuffTag == MobaTags::Buff_Dragon || !It->IsDead()))
+		{
+			ApplyBuff(*It, BuffTag, Duration, BonusAttackDamage, BonusAbilityPower);
+		}
+	}
+}
+
 void AMobaGameMode::HandleStructureDestroyed(AMobaStructure* Structure, AActor* Killer)
 {
 	if (!Structure)
@@ -288,6 +444,16 @@ void AMobaGameMode::EndMatch(EMobaTeam WinningTeam, bool bForfeit)
 	for (TActorIterator<AMobaMinion> It(GetWorld()); It; ++It)
 	{
 		It->StopActing();
+	}
+
+	for (TActorIterator<AMobaMonster> It(GetWorld()); It; ++It)
+	{
+		It->StopActing();
+	}
+
+	for (TActorIterator<AMobaJungleCamp> It(GetWorld()); It; ++It)
+	{
+		It->StopSpawning();
 	}
 
 	// 챔피언은 긴 기절을 걸어 이동·공격·스킬을 모두 막는다.

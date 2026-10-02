@@ -9,7 +9,10 @@ enum class EMobaTeam : uint8
 {
 	None,
 	Blue,
-	Red
+	Red,
+
+	/** 정글 몬스터. 양 팀 챔피언과만 싸운다. */
+	Neutral
 };
 
 UENUM(BlueprintType)
@@ -41,7 +44,24 @@ UENUM(BlueprintType)
 enum class EMobaMinionType : uint8
 {
 	Melee,
-	Caster
+	Caster,
+
+	/** 적 억제기가 파괴된 라인에 나오는 강한 미니언. */
+	Super
+};
+
+UENUM(BlueprintType)
+enum class EMobaCampType : uint8
+{
+	BlueBuff,
+	RedBuff,
+	Gromp,
+	Wolves,
+	Raptors,
+	Krugs,
+	Scuttle,
+	Dragon,
+	Baron
 };
 
 /** 스킬을 쓸 때 무엇을 지정해야 하는지. */

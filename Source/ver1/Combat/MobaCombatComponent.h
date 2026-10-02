@@ -66,10 +66,13 @@ protected:
 	void UpdateAttackMove(AController* Controller);
 	void UpdateIdleAutoAcquire();
 
-	/** 가장자리까지의 거리가 Range 이내인 적 중 가장 가까운 것. */
-	AActor* FindNearestEnemy(float Range, bool bIncludeStructures) const;
+	/** 가장자리까지의 거리가 Range 이내인 적 중 가장 가까운 것. 정글 몬스터는 bIncludeNeutral일 때만 포함한다. */
+	AActor* FindNearestEnemy(float Range, bool bIncludeStructures, bool bIncludeNeutral) const;
 
 	bool CanOwnerAct() const;
+
+	/** 플레이어가 조종하는 유닛은 시야 밖의 적을 노릴 수 없다. AI는 항상 true. */
+	bool CanSeeTarget(const AActor* Target) const;
 
 	/** 서버에서 선딜레이와 공격 주기를 진행한다. */
 	void UpdateAttack();
@@ -102,6 +105,16 @@ protected:
 	/** 공격 주기 중 선딜레이가 차지하는 비율. */
 	UPROPERTY(EditAnywhere, Category = "Basic Attack", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float WindupFraction = 0.1f;
+
+	/** 레드 버프가 있을 때 기본 공격에 더해지는 고정 피해와 둔화. */
+	UPROPERTY(EditAnywhere, Category = "Basic Attack")
+	float RedBuffTrueDamage = 12.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Basic Attack")
+	float RedBuffSlowMultiplier = 0.85f;
+
+	UPROPERTY(EditAnywhere, Category = "Basic Attack")
+	float RedBuffSlowDuration = 1.5f;
 
 	/** 지연 시간 때문에 서버에서 사거리를 조금 넉넉하게 본다. */
 	UPROPERTY(EditAnywhere, Category = "Basic Attack")

@@ -1,6 +1,7 @@
 #include "Combat/MobaCombatLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
+#include "Character/MobaCharacter.h"
 #include "Engine/World.h"
 #include "Game/MobaGameState.h"
 #include "Game/MobaGameplayTags.h"
@@ -34,6 +35,16 @@ bool MobaCombat::IsValidEnemyTarget(const AActor* Source, const AActor* Target)
 	const EMobaTeam SourceTeam = GetTeam(Source);
 	const EMobaTeam TargetTeam = GetTeam(Target);
 	if (SourceTeam == EMobaTeam::None || TargetTeam == EMobaTeam::None || SourceTeam == TargetTeam)
+	{
+		return false;
+	}
+
+	// 정글 몬스터는 챔피언하고만 싸운다. 미니언과 타워는 몬스터를 건드리지 않는다.
+	if (SourceTeam == EMobaTeam::Neutral && !Target->IsA<AMobaCharacter>())
+	{
+		return false;
+	}
+	if (TargetTeam == EMobaTeam::Neutral && !Source->IsA<AMobaCharacter>())
 	{
 		return false;
 	}

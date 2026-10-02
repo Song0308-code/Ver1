@@ -24,6 +24,9 @@ public:
 	/** 서버 전용. 생성 직후 호출한다. */
 	void InitHoming(AActor* InTarget, const FGameplayEffectSpecHandle& InEffectSpec, float InSpeed, float InVisualScale, EMobaTeam InSourceTeam);
 
+	/** 서버 전용. 명중했을 때 피해와 함께 적용할 이펙트(둔화 등)를 더한다. */
+	void AddOnHitEffect(const FGameplayEffectSpecHandle& InEffectSpec) { ExtraEffectSpecs.Add(InEffectSpec); }
+
 protected:
 	UFUNCTION()
 	void OnRep_Visual();
@@ -52,4 +55,6 @@ protected:
 
 	/** 도착 시 대상에게 적용할 이펙트. 서버에만 있다. */
 	FGameplayEffectSpecHandle EffectSpec;
+
+	TArray<FGameplayEffectSpecHandle> ExtraEffectSpecs;
 };

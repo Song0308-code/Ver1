@@ -5,15 +5,22 @@
 #include "Character/MobaCharacter.h"
 #include "Combat/MobaCombatComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SplineComponent.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "Game/MobaGameState.h"
+#include "Game/MobaGameplayTags.h"
+#include "Map/MobaJungleCamp.h"
+#include "Map/MobaLanePath.h"
 #include "Player/MobaPlayerController.h"
 #include "Player/MobaPlayerState.h"
 #include "SocketSubsystem.h"
 #include "Structures/MobaStructure.h"
 #include "Units/MobaMinion.h"
+#include "Units/MobaMonster.h"
+#include "Vision/MobaVisionSubsystem.h"
+#include "Vision/MobaWard.h"
 
 void AMobaHUD::DrawHUD()
 {
@@ -25,8 +32,10 @@ void AMobaHUD::DrawHUD()
 	}
 
 	DrawStructureBars();
+	DrawMonsterBars();
 	DrawMinionBars();
 	DrawChampionBars();
+	DrawWorldTimers();
 
 	DrawMatchInfo();
 	DrawRespawnCountdown();
@@ -36,7 +45,10 @@ void AMobaHUD::DrawHUD()
 	{
 		DrawTargetingIndicator(LocalCharacter);
 		DrawStatusBar(LocalCharacter);
+		DrawBuffsAndWard(LocalCharacter);
 	}
+
+	DrawMinimap();
 
 	DrawMatchResult();
 }
@@ -75,11 +87,22 @@ void AMobaHUD::DrawGroundCircle(const FVector& Center, float Radius, const FLine
 	}
 }
 
+bool AMobaHUD::IsSeen(const AActor* Actor) const
+{
+	const UMobaVisionSubsystem* Vision = UMobaVisionSubsystem::Get(this);
+	return !Vision || Vision->IsVisibleToLocalPlayer(Actor);
+}
+
 FLinearColor AMobaHUD::GetRelationColor(EMobaTeam UnitTeam, bool bIsLocalUnit) const
 {
 	if (bIsLocalUnit)
 	{
 		return FLinearColor(0.15f, 0.8f, 0.2f);
+	}
+
+	if (UnitTeam == EMobaTeam::Neutral)
+	{
+		return FLinearColor(0.95f, 0.6f, 0.05f);
 	}
 
 	const AMobaPlayerState* LocalState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
@@ -140,7 +163,7 @@ void AMobaHUD::DrawChampionBars()
 	{
 		const AMobaCharacter* Character = *It;
 		const UAbilitySystemComponent* AbilitySystem = Character->GetAbilitySystemComponent();
-		if (!AbilitySystem || Character->IsDead())
+		if (!AbilitySystem || Character->IsDead() || !IsSeen(Character))
 		{
 			continue;
 		}
@@ -159,13 +182,28 @@ void AMobaHUD::DrawMinionBars()
 	for (TActorIterator<AMobaMinion> It(GetWorld()); It; ++It)
 	{
 		const AMobaMinion* Minion = *It;
-		if (Minion->IsHidden())
+		if (Minion->IsHidden() || !IsSeen(Minion))
 		{
 			continue;
 		}
 
 		const FVector BarLocation = Minion->GetActorLocation() + FVector(0.0, 0.0, Minion->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 30.0f);
 		DrawUnitBar(Minion->GetAbilitySystemComponent(), BarLocation, MinionBarSize, GetRelationColor(Minion->GetTeam(), false), false, FString());
+	}
+}
+
+void AMobaHUD::DrawMonsterBars()
+{
+	for (TActorIterator<AMobaMonster> It(GetWorld()); It; ++It)
+	{
+		const AMobaMonster* Monster = *It;
+		if (Monster->IsHidden() || !IsSeen(Monster))
+		{
+			continue;
+		}
+
+		const FVector BarLocation = Monster->GetActorLocation() + FVector(0.0, 0.0, Monster->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 35.0f);
+		DrawUnitBar(Monster->GetAbilitySystemComponent(), BarLocation, FVector2D(80.0, 8.0), GetRelationColor(EMobaTeam::Neutral, false), false, FString());
 	}
 }
 
@@ -183,6 +221,162 @@ void AMobaHUD::DrawStructureBars()
 		const FLinearColor FillColor = Structure->IsInvulnerable() ? FLinearColor(0.45f, 0.45f, 0.45f) : GetRelationColor(Structure->GetTeam(), false);
 		const FVector BarLocation = Structure->GetActorLocation() + FVector(0.0, 0.0, Structure->GetHealthBarHeight());
 		DrawUnitBar(Structure->GetAbilitySystemComponent(), BarLocation, StructureBarSize, FillColor, false, FString());
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 재생성 시간
+
+void AMobaHUD::DrawWorldTimers()
+{
+	const auto DrawTimer = [this](const FVector& WorldLocation, float Seconds, const FLinearColor& Color)
+	{
+		const FVector Screen = Project(WorldLocation);
+		if (Seconds <= 0.0f || Screen.Z <= 0.0 || Screen.X < 0.0 || Screen.X > Canvas->ClipX || Screen.Y < 0.0 || Screen.Y > Canvas->ClipY)
+		{
+			return;
+		}
+
+		const int32 Total = FMath::CeilToInt(Seconds);
+		DrawCenteredText(FString::Printf(TEXT("%d:%02d"), Total / 60, Total % 60), Color, Screen.X, Screen.Y - 8.0f, GEngine->GetSmallFont(), 1.3f);
+	};
+
+	for (TActorIterator<AMobaJungleCamp> It(GetWorld()); It; ++It)
+	{
+		DrawTimer(It->GetActorLocation(), It->GetSecondsUntilSpawn(), FLinearColor(1.0f, 0.8f, 0.3f));
+	}
+
+	for (TActorIterator<AMobaInhibitor> It(GetWorld()); It; ++It)
+	{
+		DrawTimer(It->GetActorLocation() + FVector(0.0, 0.0, 100.0), It->GetSecondsUntilRespawn(), FLinearColor::White);
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 미니맵
+
+FVector2D AMobaHUD::WorldToMinimap(const FVector& WorldLocation) const
+{
+	const float U = FMath::Clamp(WorldLocation.Y / MapWorldSize, 0.0, 1.0);
+	const float V = 1.0f - FMath::Clamp(WorldLocation.X / MapWorldSize, 0.0, 1.0);
+	return MinimapOrigin + FVector2D(U, V) * MinimapSize;
+}
+
+bool AMobaHUD::GetMinimapWorldLocation(const FVector2D& ScreenPosition, FVector& OutWorldLocation) const
+{
+	const FVector2D Local = ScreenPosition - MinimapOrigin;
+	if (!bMinimapDrawn || Local.X < 0.0 || Local.Y < 0.0 || Local.X > MinimapSize || Local.Y > MinimapSize)
+	{
+		return false;
+	}
+
+	OutWorldLocation = FVector((1.0 - Local.Y / MinimapSize) * MapWorldSize, Local.X / MinimapSize * MapWorldSize, 0.0);
+	return true;
+}
+
+void AMobaHUD::DrawMinimapDot(const FVector& WorldLocation, float Size, const FLinearColor& Color)
+{
+	const FVector2D Center = WorldToMinimap(WorldLocation);
+	DrawRect(Color, Center.X - Size * 0.5f, Center.Y - Size * 0.5f, Size, Size);
+}
+
+void AMobaHUD::DrawMinimap()
+{
+	const AMobaPlayerState* LocalState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!LocalState || LocalState->GetTeam() == EMobaTeam::None)
+	{
+		bMinimapDrawn = false;
+		return;
+	}
+
+	MinimapOrigin = FVector2D(Canvas->ClipX - MinimapSize - MinimapMargin, Canvas->ClipY - MinimapSize - MinimapMargin);
+	bMinimapDrawn = true;
+
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.85f), MinimapOrigin.X - 2.0f, MinimapOrigin.Y - 2.0f, MinimapSize + 4.0f, MinimapSize + 4.0f);
+	DrawRect(FLinearColor(0.06f, 0.1f, 0.07f, 0.9f), MinimapOrigin.X, MinimapOrigin.Y, MinimapSize, MinimapSize);
+
+	// 라인.
+	for (TActorIterator<AMobaLanePath> It(GetWorld()); It; ++It)
+	{
+		const USplineComponent* Spline = It->GetSpline();
+		const float Length = Spline->GetSplineLength();
+		const int32 NumSegments = 24;
+		FVector2D Previous = WorldToMinimap(Spline->GetLocationAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World));
+		for (int32 Index = 1; Index <= NumSegments; ++Index)
+		{
+			const FVector2D Current = WorldToMinimap(Spline->GetLocationAtDistanceAlongSpline(Length * Index / NumSegments, ESplineCoordinateSpace::World));
+			DrawLine(Previous.X, Previous.Y, Current.X, Current.Y, FLinearColor(0.35f, 0.33f, 0.25f), 3.0f);
+			Previous = Current;
+		}
+	}
+
+	// 살아 있는 정글 캠프.
+	for (TActorIterator<AMobaJungleCamp> It(GetWorld()); It; ++It)
+	{
+		if (It->IsAlive())
+		{
+			DrawMinimapDot(It->GetActorLocation(), 4.0f, GetRelationColor(EMobaTeam::Neutral, false));
+		}
+	}
+
+	for (TActorIterator<AMobaStructure> It(GetWorld()); It; ++It)
+	{
+		if (!It->IsDestroyed())
+		{
+			const float Size = It->GetStructureType() == EMobaStructureType::Nexus ? 9.0f : (It->GetStructureType() == EMobaStructureType::Inhibitor ? 6.0f : 5.0f);
+			DrawMinimapDot(It->GetActorLocation(), Size, GetRelationColor(It->GetTeam(), false));
+		}
+	}
+
+	for (TActorIterator<AMobaWard> It(GetWorld()); It; ++It)
+	{
+		if (It->GetTeam() == LocalState->GetTeam())
+		{
+			DrawMinimapDot(It->GetActorLocation(), 4.0f, FLinearColor(0.3f, 1.0f, 0.5f));
+		}
+	}
+
+	for (TActorIterator<AMobaMinion> It(GetWorld()); It; ++It)
+	{
+		if (!It->IsHidden() && IsSeen(*It))
+		{
+			DrawMinimapDot(It->GetActorLocation(), 2.5f, GetRelationColor(It->GetTeam(), false));
+		}
+	}
+
+	const AMobaCharacter* LocalCharacter = Cast<AMobaCharacter>(GetOwningPawn());
+	for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+	{
+		if (It->IsDead() || !IsSeen(*It))
+		{
+			continue;
+		}
+
+		DrawMinimapDot(It->GetActorLocation(), 10.0f, FLinearColor::Black);
+		DrawMinimapDot(It->GetActorLocation(), 8.0f, GetRelationColor(It->GetTeam(), *It == LocalCharacter));
+	}
+
+	// 지금 화면에 보이는 범위. 화면 네 귀퉁이를 지면에 내려 미니맵에 옮긴다.
+	const FVector2D Corners[] = { FVector2D(0.0, 0.0), FVector2D(Canvas->ClipX, 0.0), FVector2D(Canvas->ClipX, Canvas->ClipY), FVector2D(0.0, Canvas->ClipY) };
+	FVector2D MapCorners[4];
+	for (int32 Index = 0; Index < 4; ++Index)
+	{
+		FVector WorldPosition;
+		FVector WorldDirection;
+		Deproject(Corners[Index].X, Corners[Index].Y, WorldPosition, WorldDirection);
+		if (WorldDirection.Z >= -KINDA_SMALL_NUMBER)
+		{
+			return;
+		}
+
+		MapCorners[Index] = WorldToMinimap(WorldPosition - WorldDirection * (WorldPosition.Z / WorldDirection.Z));
+	}
+
+	for (int32 Index = 0; Index < 4; ++Index)
+	{
+		const FVector2D& From = MapCorners[Index];
+		const FVector2D& To = MapCorners[(Index + 1) % 4];
+		DrawLine(From.X, From.Y, To.X, To.Y, FLinearColor::White, 1.0f);
 	}
 }
 
@@ -328,6 +522,73 @@ void AMobaHUD::DrawTargetingIndicator(const AMobaCharacter* Character)
 	{
 		const FVector Target = Origin + Offset.GetClampedToMaxSize(Range);
 		DrawGroundCircle(Target, FMath::Max(Ability->GetIndicatorRadius(), 40.0f), AimColor, 2.0f);
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 버프와 와드
+
+void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
+{
+	const UAbilitySystemComponent* AbilitySystem = Character->GetAbilitySystemComponent();
+	if (!AbilitySystem)
+	{
+		return;
+	}
+
+	UFont* Font = GEngine->GetSmallFont();
+	const float Gap = 8.0f;
+	const float TotalWidth = AbilityBoxSize * 4.0f + Gap * 3.0f;
+	const float Left = (Canvas->ClipX - TotalWidth) * 0.5f;
+	const float BoxTop = Canvas->ClipY - AbilityBoxSize - 16.0f * 2.0f - 28.0f;
+
+	// 스킬 칸 오른쪽에 와드 칸을 둔다.
+	const float WardSize = AbilityBoxSize * 0.7f;
+	const float WardLeft = Left + TotalWidth + Gap * 2.0f;
+	const float WardTop = BoxTop + AbilityBoxSize - WardSize;
+	const float WardCooldown = Character->GetWardCooldownRemaining();
+
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), WardLeft - 2.0f, WardTop - 2.0f, WardSize + 4.0f, WardSize + 4.0f);
+	DrawRect(WardCooldown > 0.0f ? FLinearColor(0.1f, 0.15f, 0.1f) : FLinearColor(0.15f, 0.45f, 0.2f), WardLeft, WardTop, WardSize, WardSize);
+	DrawText(TEXT("4"), FLinearColor::White, WardLeft + 4.0f, WardTop + 2.0f, Font, 1.2f);
+	if (WardCooldown > 0.0f)
+	{
+		DrawCenteredText(FString::FromInt(FMath::CeilToInt(WardCooldown)), FLinearColor::White, WardLeft + WardSize * 0.5f, WardTop + WardSize * 0.4f, Font, 1.3f);
+	}
+	else
+	{
+		DrawCenteredText(TEXT("와드"), FLinearColor::White, WardLeft + WardSize * 0.5f, WardTop + WardSize * 0.5f, Font, 1.0f);
+	}
+
+	// 가지고 있는 정글 버프를 스킬 칸 왼쪽에 적는다.
+	struct FBuffLabel
+	{
+		FGameplayTag Tag;
+		const TCHAR* Name;
+		FLinearColor Color;
+	};
+	const FBuffLabel Labels[] = {
+		{ MobaTags::Buff_Blue, TEXT("블루"), FLinearColor(0.35f, 0.6f, 1.0f) },
+		{ MobaTags::Buff_Red, TEXT("레드"), FLinearColor(1.0f, 0.4f, 0.3f) },
+		{ MobaTags::Buff_Baron, TEXT("바론"), FLinearColor(0.75f, 0.45f, 1.0f) },
+		{ MobaTags::Buff_Dragon, TEXT("드래곤"), FLinearColor(1.0f, 0.75f, 0.3f) },
+	};
+
+	float LabelTop = BoxTop;
+	for (const FBuffLabel& Label : Labels)
+	{
+		const int32 Count = AbilitySystem->GetTagCount(Label.Tag);
+		if (Count <= 0)
+		{
+			continue;
+		}
+
+		const FString Text = Count > 1 ? FString::Printf(TEXT("%s x%d"), Label.Name, Count) : FString(Label.Name);
+		float TextWidth = 0.0f;
+		float TextHeight = 0.0f;
+		GetTextSize(Text, TextWidth, TextHeight, Font, 1.2f);
+		DrawText(Text, Label.Color, Left - TextWidth - Gap * 2.0f, LabelTop, Font, 1.2f);
+		LabelTop += 18.0f;
 	}
 }
 

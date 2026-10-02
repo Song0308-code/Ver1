@@ -23,6 +23,7 @@ void AMobaPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMobaPlayerState, Kills);
 	DOREPLIFETIME(AMobaPlayerState, Deaths);
 	DOREPLIFETIME(AMobaPlayerState, RespawnServerTime);
+	DOREPLIFETIME(AMobaPlayerState, NextWardServerTime);
 	DOREPLIFETIME(AMobaPlayerState, ChampionLevel);
 	DOREPLIFETIME(AMobaPlayerState, Experience);
 	DOREPLIFETIME(AMobaPlayerState, Gold);

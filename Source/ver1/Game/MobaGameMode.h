@@ -3,11 +3,14 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "Game/MobaTypes.h"
+#include "GameplayTagContainer.h"
 #include "Units/MobaMinion.h"
 #include "MobaGameMode.generated.h"
 
 class AMobaCharacter;
+class AMobaJungleCamp;
 class AMobaLanePath;
+class AMobaMonster;
 class AMobaStructure;
 class UMobaChampionData;
 
@@ -36,6 +39,12 @@ public:
 	/** 미니언이 죽었을 때. 막타 골드와 주변 경험치를 나눠 준다. */
 	void HandleMinionKilled(AMobaMinion* Minion, AActor* Killer);
 
+	/** 정글 몬스터가 죽었을 때. 막타를 친 챔피언에게 골드와 경험치를 준다. */
+	void HandleMonsterKilled(AMobaMonster* Monster, AActor* Killer);
+
+	/** 캠프의 몬스터가 전멸했을 때. 캠프 종류에 따른 보상(버프, 시야, 팀 골드)을 준다. */
+	void HandleCampCleared(AMobaJungleCamp* Camp, AActor* Killer);
+
 	/** 건물이 파괴됐을 때. 골드를 주고, 넥서스였다면 경기를 끝낸다. */
 	void HandleStructureDestroyed(AMobaStructure* Structure, AActor* Killer);
 
@@ -53,6 +62,16 @@ protected:
 
 	/** 활성화된 라인마다 양 팀의 미니언 한 무리를 순서대로 내보낸다. */
 	void SpawnWave();
+
+	/** 해당 팀이 이 라인에 내보낼 슈퍼 미니언 수. 그 라인의 적 억제기가 파괴돼 있으면 1, 적 억제기가 전부 파괴돼 있으면 2. */
+	int32 GetSuperMinionCount(EMobaTeam Team, EMobaLane Lane) const;
+
+	const FMobaMinionConfig& GetMinionConfig(EMobaMinionType Type) const;
+
+	/** 해당 팀의 살아 있는 챔피언 전원에게 버프를 건다. */
+	void ApplyBuffToTeam(EMobaTeam Team, const FGameplayTag& BuffTag, float Duration, float BonusAttackDamage, float BonusAbilityPower);
+
+	void ApplyBuff(AMobaCharacter* Champion, const FGameplayTag& BuffTag, float Duration, float BonusAttackDamage, float BonusAbilityPower);
 
 	void SpawnMinion(AMobaLanePath* LanePath, EMobaTeam Team, EMobaMinionType Type);
 
@@ -73,6 +92,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Minions")
 	FMobaMinionConfig CasterMinion;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Minions")
+	FMobaMinionConfig SuperMinion;
 
 	/** 경기 시작 후 첫 웨이브까지의 시간(초). */
 	UPROPERTY(EditAnywhere, Category = "Minions")
@@ -116,6 +138,33 @@ protected:
 	/** 이 인원이 차면 더 받지 않는다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Match")
 	int32 MaxPlayers = 2;
+
+	/** 블루·레드 버프의 지속 시간(초). */
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float CampBuffDuration = 120.0f;
+
+	/** 드래곤을 잡을 때마다 팀 전원이 경기 끝까지 얻는 공격력·주문력. */
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float DragonBonusAttackDamage = 10.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float DragonBonusAbilityPower = 15.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float BaronBuffDuration = 180.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float BaronBonusAttackDamage = 40.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float BaronBonusAbilityPower = 40.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float BaronTeamGold = 300.0f;
+
+	/** 바위게를 잡으면 그 자리에 생기는 시야의 지속 시간(초). */
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float ScuttleVisionDuration = 90.0f;
 
 	FTimerHandle WaveTimer;
 	FTimerHandle PassiveGoldTimer;

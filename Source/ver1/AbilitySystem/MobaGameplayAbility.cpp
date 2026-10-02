@@ -82,8 +82,12 @@ void UMobaGameplayAbility::ApplyCooldown(const FGameplayAbilitySpecHandle Handle
 	const FGameplayEffectSpecHandle Spec = MakeOutgoingGameplayEffectSpec(Handle, ActorInfo, ActivationInfo, UMobaCooldownEffect::StaticClass(), GetAbilityLevel(Handle, ActorInfo));
 	if (Spec.IsValid())
 	{
+		// 블루 버프가 있으면 재사용 대기 시간이 10% 줄어든다.
+		const UAbilitySystemComponent* AbilitySystem = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;
+		const float Scale = AbilitySystem && AbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Blue) ? 0.9f : 1.0f;
+
 		Spec.Data->DynamicGrantedTags.AppendTags(*CooldownTags);
-		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Cooldown, CooldownDuration);
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Cooldown, CooldownDuration * Scale);
 		ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, Spec);
 	}
 }

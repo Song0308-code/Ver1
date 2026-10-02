@@ -91,6 +91,10 @@ void AMobaProjectile::Tick(float DeltaSeconds)
 	{
 		if (HasAuthority())
 		{
+			for (const FGameplayEffectSpecHandle& ExtraSpec : ExtraEffectSpecs)
+			{
+				MobaAbility::ApplySpecToTarget(ExtraSpec, Target);
+			}
 			MobaAbility::ApplySpecToTarget(EffectSpec, Target);
 			Destroy();
 		}

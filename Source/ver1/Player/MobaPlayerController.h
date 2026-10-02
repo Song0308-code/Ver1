@@ -48,6 +48,7 @@ protected:
 	void OnAttackModeStarted();
 	void OnConfirmTarget();
 	void OnReturnToMenu();
+	void OnPlaceWard();
 
 	/** 스킬 키를 눌렀을 때. Ctrl과 함께면 스킬 단계를 올리고, 아니면 즉시 시전하거나 조준 모드로 들어간다. */
 	void HandleAbilityKey(EMobaAbilitySlot Slot);
@@ -77,6 +78,9 @@ protected:
 	void IssueAttack(AActor* Target);
 
 	bool ProjectToNavigation(const FVector& WorldLocation, FVector& OutLocation) const;
+
+	/** 커서가 미니맵 위에 있으면 그 지점의 월드 위치를 돌려준다. */
+	bool GetCursorMinimapLocation(FVector& OutLocation) const;
 
 	bool IsControlKeyDown() const;
 
@@ -151,6 +155,9 @@ protected:
 	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> ReturnToMenuAction;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> PlaceWardAction;
+
 #if WITH_EDITORONLY_DATA
 	/** 에디터 자동 검증용. bDebugIssueMove를 켜면 다음 틱에 DebugMoveGoal로 이동 명령을 내린다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
@@ -183,6 +190,10 @@ protected:
 	/** 에디터 자동 검증용. 켜면 다음 틱에 DebugCastSlot 스킬을 한 단계 올린다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugLevelUp = false;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 DebugCastLocation에 와드를 놓는다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugPlaceWard = false;
 #endif
 
 	bool bTargeting = false;

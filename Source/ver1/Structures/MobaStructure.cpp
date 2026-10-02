@@ -8,6 +8,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "EngineUtils.h"
+#include "GameFramework/GameStateBase.h"
 #include "Game/MobaGameMode.h"
 #include "Game/MobaGameplayTags.h"
 #include "Net/UnrealNetwork.h"
@@ -171,6 +172,25 @@ void AMobaStructure::HandleOutOfHealth(AActor* DamageInstigator)
 	}
 }
 
+void AMobaStructure::Revive()
+{
+	if (!HasAuthority() || !IsDestroyed() || MobaCombat::IsMatchOver(this))
+	{
+		return;
+	}
+
+	AbilitySystemComponent->SetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute(), AbilitySystemComponent->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute()));
+	AbilitySystemComponent->RemoveLooseGameplayTag(MobaTags::State_Dead, 1, EGameplayTagReplicationState::TagOnly);
+	SetActorEnableCollision(true);
+	SetActorHiddenInGame(false);
+
+	// 이 건물이 다시 지켜 주게 된 건물들을 무적으로 되돌린다.
+	for (TActorIterator<AMobaStructure> It(GetWorld()); It; ++It)
+	{
+		It->UpdateProtection();
+	}
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Tower
 
@@ -312,6 +332,43 @@ AMobaInhibitor::AMobaInhibitor()
 	Stats.Armor = 20.0f;
 	Stats.MagicResist = 20.0f;
 	GoldReward = 50.0f;
+}
+
+void AMobaInhibitor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AMobaInhibitor, RespawnServerTime);
+}
+
+float AMobaInhibitor::GetSecondsUntilRespawn() const
+{
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	if (!GameState || RespawnServerTime <= 0.0f || !IsDestroyed())
+	{
+		return 0.0f;
+	}
+
+	return FMath::Max(RespawnServerTime - static_cast<float>(GameState->GetServerWorldTimeSeconds()), 0.0f);
+}
+
+void AMobaInhibitor::HandleOutOfHealth(AActor* DamageInstigator)
+{
+	if (IsDestroyed())
+	{
+		return;
+	}
+
+	Super::HandleOutOfHealth(DamageInstigator);
+
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	RespawnServerTime = (GameState ? static_cast<float>(GameState->GetServerWorldTimeSeconds()) : 0.0f) + RespawnDelay;
+
+	GetWorldTimerManager().SetTimer(RespawnTimer, FTimerDelegate::CreateWeakLambda(this, [this]()
+	{
+		RespawnServerTime = 0.0f;
+		Revive();
+	}), RespawnDelay, false);
 }
 
 AMobaNexus::AMobaNexus()

@@ -9,7 +9,9 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PawnMovementComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "NavigationSystem.h"
+#include "Vision/MobaVisionSubsystem.h"
 
 namespace
 {
@@ -77,6 +79,18 @@ bool UMobaCombatComponent::CanOwnerAct() const
 		&& !AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Dead)
 		&& !AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Stunned)
 		&& !MobaCombat::IsMatchOver(this);
+}
+
+bool UMobaCombatComponent::CanSeeTarget(const AActor* Target) const
+{
+	const APlayerController* PlayerController = Cast<APlayerController>(GetOwnerController());
+	if (!PlayerController || !PlayerController->IsLocalController())
+	{
+		return true;
+	}
+
+	const UMobaVisionSubsystem* Vision = UMobaVisionSubsystem::Get(this);
+	return !Vision || Vision->IsVisibleToLocalPlayer(Target);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -196,7 +210,7 @@ void UMobaCombatComponent::UpdateOrders()
 	}
 }
 
-AActor* UMobaCombatComponent::FindNearestEnemy(float Range, bool bIncludeStructures) const
+AActor* UMobaCombatComponent::FindNearestEnemy(float Range, bool bIncludeStructures, bool bIncludeNeutral) const
 {
 	// 가장자리까지의 거리로 판정하므로, 큰 대상도 놓치지 않게 검색 반경은 넉넉히 잡는다.
 	TArray<AActor*> Enemies;
@@ -206,8 +220,13 @@ AActor* UMobaCombatComponent::FindNearestEnemy(float Range, bool bIncludeStructu
 	float NearestDistance = Range;
 	for (AActor* Enemy : Enemies)
 	{
+		if (!bIncludeNeutral && MobaCombat::GetTeam(Enemy) == EMobaTeam::Neutral)
+		{
+			continue;
+		}
+
 		const float Distance = MobaCombat::GetDistanceToTargetEdge(GetOwner(), Enemy);
-		if (Distance <= NearestDistance)
+		if (Distance <= NearestDistance && CanSeeTarget(Enemy))
 		{
 			Nearest = Enemy;
 			NearestDistance = Distance;
@@ -225,8 +244,8 @@ void UMobaCombatComponent::UpdateIdleAutoAcquire()
 	}
 	LastScanTime = Now;
 
-	// 가만히 서 있을 때는 건물을 알아서 치지 않는다.
-	if (AActor* Enemy = FindNearestEnemy(GetAttackRange(), false))
+	// 가만히 서 있을 때는 건물과 정글 몬스터를 알아서 치지 않는다.
+	if (AActor* Enemy = FindNearestEnemy(GetAttackRange(), false, false))
 	{
 		bTargetAutoAcquired = true;
 		SetAttackTargetInternal(Enemy);
@@ -240,7 +259,7 @@ void UMobaCombatComponent::UpdateAttackMove(AController* Controller)
 	if (Now - LastScanTime >= EnemyScanInterval)
 	{
 		LastScanTime = Now;
-		if (AActor* Enemy = FindNearestEnemy(GetAttackRange() + AttackMoveAcquisitionBonus, true))
+		if (AActor* Enemy = FindNearestEnemy(GetAttackRange() + AttackMoveAcquisitionBonus, true, true))
 		{
 			SetAttackTargetInternal(Enemy);
 			return;
@@ -296,10 +315,16 @@ void UMobaCombatComponent::UpdateChase(AController* Controller)
 	const float Range = GetAttackRange();
 	const float Distance = MobaCombat::GetDistanceToTargetEdge(GetOwner(), AttackTarget);
 
-	// 자동으로 잡은 대상은 사거리를 벗어나면 쫓아가지 않고 놓는다.
-	if (bTargetAutoAcquired && Distance > Range)
+	// 자동으로 잡은 대상은 사거리를 벗어나면 쫓아가지 않고 놓는다. 부쉬나 벽 뒤로 사라진 대상도 놓는다.
+	if ((bTargetAutoAcquired && Distance > Range) || !CanSeeTarget(AttackTarget))
 	{
+		if (bChasing)
+		{
+			Controller->StopMovement();
+		}
+
 		bTargetAutoAcquired = false;
+		bAttackMoveWalking = false;
 		SetAttackTargetInternal(nullptr);
 		return;
 	}
@@ -422,8 +447,11 @@ void UMobaCombatComponent::FireAttack(AActor* Target)
 		return;
 	}
 
+	// 레드 버프는 기본 공격에 고정 피해와 둔화를 더한다. 건물에는 적용하지 않는다.
+	const bool bRedBuff = SourceAbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Red) && Target->IsA<APawn>();
+
 	const float AttackDamage = SourceAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackDamageAttribute());
-	const FGameplayEffectSpecHandle Spec = MobaAbility::MakeDamageSpec(SourceAbilitySystem, GetOwner(), AttackDamage, 0.0f, 0.0f);
+	const FGameplayEffectSpecHandle Spec = MobaAbility::MakeDamageSpec(SourceAbilitySystem, GetOwner(), AttackDamage, 0.0f, bRedBuff ? RedBuffTrueDamage : 0.0f);
 	if (!Spec.IsValid())
 	{
 		return;
@@ -438,5 +466,9 @@ void UMobaCombatComponent::FireAttack(AActor* Target)
 	if (AMobaProjectile* Projectile = GetWorld()->SpawnActor<AMobaProjectile>(ProjectileClass, SpawnLocation, GetOwner()->GetActorRotation(), SpawnParams))
 	{
 		Projectile->InitHoming(Target, Spec, bRangedAttack ? ProjectileSpeed : MeleeProjectileSpeed, ProjectileVisualScale, MobaCombat::GetTeam(GetOwner()));
+		if (bRedBuff)
+		{
+			Projectile->AddOnHitEffect(MobaAbility::MakeStatModSpec(SourceAbilitySystem, GetOwner(), RedBuffSlowDuration, RedBuffSlowMultiplier, 1.0f, MobaTags::State_Slowed));
+		}
 	}
 }

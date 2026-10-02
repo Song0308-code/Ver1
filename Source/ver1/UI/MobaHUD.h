@@ -17,6 +17,9 @@ class VER1_API AMobaHUD : public AHUD
 public:
 	virtual void DrawHUD() override;
 
+	/** 화면 좌표가 미니맵 위에 있으면 그 지점의 월드 위치(지면 높이)를 돌려준다. */
+	bool GetMinimapWorldLocation(const FVector2D& ScreenPosition, FVector& OutWorldLocation) const;
+
 protected:
 	/** 유닛 머리 위 체력바. bShowMana면 바로 아래에 마나바도 그린다. */
 	void DrawUnitBar(const UAbilitySystemComponent* AbilitySystem, const FVector& WorldLocation, const FVector2D& Size, const FLinearColor& FillColor, bool bShowMana, const FString& Label);
@@ -27,6 +30,24 @@ protected:
 	void DrawChampionBars();
 	void DrawMinionBars();
 	void DrawStructureBars();
+	void DrawMonsterBars();
+
+	/** 정글 캠프와 억제기가 다시 나오기까지 남은 시간을 그 자리에 표시한다. */
+	void DrawWorldTimers();
+
+	/** 화면 오른쪽 아래의 미니맵. 시야 밖의 적은 그리지 않는다. */
+	void DrawMinimap();
+
+	/** 미니맵 위에 월드 위치를 점으로 찍는다. */
+	void DrawMinimapDot(const FVector& WorldLocation, float Size, const FLinearColor& Color);
+
+	FVector2D WorldToMinimap(const FVector& WorldLocation) const;
+
+	/** 가지고 있는 정글 버프와 와드 상태. */
+	void DrawBuffsAndWard(const AMobaCharacter* Character);
+
+	/** 이 PC의 플레이어에게 보이는 유닛인지. */
+	bool IsSeen(const AActor* Actor) const;
 
 	void DrawRespawnCountdown();
 
@@ -67,6 +88,20 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Status Bar")
 	float AbilityBoxSize = 60.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Minimap")
+	float MinimapSize = 250.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Minimap")
+	float MinimapMargin = 14.0f;
+
+	/** 미니맵이 나타내는 월드 범위(한 변). 월드 +X가 미니맵의 위쪽, +Y가 오른쪽이다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Minimap")
+	float MapWorldSize = 14870.0f;
+
+	/** 이번 프레임에 그린 미니맵의 화면 위치. */
+	FVector2D MinimapOrigin = FVector2D::ZeroVector;
+	bool bMinimapDrawn = false;
 
 	/** 호스트 화면에 보여 줄 이 PC의 주소. 처음 필요할 때 한 번만 알아낸다. */
 	FString LocalAddress;

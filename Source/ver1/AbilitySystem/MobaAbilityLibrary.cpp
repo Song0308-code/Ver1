@@ -86,6 +86,22 @@ FGameplayEffectSpecHandle MobaAbility::MakeStatModSpec(UAbilitySystemComponent* 
 	return Spec;
 }
 
+FGameplayEffectSpecHandle MobaAbility::MakeBuffSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, float BonusAttackDamage, float BonusAbilityPower, const FGameplayTag& BuffTag)
+{
+	const FGameplayEffectSpecHandle Spec = MakeSpec(Source, Instigator, UMobaAttributeBuffEffect::StaticClass());
+	if (Spec.IsValid())
+	{
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Duration, Duration);
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Bonus_AttackDamage, BonusAttackDamage);
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Bonus_AbilityPower, BonusAbilityPower);
+		if (BuffTag.IsValid())
+		{
+			Spec.Data->DynamicGrantedTags.AddTag(BuffTag);
+		}
+	}
+	return Spec;
+}
+
 FGameplayEffectSpecHandle MobaAbility::MakeStunSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration)
 {
 	const FGameplayEffectSpecHandle Spec = MakeSpec(Source, Instigator, UMobaTimedTagEffect::StaticClass());

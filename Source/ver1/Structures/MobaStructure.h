@@ -51,6 +51,9 @@ protected:
 
 	virtual void HandleOutOfHealth(AActor* DamageInstigator);
 
+	/** 서버 전용. 파괴된 건물을 체력을 가득 채워 되살리고 보호 관계를 다시 계산한다. */
+	void Revive();
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<USceneComponent> SceneRoot;
 
@@ -128,6 +131,24 @@ class VER1_API AMobaInhibitor : public AMobaStructure
 
 public:
 	AMobaInhibitor();
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	/** 다시 생길 때까지 남은 시간(초). 파괴되지 않았으면 0. */
+	float GetSecondsUntilRespawn() const;
+
+protected:
+	virtual void HandleOutOfHealth(AActor* DamageInstigator) override;
+
+	/** 파괴된 뒤 다시 생기기까지의 시간(초). */
+	UPROPERTY(EditAnywhere, Category = "Inhibitor")
+	float RespawnDelay = 300.0f;
+
+	/** 다시 생기는 시각(서버 월드 시간). 파괴되지 않았으면 0. */
+	UPROPERTY(Replicated)
+	float RespawnServerTime = 0.0f;
+
+	FTimerHandle RespawnTimer;
 };
 
 /** 파괴되면 경기가 끝난다. */

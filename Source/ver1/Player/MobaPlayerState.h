@@ -38,6 +38,10 @@ public:
 	/** 서버 전용. */
 	void AddGold(float Amount) { Gold += Amount; }
 
+	/** 서버 전용. 와드를 다시 놓을 수 있는 시각(서버 월드 시간). */
+	void SetNextWardServerTime(float NewTime) { NextWardServerTime = NewTime; }
+	float GetNextWardServerTime() const { return NextWardServerTime; }
+
 	/** 서버 전용. 경험치를 더하고 필요한 만큼 레벨을 올린다. */
 	void AddExperience(float Amount);
 
@@ -91,6 +95,9 @@ protected:
 
 	UPROPERTY(Replicated)
 	float RespawnServerTime = 0.0f;
+
+	UPROPERTY(Replicated)
+	float NextWardServerTime = 0.0f;
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Progression")
 	int32 ChampionLevel = 1;
