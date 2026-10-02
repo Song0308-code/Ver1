@@ -22,6 +22,7 @@ UE 5.8 + unreal-mcp로 만드는 LoL 스타일 MOBA 프로토타입의 작업 �
 | Y | 카메라 고정/해제 |
 | Space | 누르는 동안 내 챔피언으로 카메라 복귀 |
 | 마우스 휠 | 줌 |
+| Enter | 경기가 끝난 뒤 메뉴로 돌아가기 |
 
 가만히 서 있으면 사거리 안의 적 챔피언·미니언을 자동으로 공격한다(건물 제외). 적을 클릭할 때는 커서가 정확히 겹치지 않아도 가장자리에서 90 이내면 잡힌다(`ClickSelectMargin`).
 
@@ -108,10 +109,36 @@ UE 5.8 + unreal-mcp로 만드는 LoL 스타일 MOBA 프로토타입의 작업 �
 
 ## 6단계. 1대1 접속
 
-- [ ] 메인 메뉴: 방 만들기 / IP로 접속
-- [ ] 팀 배정과 챔피언 선택 (우선 고정 배정)
-- [ ] 접속 끊김 처리, 게임 종료 후 메뉴 복귀
+- [x] 메인 메뉴: 방 만들기 / 혼자 연습 / IP로 접속 (`L_MainMenu`, `SMobaMainMenu`)
+- [x] 팀 배정과 챔피언 선택 (고정 배정: 방을 만든 쪽이 블루, 접속한 쪽이 레드, 챔피언은 `DefaultChampion`)
+- [x] 접속 끊김 처리, 게임 종료 후 메뉴 복귀
 - [ ] 패키징 빌드로 두 PC 간 접속 테스트 (방화벽 포트 7777)
+
+구현 메모
+
+- 시작 맵은 `L_MainMenu`(빈 맵)이고 `GameModeMapPrefixes`로 `MobaMenuGameMode`가 붙는다. 에디터 시작 맵은 그대로 `L_SummonersRift`라서 PIE는 메뉴를 거치지 않는다.
+- 방 만들기는 `L_SummonersRift?listen?Players=2`로 연다. `Players`가 경기 시작에 필요한 인원이고, 모일 때까지 미니언과 골드 지급이 멈춰 있다. 옵션이 없으면 1명이라 PIE와 혼자 연습은 바로 시작한다.
+- 정원(`MaxPlayers` 2)이 찼거나 이미 끝난 경기에는 접속이 거절되고, 사유가 접속하려던 쪽 메뉴에 표시된다.
+- 경기 중 한 팀이 모두 나가면 남은 팀의 승리로 끝난다. 호스트가 나가면 접속해 있던 쪽은 안내 문구와 함께 메뉴로 돌아간다(`MobaGameInstance`).
+- 접속 시도는 10초 안에 응답이 없으면 실패로 처리한다(`InitialConnectTimeout`).
+- 상대 프로그램이 강제 종료돼 응답이 끊기면 20초 뒤에 끊김으로 처리한다(`ConnectionTimeout`). 정상 종료는 바로 반영된다.
+- 하드웨어 레이 트레이싱은 껐다(`r.RayTracing=False`). 켠 채로 패키징하면 이 PC(RTX 4060 Laptop, 드라이버 555.97)에서 실행 직후 컴퓨트 파이프라인 생성이 실패하고 NVIDIA 드라이버 안에서 크래시했다. 에디터에서는 재현되지 않았다. 드라이버를 올린 뒤 다시 켜 볼 수 있다.
+
+패키징
+
+```
+"C:\Program Files\Epic Games\UE_5.8\Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun -project="C:\UnrealProjects\ver1\ver1.uproject" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive -archivedirectory="C:\UnrealProjects\ver1\Saved\Packaged" -unattended -utf8output
+```
+
+결과물은 `Saved/Packaged/Windows/`에 생긴다. 이 폴더를 통째로 상대 PC에 복사한다. MCP·툴셋 플러그인은 `TargetAllowList`로 에디터에서만 켜지므로 패키지에 들어가지 않는다.
+
+두 PC 접속 방법
+
+1. 호스트: `ver1.exe` 실행 → 방 만들기. 처음 실행하면 Windows 방화벽 창이 뜨는데 허용해야 한다(UDP 7777).
+2. 호스트 화면에 표시되는 주소(또는 `ipconfig`의 IPv4 주소)를 상대에게 알려 준다. 같은 공유기 안이면 그 주소 그대로, 인터넷 너머라면 공유기 포트 포워딩(UDP 7777)과 공인 IP가 필요하다.
+3. 상대: `ver1.exe` 실행 → 주소 입력 → 접속.
+
+한 PC에서 창 두 개로 확인하려면 `ver1.exe -windowed -ResX=1280 -ResY=720`으로 두 번 실행하고 한쪽에서 방을 만든 뒤 다른 쪽에서 `127.0.0.1`로 접속한다.
 
 완료 기준: 서로 다른 PC 두 대에서 접속해 한 판을 끝낸다.
 

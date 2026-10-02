@@ -19,6 +19,10 @@ class VER1_API AMobaGameMode : public AGameModeBase
 public:
 	AMobaGameMode();
 
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void Logout(AController* Exiting) override;
 	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual void StartPlay() override;
@@ -35,10 +39,13 @@ public:
 	/** 건물이 파괴됐을 때. 골드를 주고, 넥서스였다면 경기를 끝낸다. */
 	void HandleStructureDestroyed(AMobaStructure* Structure, AActor* Killer);
 
-	/** 경기를 끝내고 모든 유닛을 멈춘다. */
-	void EndMatch(EMobaTeam WinningTeam);
+	/** 경기를 끝내고 모든 유닛을 멈춘다. bForfeit는 상대가 나가서 끝난 경우. */
+	void EndMatch(EMobaTeam WinningTeam, bool bForfeit = false);
 
 protected:
+	/** 필요한 인원이 모였으면 경기를 시작한다. 미니언 웨이브와 골드 지급이 이때부터 돈다. */
+	void TryStartMatch();
+
 	/** 인원이 더 적은 팀을 고른다. 같으면 블루. */
 	EMobaTeam PickTeamForNewPlayer() const;
 
@@ -98,6 +105,17 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
 	float PassiveGoldPerSecond = 2.0f;
+
+	/**
+	 * 경기를 시작하는 데 필요한 인원. 접속 주소의 Players 옵션으로 덮어쓴다(예: ?listen?Players=2).
+	 * 기본값이 1이라 에디터에서 혼자 실행해도 바로 시작한다.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "Match")
+	int32 RequiredPlayers = 1;
+
+	/** 이 인원이 차면 더 받지 않는다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Match")
+	int32 MaxPlayers = 2;
 
 	FTimerHandle WaveTimer;
 	FTimerHandle PassiveGoldTimer;

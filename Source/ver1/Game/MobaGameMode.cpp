@@ -1,5 +1,6 @@
 #include "Game/MobaGameMode.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
+#include "AbilitySystemComponent.h"
 #include "Character/MobaChampionData.h"
 #include "Character/MobaCharacter.h"
 #include "Combat/MobaCombatLibrary.h"
@@ -7,6 +8,7 @@
 #include "EngineUtils.h"
 #include "Game/MobaGameState.h"
 #include "GameFramework/PlayerStart.h"
+#include "Kismet/GameplayStatics.h"
 #include "Map/MobaLanePath.h"
 #include "Player/MobaPlayerController.h"
 #include "Player/MobaPlayerState.h"
@@ -51,12 +53,87 @@ AMobaGameMode::AMobaGameMode()
 	CasterMinion.ExperienceReward = 30.0f;
 }
 
+void AMobaGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+
+	RequiredPlayers = FMath::Clamp(UGameplayStatics::GetIntOption(Options, TEXT("Players"), RequiredPlayers), 1, MaxPlayers);
+}
+
+void AMobaGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+	if (!ErrorMessage.IsEmpty())
+	{
+		return;
+	}
+
+	// 여기서 채운 문구는 접속하려던 쪽의 메뉴에 그대로 표시된다.
+	if (MobaCombat::IsMatchOver(this))
+	{
+		ErrorMessage = TEXT("이미 끝난 경기입니다.");
+	}
+	else if (GetNumPlayers() >= MaxPlayers)
+	{
+		ErrorMessage = TEXT("방이 가득 찼습니다.");
+	}
+}
+
+void AMobaGameMode::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
+
+	TryStartMatch();
+}
+
+void AMobaGameMode::Logout(AController* Exiting)
+{
+	const AMobaPlayerState* LeavingState = Exiting ? Exiting->GetPlayerState<AMobaPlayerState>() : nullptr;
+	const EMobaTeam LeavingTeam = LeavingState ? LeavingState->GetTeam() : EMobaTeam::None;
+
+	Super::Logout(Exiting);
+
+	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	if (!MobaGameState || !MobaGameState->HasMatchStarted() || MobaGameState->IsMatchOver() || LeavingTeam == EMobaTeam::None || GetWorld()->bIsTearingDown)
+	{
+		return;
+	}
+
+	// 나간 플레이어의 팀에 아무도 남지 않았으면 상대 팀의 승리로 끝낸다.
+	for (const APlayerState* PlayerState : MobaGameState->PlayerArray)
+	{
+		const AMobaPlayerState* MobaPlayerState = Cast<AMobaPlayerState>(PlayerState);
+		if (MobaPlayerState && MobaPlayerState != LeavingState && MobaPlayerState->GetTeam() == LeavingTeam)
+		{
+			return;
+		}
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("플레이어가 나가서 경기를 끝냅니다."));
+	EndMatch(LeavingTeam == EMobaTeam::Blue ? EMobaTeam::Red : EMobaTeam::Blue, true);
+}
+
 void AMobaGameMode::StartPlay()
 {
 	Super::StartPlay();
 
+	TryStartMatch();
+}
+
+void AMobaGameMode::TryStartMatch()
+{
+	AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	if (!MobaGameState || MobaGameState->HasMatchStarted() || !GetWorld()->HasBegunPlay() || GetNumPlayers() < RequiredPlayers)
+	{
+		return;
+	}
+
+	MobaGameState->StartMatch();
+
 	GetWorldTimerManager().SetTimer(WaveTimer, this, &AMobaGameMode::SpawnWave, WaveInterval, true, FirstWaveDelay);
 	GetWorldTimerManager().SetTimer(PassiveGoldTimer, this, &AMobaGameMode::GrantPassiveGold, 1.0f, true);
+
+	UE_LOG(LogTemp, Log, TEXT("경기 시작 (플레이어 %d명)."), GetNumPlayers());
 }
 
 void AMobaGameMode::SpawnWave()
@@ -193,7 +270,7 @@ void AMobaGameMode::HandleStructureDestroyed(AMobaStructure* Structure, AActor* 
 	}
 }
 
-void AMobaGameMode::EndMatch(EMobaTeam WinningTeam)
+void AMobaGameMode::EndMatch(EMobaTeam WinningTeam, bool bForfeit)
 {
 	AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
 	if (!MobaGameState || MobaGameState->IsMatchOver())
@@ -201,7 +278,9 @@ void AMobaGameMode::EndMatch(EMobaTeam WinningTeam)
 		return;
 	}
 
-	MobaGameState->SetMatchResult(WinningTeam);
+	MobaGameState->SetMatchResult(WinningTeam, bForfeit);
+
+	UE_LOG(LogTemp, Log, TEXT("경기 종료. 승리 팀: %s%s"), *MobaTeam::GetTeamTag(WinningTeam).ToString(), bForfeit ? TEXT(" (상대 이탈)") : TEXT(""));
 
 	GetWorldTimerManager().ClearTimer(WaveTimer);
 	GetWorldTimerManager().ClearTimer(PassiveGoldTimer);
@@ -214,7 +293,11 @@ void AMobaGameMode::EndMatch(EMobaTeam WinningTeam)
 	// 챔피언은 긴 기절을 걸어 이동·공격·스킬을 모두 막는다.
 	for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
 	{
-		MobaAbility::ApplySpecToTarget(MobaAbility::MakeStunSpec(It->GetAbilitySystemComponent(), *It, 100000.0f), *It);
+		// 나가는 중인 플레이어의 챔피언은 이미 어빌리티 시스템과 끊겨 있을 수 있다.
+		if (UAbilitySystemComponent* AbilitySystem = It->GetAbilitySystemComponent())
+		{
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeStunSpec(AbilitySystem, *It, 100000.0f), *It);
+		}
 	}
 }
 

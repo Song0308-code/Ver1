@@ -5,6 +5,7 @@
 #include "Character/MobaCharacter.h"
 #include "Combat/MobaCombatComponent.h"
 #include "Combat/MobaCombatLibrary.h"
+#include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -27,6 +28,14 @@ AMobaPlayerController::AMobaPlayerController()
 void AMobaPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (IsLocalController())
+	{
+		// 메뉴가 UI 전용으로 바꿔 둔 입력 모드를 게임용으로 되돌린다.
+		FInputModeGameOnly InputMode;
+		InputMode.SetConsumeCaptureMouseDown(false);
+		SetInputMode(InputMode);
+	}
 
 	if (IsLocalController() && CameraRigClass)
 	{
@@ -68,6 +77,7 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(AbilityRAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityR);
 		EnhancedInput->BindAction(AttackModeAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAttackModeStarted);
 		EnhancedInput->BindAction(ConfirmTargetAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnConfirmTarget);
+		EnhancedInput->BindAction(ReturnToMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnReturnToMenu);
 	}
 }
 
@@ -89,6 +99,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	AbilityRAction = NewObject<UInputAction>(this, TEXT("IA_AbilityR"));
 	AttackModeAction = NewObject<UInputAction>(this, TEXT("IA_AttackMode"));
 	ConfirmTargetAction = NewObject<UInputAction>(this, TEXT("IA_ConfirmTarget"));
+	ReturnToMenuAction = NewObject<UInputAction>(this, TEXT("IA_ReturnToMenu"));
 
 	DefaultMappingContext = NewObject<UInputMappingContext>(this, TEXT("IMC_Default"));
 	DefaultMappingContext->MapKey(MoveCommandAction, EKeys::RightMouseButton);
@@ -104,6 +115,19 @@ void AMobaPlayerController::CreateDefaultInput()
 
 	DefaultMappingContext->MapKey(AttackModeAction, EKeys::A);
 	DefaultMappingContext->MapKey(ConfirmTargetAction, EKeys::LeftMouseButton);
+	DefaultMappingContext->MapKey(ReturnToMenuAction, EKeys::Enter);
+}
+
+void AMobaPlayerController::OnReturnToMenu()
+{
+	// 경기가 끝난 뒤에만 메뉴로 돌아갈 수 있다. 호스트가 나가면 접속해 있던 쪽도 메뉴로 돌아간다.
+	if (MobaCombat::IsMatchOver(this))
+	{
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			GameInstance->ReturnToMainMenu();
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -33,6 +33,9 @@ protected:
 	/** 화면 위쪽의 경기 시간과 킬/데스. */
 	void DrawMatchInfo();
 
+	/** 상대를 기다리는 동안의 안내. 호스트에게는 알려 줄 IP도 보여 준다. */
+	void DrawWaitingForPlayers();
+
 	/** 경기가 끝났을 때 승패 문구. */
 	void DrawMatchResult();
 
@@ -64,4 +67,8 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Status Bar")
 	float AbilityBoxSize = 60.0f;
+
+	/** 호스트 화면에 보여 줄 이 PC의 주소. 처음 필요할 때 한 번만 알아낸다. */
+	FString LocalAddress;
+	bool bLocalAddressResolved = false;
 };

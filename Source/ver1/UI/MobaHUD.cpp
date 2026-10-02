@@ -11,6 +11,7 @@
 #include "Game/MobaGameState.h"
 #include "Player/MobaPlayerController.h"
 #include "Player/MobaPlayerState.h"
+#include "SocketSubsystem.h"
 #include "Structures/MobaStructure.h"
 #include "Units/MobaMinion.h"
 
@@ -29,6 +30,7 @@ void AMobaHUD::DrawHUD()
 
 	DrawMatchInfo();
 	DrawRespawnCountdown();
+	DrawWaitingForPlayers();
 
 	if (const AMobaCharacter* LocalCharacter = Cast<AMobaCharacter>(GetOwningPawn()))
 	{
@@ -189,14 +191,14 @@ void AMobaHUD::DrawStructureBars()
 
 void AMobaHUD::DrawMatchInfo()
 {
-	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
 	const AMobaPlayerState* PlayerState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
 	if (!GameState || !PlayerState)
 	{
 		return;
 	}
 
-	const int32 TotalSeconds = FMath::FloorToInt(GameState->GetServerWorldTimeSeconds());
+	const int32 TotalSeconds = FMath::FloorToInt(GameState->GetMatchTimeSeconds());
 	const FString Text = FString::Printf(TEXT("%02d:%02d    K %d / D %d"), TotalSeconds / 60, TotalSeconds % 60, PlayerState->GetKills(), PlayerState->GetDeaths());
 	DrawCenteredText(Text, FLinearColor::White, Canvas->ClipX * 0.5f, 12.0f, GEngine->GetSmallFont(), 1.3f);
 }
@@ -217,6 +219,40 @@ void AMobaHUD::DrawRespawnCountdown()
 	}
 }
 
+void AMobaHUD::DrawWaitingForPlayers()
+{
+	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
+	if (!GameState || GameState->HasMatchStarted())
+	{
+		return;
+	}
+
+	const float CenterX = Canvas->ClipX * 0.5f;
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.5f), 0.0f, Canvas->ClipY * 0.16f, Canvas->ClipX, Canvas->ClipY * 0.14f);
+	DrawCenteredText(TEXT("상대를 기다리는 중..."), FLinearColor::White, CenterX, Canvas->ClipY * 0.18f, GEngine->GetLargeFont(), 2.0f);
+
+	if (GetNetMode() != NM_ListenServer)
+	{
+		return;
+	}
+
+	if (!bLocalAddressResolved)
+	{
+		bLocalAddressResolved = true;
+		if (ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM))
+		{
+			bool bCanBindAll = false;
+			LocalAddress = SocketSubsystem->GetLocalHostAddr(*GLog, bCanBindAll)->ToString(false);
+		}
+	}
+
+	// 랜 어댑터가 여러 개면 다른 주소가 잡힐 수 있으므로 참고용이다.
+	const FString Hint = LocalAddress.IsEmpty()
+		? FString(TEXT("상대에게 이 PC의 IP 주소를 알려 주세요 (UDP 7777)"))
+		: FString::Printf(TEXT("상대에게 알려 줄 주소: %s (UDP 7777)"), *LocalAddress);
+	DrawCenteredText(Hint, FLinearColor(1.0f, 0.85f, 0.4f), CenterX, Canvas->ClipY * 0.25f, GEngine->GetSmallFont(), 1.3f);
+}
+
 void AMobaHUD::DrawMatchResult()
 {
 	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
@@ -228,7 +264,10 @@ void AMobaHUD::DrawMatchResult()
 
 	const bool bWon = GameState->GetWinningTeam() == PlayerState->GetTeam();
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.5f), 0.0f, Canvas->ClipY * 0.35f, Canvas->ClipX, Canvas->ClipY * 0.2f);
-	DrawCenteredText(bWon ? TEXT("승리") : TEXT("패배"), bWon ? FLinearColor(0.3f, 0.7f, 1.0f) : FLinearColor(1.0f, 0.3f, 0.25f), Canvas->ClipX * 0.5f, Canvas->ClipY * 0.4f, GEngine->GetLargeFont(), 4.0f);
+	DrawCenteredText(bWon ? TEXT("승리") : TEXT("패배"), bWon ? FLinearColor(0.3f, 0.7f, 1.0f) : FLinearColor(1.0f, 0.3f, 0.25f), Canvas->ClipX * 0.5f, Canvas->ClipY * 0.38f, GEngine->GetLargeFont(), 4.0f);
+
+	const FString Detail = GameState->WasEndedByForfeit() ? TEXT("상대가 게임을 떠났습니다.    Enter: 메뉴로 돌아가기") : TEXT("Enter: 메뉴로 돌아가기");
+	DrawCenteredText(Detail, FLinearColor::White, Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f, GEngine->GetSmallFont(), 1.3f);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

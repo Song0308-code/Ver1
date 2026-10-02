@@ -47,6 +47,7 @@ protected:
 	void OnAbilityR();
 	void OnAttackModeStarted();
 	void OnConfirmTarget();
+	void OnReturnToMenu();
 
 	/** 스킬 키를 눌렀을 때. Ctrl과 함께면 스킬 단계를 올리고, 아니면 즉시 시전하거나 조준 모드로 들어간다. */
 	void HandleAbilityKey(EMobaAbilitySlot Slot);
@@ -146,6 +147,9 @@ protected:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> ConfirmTargetAction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> ReturnToMenuAction;
 
 #if WITH_EDITORONLY_DATA
 	/** 에디터 자동 검증용. bDebugIssueMove를 켜면 다음 틱에 DebugMoveGoal로 이동 명령을 내린다. */
