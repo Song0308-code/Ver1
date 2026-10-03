@@ -20,3 +20,14 @@ FLinearColor MobaTeam::GetTeamColor(EMobaTeam Team)
 	default: return FLinearColor::Gray;
 	}
 }
+
+FString MobaTeam::GetTeamDisplayName(EMobaTeam Team)
+{
+	switch (Team)
+	{
+	case EMobaTeam::Blue: return TEXT("블루");
+	case EMobaTeam::Red: return TEXT("레드");
+	case EMobaTeam::Neutral: return TEXT("중립");
+	default: return FString();
+	}
+}

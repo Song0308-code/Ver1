@@ -7,12 +7,14 @@
 #include "Combat/MobaCombatLibrary.h"
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
+#include "EngineUtils.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputAction.h"
 #include "InputMappingContext.h"
 #include "NavigationSystem.h"
 #include "Player/MobaCameraRig.h"
+#include "Player/MobaPlayerState.h"
 #include "UI/MobaHUD.h"
 #include "Vision/MobaVisionSubsystem.h"
 
@@ -81,6 +83,10 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(ConfirmTargetAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnConfirmTarget);
 		EnhancedInput->BindAction(ReturnToMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnReturnToMenu);
 		EnhancedInput->BindAction(PlaceWardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnPlaceWard);
+		EnhancedInput->BindAction(RecallAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnRecall);
+		EnhancedInput->BindAction(ShopAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnToggleShop);
+		EnhancedInput->BindAction(ScoreboardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnScoreboardStarted);
+		EnhancedInput->BindAction(ScoreboardAction, ETriggerEvent::Completed, this, &AMobaPlayerController::OnScoreboardCompleted);
 	}
 }
 
@@ -104,6 +110,9 @@ void AMobaPlayerController::CreateDefaultInput()
 	ConfirmTargetAction = NewObject<UInputAction>(this, TEXT("IA_ConfirmTarget"));
 	ReturnToMenuAction = NewObject<UInputAction>(this, TEXT("IA_ReturnToMenu"));
 	PlaceWardAction = NewObject<UInputAction>(this, TEXT("IA_PlaceWard"));
+	RecallAction = NewObject<UInputAction>(this, TEXT("IA_Recall"));
+	ShopAction = NewObject<UInputAction>(this, TEXT("IA_Shop"));
+	ScoreboardAction = NewObject<UInputAction>(this, TEXT("IA_Scoreboard"));
 
 	DefaultMappingContext = NewObject<UInputMappingContext>(this, TEXT("IMC_Default"));
 	DefaultMappingContext->MapKey(MoveCommandAction, EKeys::RightMouseButton);
@@ -121,6 +130,9 @@ void AMobaPlayerController::CreateDefaultInput()
 	DefaultMappingContext->MapKey(ConfirmTargetAction, EKeys::LeftMouseButton);
 	DefaultMappingContext->MapKey(ReturnToMenuAction, EKeys::Enter);
 	DefaultMappingContext->MapKey(PlaceWardAction, EKeys::Four);
+	DefaultMappingContext->MapKey(RecallAction, EKeys::B);
+	DefaultMappingContext->MapKey(ShopAction, EKeys::P);
+	DefaultMappingContext->MapKey(ScoreboardAction, EKeys::Tab);
 }
 
 void AMobaPlayerController::OnReturnToMenu()
@@ -150,6 +162,16 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		return;
 	}
 
+	// 접속한 쪽의 컨트롤러는 서버에서 틱이 돌지 않으므로 호스트의 컨트롤러가 모두에게 준다.
+	if (HasAuthority() && DebugGrantExperience > 0.0f)
+	{
+		for (TActorIterator<AMobaPlayerState> It(GetWorld()); It; ++It)
+		{
+			It->AddExperience(DebugGrantExperience);
+		}
+		DebugGrantExperience = 0.0f;
+	}
+
 	if (bDebugIssueMove)
 	{
 		bDebugIssueMove = false;
@@ -175,6 +197,29 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		{
 			MobaCharacter->LevelUpAbility(DebugCastSlot);
 		}
+	}
+
+	if (bDebugBuyItem || bDebugSellItem || bDebugRecall)
+	{
+		if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
+		{
+			if (bDebugBuyItem)
+			{
+				MobaCharacter->BuyItem(DebugItemIndex);
+			}
+			if (bDebugSellItem)
+			{
+				MobaCharacter->SellItem(DebugItemIndex);
+			}
+			if (bDebugRecall)
+			{
+				MobaCharacter->StartRecall();
+			}
+		}
+
+		bDebugBuyItem = false;
+		bDebugSellItem = false;
+		bDebugRecall = false;
 	}
 
 	if (bDebugPlaceWard)
@@ -376,6 +421,15 @@ void AMobaPlayerController::OnMoveCommandHeld()
 
 void AMobaPlayerController::IssueCommandAtCursor()
 {
+	// 상점 창 위에서 누른 것은 지면 명령으로 보지 않는다.
+	float MouseX = 0.0f;
+	float MouseY = 0.0f;
+	const AMobaHUD* MobaHUD = GetHUD<AMobaHUD>();
+	if (MobaHUD && GetMousePosition(MouseX, MouseY) && MobaHUD->IsOverPanel(FVector2D(MouseX, MouseY)))
+	{
+		return;
+	}
+
 	FVector CursorLocation;
 	if (GetCursorMinimapLocation(CursorLocation))
 	{
@@ -462,6 +516,21 @@ void AMobaPlayerController::OnAttackModeStarted()
 
 void AMobaPlayerController::OnConfirmTarget()
 {
+	if (IsAltKeyDown())
+	{
+		SendPingAtCursor();
+		return;
+	}
+
+	// 상점 창이나 가방을 눌렀으면 거기서 처리하고 끝낸다.
+	float MouseX = 0.0f;
+	float MouseY = 0.0f;
+	AMobaHUD* MobaHUD = GetHUD<AMobaHUD>();
+	if (MobaHUD && GetMousePosition(MouseX, MouseY) && MobaHUD->HandleClick(FVector2D(MouseX, MouseY)))
+	{
+		return;
+	}
+
 	if (bTargeting)
 	{
 		bTargeting = false;
@@ -492,6 +561,79 @@ void AMobaPlayerController::OnPlaceWard()
 	{
 		MobaCharacter->PlaceWard(GroundLocation);
 	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 귀환, 상점, 점수판, 핑
+
+void AMobaPlayerController::OnRecall()
+{
+	if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
+	{
+		bTargeting = false;
+		bAttackTargeting = false;
+		MobaCharacter->StartRecall();
+	}
+}
+
+void AMobaPlayerController::OnToggleShop()
+{
+	bShopOpen = !bShopOpen;
+}
+
+void AMobaPlayerController::OnScoreboardStarted()
+{
+	bScoreboardHeld = true;
+}
+
+void AMobaPlayerController::OnScoreboardCompleted()
+{
+	bScoreboardHeld = false;
+}
+
+bool AMobaPlayerController::IsAltKeyDown() const
+{
+	return IsInputKeyDown(EKeys::LeftAlt) || IsInputKeyDown(EKeys::RightAlt);
+}
+
+void AMobaPlayerController::SendPingAtCursor()
+{
+	FVector Location;
+	if (GetCursorMinimapLocation(Location) || GetCursorGroundLocation(Location))
+	{
+		ServerPing(Location);
+	}
+}
+
+void AMobaPlayerController::ServerPing_Implementation(FVector_NetQuantize Location)
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	const AMobaPlayerState* MyState = GetPlayerState<AMobaPlayerState>();
+	if (!MyState || Now - LastPingTime < 0.5)
+	{
+		return;
+	}
+	LastPingTime = Now;
+
+	// 같은 팀에게만 보인다.
+	for (TActorIterator<AMobaPlayerController> It(GetWorld()); It; ++It)
+	{
+		const AMobaPlayerState* OtherState = It->GetPlayerState<AMobaPlayerState>();
+		if (OtherState && OtherState->GetTeam() == MyState->GetTeam())
+		{
+			It->ClientShowPing(Location);
+		}
+	}
+}
+
+void AMobaPlayerController::ClientShowPing_Implementation(FVector_NetQuantize Location)
+{
+	if (Pings.Num() >= 8)
+	{
+		Pings.RemoveAt(0);
+	}
+
+	Pings.Add({ FVector(Location), GetWorld()->GetTimeSeconds() });
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -41,6 +41,32 @@ void SMobaMainMenu::Construct(const FArguments& InArgs)
 
 				+ SVerticalBox::Slot()
 				.AutoHeight()
+				.Padding(0.0f, 0.0f, 0.0f, 6.0f)
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(TEXT("챔피언")))
+					.Font(LabelFont)
+					.ColorAndOpacity(FLinearColor(0.7f, 0.75f, 0.85f))
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f, 0.0f, 0.0f, 6.0f)
+				[
+					MakeChampionRow()
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f, 0.0f, 0.0f, 24.0f)
+				[
+					SAssignNew(ChampionText, STextBlock)
+					.Font(LabelFont)
+					.ColorAndOpacity(FLinearColor(0.6f, 0.9f, 0.7f))
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
 				.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 				[
 					MakeButton(FText::FromString(TEXT("방 만들기")), &SMobaMainMenu::OnHostClicked)
@@ -101,6 +127,77 @@ void SMobaMainMenu::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+
+	RefreshChampionText();
+}
+
+TSharedRef<SWidget> SMobaMainMenu::MakeChampionRow()
+{
+	TSharedRef<SHorizontalBox> Row = SNew(SHorizontalBox);
+
+	AMobaMenuPlayerController* Controller = OwnerController.Get();
+	if (!Controller)
+	{
+		return Row;
+	}
+
+	const TArray<FMobaChampionChoice> Choices = Controller->GetChampionChoices();
+
+	// 아직 고른 적이 없으면 첫 번째 챔피언으로 시작한다.
+	if (Controller->GetSelectedChampion().IsEmpty() && Choices.Num() > 0)
+	{
+		Controller->SelectChampion(Choices[0].AssetName);
+	}
+
+	for (const FMobaChampionChoice& Choice : Choices)
+	{
+		const FString AssetName = Choice.AssetName;
+		Row->AddSlot()
+			.FillWidth(1.0f)
+			.Padding(0.0f, 0.0f, 6.0f, 0.0f)
+			[
+				SNew(SButton)
+				.HAlign(HAlign_Center)
+				.ContentPadding(FMargin(0.0f, 8.0f))
+				.OnClicked_Lambda([this, AssetName]()
+				{
+					if (AMobaMenuPlayerController* MenuController = OwnerController.Get())
+					{
+						MenuController->SelectChampion(AssetName);
+						RefreshChampionText();
+					}
+					return FReply::Handled();
+				})
+				[
+					SNew(STextBlock)
+					.Text(Choice.DisplayName)
+					.Font(FCoreStyle::GetDefaultFontStyle("Regular", 15))
+				]
+			];
+	}
+
+	return Row;
+}
+
+void SMobaMainMenu::RefreshChampionText()
+{
+	AMobaMenuPlayerController* Controller = OwnerController.Get();
+	if (!Controller || !ChampionText.IsValid())
+	{
+		return;
+	}
+
+	const FString Selected = Controller->GetSelectedChampion();
+	for (const FMobaChampionChoice& Choice : Controller->GetChampionChoices())
+	{
+		if (Choice.AssetName == Selected)
+		{
+			ChampionText->SetText(FText::FromString(FString::Printf(TEXT("선택: %s"), *Choice.DisplayName.ToString())));
+			return;
+		}
+	}
+
+	ChampionText->SetText(FText::GetEmpty());
 }
 
 TSharedRef<SWidget> SMobaMainMenu::MakeButton(const FText& Label, FReply (SMobaMainMenu::*Handler)())

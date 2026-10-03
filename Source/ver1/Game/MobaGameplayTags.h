@@ -9,6 +9,7 @@ namespace MobaTags
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Slowed);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Hasted);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Invulnerable);
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Recalling);
 
 	/** 정글 보상으로 받는 버프. 효과는 태그를 보고 각 시스템이 적용한다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Blue);

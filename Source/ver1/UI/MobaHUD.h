@@ -20,6 +20,12 @@ public:
 	/** 화면 좌표가 미니맵 위에 있으면 그 지점의 월드 위치(지면 높이)를 돌려준다. */
 	bool GetMinimapWorldLocation(const FVector2D& ScreenPosition, FVector& OutWorldLocation) const;
 
+	/** 좌클릭을 상점 창이나 가방이 받았으면 처리하고 true를 돌려준다. 상점이 열려 있을 때만 받는다. */
+	bool HandleClick(const FVector2D& ScreenPosition);
+
+	/** 화면 좌표가 열려 있는 상점 창 위인지. */
+	bool IsOverPanel(const FVector2D& ScreenPosition) const;
+
 protected:
 	/** 유닛 머리 위 체력바. bShowMana면 바로 아래에 마나바도 그린다. */
 	void DrawUnitBar(const UAbilitySystemComponent* AbilitySystem, const FVector& WorldLocation, const FVector2D& Size, const FLinearColor& FillColor, bool bShowMana, const FString& Label);
@@ -48,6 +54,24 @@ protected:
 
 	/** 이 PC의 플레이어에게 보이는 유닛인지. */
 	bool IsSeen(const AActor* Actor) const;
+
+	/** 화면 오른쪽 위의 알림(처치, 건물 파괴 등). */
+	void DrawAnnouncements();
+
+	/** 귀환을 준비하는 동안의 진행 막대. */
+	void DrawRecall(const AMobaCharacter* Character);
+
+	/** 가방 여섯 칸. 상점이 열려 있으면 눌러서 팔 수 있다. */
+	void DrawInventory(const AMobaCharacter* Character);
+
+	/** 상점 창. P로 여닫는다. */
+	void DrawShop(const AMobaCharacter* Character);
+
+	/** Tab을 누르고 있는 동안 보이는 점수판. */
+	void DrawScoreboard();
+
+	/** 팀이 보낸 위치 신호. */
+	void DrawPings();
 
 	void DrawRespawnCountdown();
 
@@ -98,6 +122,12 @@ protected:
 	/** 미니맵이 나타내는 월드 범위(한 변). 월드 +X가 미니맵의 위쪽, +Y가 오른쪽이다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Minimap")
 	float MapWorldSize = 14870.0f;
+
+	/** 이번 프레임에 그린 상점 창과 그 안의 줄, 가방 칸의 화면 위치. 클릭 판정에 쓴다. */
+	FBox2D ShopPanelRect = FBox2D(ForceInit);
+	TArray<FBox2D> ShopItemRects;
+	TArray<FBox2D> InventoryRects;
+	bool bShopDrawn = false;
 
 	/** 이번 프레임에 그린 미니맵의 화면 위치. */
 	FVector2D MinimapOrigin = FVector2D::ZeroVector;

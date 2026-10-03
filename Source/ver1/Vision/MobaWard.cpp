@@ -1,4 +1,5 @@
 #include "Vision/MobaWard.h"
+#include "Game/MobaVisuals.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
@@ -23,6 +24,7 @@ AMobaWard::AMobaWard()
 	if (CylinderMesh.Succeeded())
 	{
 		Mesh->SetStaticMesh(CylinderMesh.Object);
+		MobaVisuals::UseColorableMaterial(Mesh);
 		Mesh->SetRelativeScale3D(FVector(0.25, 0.25, 0.9));
 	}
 }

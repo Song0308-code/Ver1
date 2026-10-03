@@ -1,4 +1,5 @@
 #include "Units/MobaMonster.h"
+#include "Game/MobaVisuals.h"
 #include "AIController.h"
 #include "AbilitySystemComponent.h"
 #include "Character/MobaCharacter.h"
@@ -54,6 +55,7 @@ AMobaMonster::AMobaMonster()
 	if (SphereMesh.Succeeded())
 	{
 		PlaceholderMesh->SetStaticMesh(SphereMesh.Object);
+		MobaVisuals::UseColorableMaterial(PlaceholderMesh);
 	}
 
 	CombatComponent = CreateDefaultSubobject<UMobaCombatComponent>(TEXT("CombatComponent"));

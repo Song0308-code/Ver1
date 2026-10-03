@@ -9,6 +9,8 @@ namespace MobaTags
 
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Invulnerable, "State.Invulnerable", "무적. 공격 대상이 되지 않는다. 앞선 건물이 남아 있는 건물에 붙는다.");
 
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Recalling, "State.Recalling", "귀환을 준비하는 중. 움직이거나 맞으면 취소된다.");
+
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Blue, "Buff.Blue", "푸른 파수꾼 버프. 마나 재생이 늘고 재사용 대기 시간이 줄어든다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Red, "Buff.Red", "붉은 덩굴정령 버프. 체력 재생이 늘고 기본 공격이 둔화와 추가 피해를 준다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon, "Buff.Dragon", "드래곤 처치 보상. 경기 끝까지 유지되고 잡을 때마다 겹친다.");

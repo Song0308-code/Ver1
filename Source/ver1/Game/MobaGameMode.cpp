@@ -306,6 +306,7 @@ void AMobaGameMode::HandleMinionKilled(AMobaMinion* Minion, AActor* Killer)
 	if (AMobaPlayerState* KillerState = KillerChampion ? KillerChampion->GetPlayerState<AMobaPlayerState>() : nullptr)
 	{
 		KillerState->AddGold(Minion->GetConfig().GoldReward);
+		KillerState->AddMinionKill();
 	}
 
 	// 경험치는 근처에 살아 있는 적 챔피언들이 똑같이 나눠 받는다.
@@ -335,6 +336,7 @@ void AMobaGameMode::HandleMonsterKilled(AMobaMonster* Monster, AActor* Killer)
 	{
 		KillerState->AddGold(Monster->GetConfig().GoldReward);
 		KillerState->AddExperience(Monster->GetConfig().ExperienceReward);
+		KillerState->AddMinionKill();
 	}
 }
 
@@ -378,6 +380,11 @@ void AMobaGameMode::HandleCampCleared(AMobaJungleCamp* Camp, AActor* Killer)
 		break;
 	}
 
+	if (Camp->GetCampType() == EMobaCampType::Dragon || Camp->GetCampType() == EMobaCampType::Baron)
+	{
+		Announce(FString::Printf(TEXT("%s 팀이 %s 처치"), *MobaTeam::GetTeamDisplayName(Team), *AMobaJungleCamp::GetDefinition(Camp->GetCampType()).DisplayName), Team);
+	}
+
 	UE_LOG(LogTemp, Log, TEXT("캠프 정리: %s (%s 팀)"), *AMobaJungleCamp::GetDefinition(Camp->GetCampType()).DisplayName, *MobaTeam::GetTeamTag(Team).ToString());
 }
 
@@ -419,6 +426,8 @@ void AMobaGameMode::HandleStructureDestroyed(AMobaStructure* Structure, AActor* 
 
 	const EMobaTeam WinningSide = Structure->GetTeam() == EMobaTeam::Blue ? EMobaTeam::Red : EMobaTeam::Blue;
 	GrantGoldToTeam(WinningSide, Structure->GetGoldReward());
+
+	Announce(FString::Printf(TEXT("%s 파괴"), *DescribeUnit(Structure)), WinningSide);
 
 	if (Structure->GetStructureType() == EMobaStructureType::Nexus)
 	{
@@ -469,10 +478,13 @@ void AMobaGameMode::EndMatch(EMobaTeam WinningTeam, bool bForfeit)
 
 FString AMobaGameMode::InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
 {
-	// Super가 시작 지점을 고르기 전에 팀이 정해져 있어야 한다.
+	// Super가 시작 지점을 고르고 챔피언을 스폰하기 전에 팀과 챔피언이 정해져 있어야 한다.
 	if (AMobaPlayerState* MobaPlayerState = NewPlayerController ? NewPlayerController->GetPlayerState<AMobaPlayerState>() : nullptr)
 	{
 		MobaPlayerState->SetTeam(PickTeamForNewPlayer());
+		MobaPlayerState->SetChampion(PickChampionForNewPlayer(Options, MobaPlayerState));
+
+		UE_LOG(LogTemp, Log, TEXT("플레이어 입장: %s 팀, 챔피언 %s"), *MobaTeam::GetTeamTag(MobaPlayerState->GetTeam()).ToString(), *GetNameSafe(MobaPlayerState->GetChampion()));
 	}
 
 	return Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
@@ -523,6 +535,84 @@ EMobaTeam AMobaGameMode::PickTeamForNewPlayer() const
 	return RedCount < BlueCount ? EMobaTeam::Red : EMobaTeam::Blue;
 }
 
+UMobaChampionData* AMobaGameMode::PickChampionForNewPlayer(const FString& Options, const AMobaPlayerState* NewPlayerState) const
+{
+	if (ChampionRoster.Num() == 0)
+	{
+		return GetDefaultChampion();
+	}
+
+	const FString Wanted = UGameplayStatics::ParseOption(Options, TEXT("Champion"));
+	if (!Wanted.IsEmpty())
+	{
+		for (const FSoftObjectPath& Path : ChampionRoster)
+		{
+			if (Path.GetAssetName().Equals(Wanted, ESearchCase::IgnoreCase))
+			{
+				return Cast<UMobaChampionData>(Path.TryLoad());
+			}
+		}
+	}
+
+	// 먼저 들어와 있는 플레이어 수를 순번으로 쓴다.
+	int32 PlayerIndex = 0;
+	if (GameState)
+	{
+		for (const APlayerState* PlayerState : GameState->PlayerArray)
+		{
+			const AMobaPlayerState* Other = Cast<AMobaPlayerState>(PlayerState);
+			if (Other && Other != NewPlayerState && Other->GetChampion())
+			{
+				++PlayerIndex;
+			}
+		}
+	}
+
+	UMobaChampionData* Champion = Cast<UMobaChampionData>(ChampionRoster[PlayerIndex % ChampionRoster.Num()].TryLoad());
+	return Champion ? Champion : GetDefaultChampion();
+}
+
+void AMobaGameMode::Announce(const FString& Message, EMobaTeam Team)
+{
+	if (AMobaGameState* MobaGameState = GetGameState<AMobaGameState>())
+	{
+		MobaGameState->MulticastAnnounce(Message, Team);
+	}
+}
+
+FString AMobaGameMode::DescribeUnit(const AActor* Unit) const
+{
+	const FString TeamName = MobaTeam::GetTeamDisplayName(MobaCombat::GetTeam(Unit));
+
+	if (const AMobaCharacter* Champion = Cast<AMobaCharacter>(Unit))
+	{
+		const AMobaPlayerState* PlayerState = Champion->GetPlayerState<AMobaPlayerState>();
+		return FString::Printf(TEXT("%s %s"), *TeamName, PlayerState ? *PlayerState->GetChampionDisplayName() : TEXT("챔피언"));
+	}
+
+	if (const AMobaStructure* Structure = Cast<AMobaStructure>(Unit))
+	{
+		switch (Structure->GetStructureType())
+		{
+		case EMobaStructureType::Inhibitor: return TeamName + TEXT(" 억제기");
+		case EMobaStructureType::Nexus: return TeamName + TEXT(" 넥서스");
+		default: return TeamName + TEXT(" 타워");
+		}
+	}
+
+	if (Unit && Unit->IsA<AMobaMinion>())
+	{
+		return TeamName + TEXT(" 미니언");
+	}
+
+	if (const AMobaMonster* Monster = Cast<AMobaMonster>(Unit))
+	{
+		return Monster->GetCamp() ? AMobaJungleCamp::GetDefinition(Monster->GetCamp()->GetCampType()).DisplayName : FString(TEXT("몬스터"));
+	}
+
+	return TEXT("알 수 없는 것");
+}
+
 UMobaChampionData* AMobaGameMode::GetDefaultChampion() const
 {
 	return DefaultChampion.LoadSynchronous();
@@ -548,6 +638,8 @@ void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)
 		KillerState->AddGold(ChampionKillGold);
 		KillerState->AddExperience(ChampionKillExperience);
 	}
+
+	Announce(FString::Printf(TEXT("%s → %s 처치"), *DescribeUnit(Killer), *DescribeUnit(Victim)), MobaCombat::GetTeam(Killer));
 
 	FTimerHandle TimerHandle;
 	GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(Victim, [this, Victim]()

@@ -1,6 +1,7 @@
 #include "Player/MobaPlayerState.h"
 #include "AbilitySystem/MobaAttributeSet.h"
 #include "AbilitySystemComponent.h"
+#include "Character/MobaChampionData.h"
 #include "Net/UnrealNetwork.h"
 
 AMobaPlayerState::AMobaPlayerState()
@@ -24,6 +25,9 @@ void AMobaPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMobaPlayerState, Deaths);
 	DOREPLIFETIME(AMobaPlayerState, RespawnServerTime);
 	DOREPLIFETIME(AMobaPlayerState, NextWardServerTime);
+	DOREPLIFETIME(AMobaPlayerState, Champion);
+	DOREPLIFETIME(AMobaPlayerState, Items);
+	DOREPLIFETIME(AMobaPlayerState, MinionKills);
 	DOREPLIFETIME(AMobaPlayerState, ChampionLevel);
 	DOREPLIFETIME(AMobaPlayerState, Experience);
 	DOREPLIFETIME(AMobaPlayerState, Gold);
@@ -49,6 +53,26 @@ void AMobaPlayerState::SetTeam(EMobaTeam NewTeam)
 void AMobaPlayerState::OnRep_Team()
 {
 	OnTeamChanged.Broadcast(Team);
+}
+
+bool AMobaPlayerState::SpendGold(float Amount)
+{
+	if (!HasAuthority() || Gold < Amount)
+	{
+		return false;
+	}
+
+	Gold -= Amount;
+	return true;
+}
+
+FString AMobaPlayerState::GetChampionDisplayName() const
+{
+	if (Champion && !Champion->DisplayName.IsEmpty())
+	{
+		return Champion->DisplayName.ToString();
+	}
+	return TEXT("챔피언");
 }
 
 float AMobaPlayerState::GetExperienceForNextLevel(int32 Level)

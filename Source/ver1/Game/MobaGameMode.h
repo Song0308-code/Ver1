@@ -11,6 +11,7 @@ class AMobaCharacter;
 class AMobaJungleCamp;
 class AMobaLanePath;
 class AMobaMonster;
+class AMobaPlayerState;
 class AMobaStructure;
 class UMobaChampionData;
 
@@ -30,8 +31,14 @@ public:
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual void StartPlay() override;
 
-	/** 챔피언 선택이 생기기 전까지 모든 플레이어가 쓰는 챔피언. 지정하지 않았으면 nullptr. */
+	/** 고를 수 있는 챔피언이 하나도 없을 때 쓰는 챔피언. 지정하지 않았으면 nullptr. */
 	UMobaChampionData* GetDefaultChampion() const;
+
+	/** 고를 수 있는 챔피언 목록. DefaultGame.ini의 ChampionRoster로 정한다. 메뉴에서도 읽는다. */
+	const TArray<FSoftObjectPath>& GetChampionRoster() const { return ChampionRoster; }
+
+	/** 서버에서 호출하면 모든 PC의 화면에 알림 한 줄이 뜬다. */
+	void Announce(const FString& Message, EMobaTeam Team);
 
 	/** 챔피언이 죽었을 때 서버에서 호출된다. 전적을 기록하고 부활을 예약한다. */
 	void HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer);
@@ -57,6 +64,15 @@ protected:
 
 	/** 인원이 더 적은 팀을 고른다. 같으면 블루. */
 	EMobaTeam PickTeamForNewPlayer() const;
+
+	/**
+	 * 접속 옵션의 Champion(에셋 이름)에 해당하는 챔피언을 고른다.
+	 * 옵션이 없으면 들어온 순서대로 목록을 돌아가며 배정한다(에디터에서 메뉴 없이 실행할 때).
+	 */
+	UMobaChampionData* PickChampionForNewPlayer(const FString& Options, const AMobaPlayerState* NewPlayerState) const;
+
+	/** 알림에 쓰는 유닛 이름 ("블루 레인저", "레드 타워" 등). */
+	FString DescribeUnit(const AActor* Unit) const;
 
 	void RespawnChampion(AMobaCharacter* Champion);
 
@@ -168,6 +184,9 @@ protected:
 
 	FTimerHandle WaveTimer;
 	FTimerHandle PassiveGoldTimer;
+
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Champion")
+	TArray<FSoftObjectPath> ChampionRoster;
 
 	/** DefaultGame.ini의 [/Script/ver1.MobaGameMode] DefaultChampion으로 지정한다. */
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Champion")

@@ -102,7 +102,8 @@ void UMobaGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	}
 
 	FVector TargetLocation = Caster->GetActorLocation();
-	if (TriggerEventData && TriggerEventData->TargetData.Num() > 0)
+	// 대상을 지정하지 않는 스킬은 클라이언트가 보낸 위치를 믿지 않고 서버가 아는 시전자 위치를 쓴다.
+	if (TargetingMode != EMobaTargetingMode::None && TriggerEventData && TriggerEventData->TargetData.Num() > 0)
 	{
 		TargetLocation = UAbilitySystemBlueprintLibrary::GetTargetDataEndPoint(TriggerEventData->TargetData, 0);
 	}
@@ -111,6 +112,14 @@ void UMobaGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
+	}
+
+	// 애니메이션·사운드가 반응할 수 있게 어느 칸의 스킬이 발동됐는지 알린다.
+	EMobaAbilitySlot Slot;
+	const FGameplayAbilitySpec* Spec = GetCurrentAbilitySpec();
+	if (Spec && MobaAbility::FindSlotInTags(Spec->GetDynamicSpecSourceTags(), Slot))
+	{
+		Caster->NotifyAbilityCast(Slot);
 	}
 
 	ExecuteCast(Caster, TargetLocation);

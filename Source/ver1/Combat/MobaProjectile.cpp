@@ -1,4 +1,5 @@
 #include "Combat/MobaProjectile.h"
+#include "Game/MobaVisuals.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
 #include "Combat/MobaCombatLibrary.h"
 #include "Components/StaticMeshComponent.h"
@@ -24,6 +25,7 @@ AMobaProjectile::AMobaProjectile()
 	if (SphereMesh.Succeeded())
 	{
 		Mesh->SetStaticMesh(SphereMesh.Object);
+		MobaVisuals::UseColorableMaterial(Mesh);
 	}
 }
 

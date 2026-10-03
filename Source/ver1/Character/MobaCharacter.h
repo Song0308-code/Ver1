@@ -10,10 +10,14 @@
 
 class AMobaPlayerState;
 class AMobaWard;
+class UMobaAnimationComponent;
 class UMobaChampionData;
+struct FMobaItemDefinition;
 class UMobaCombatComponent;
 class UMobaGameplayAbility;
 class UStaticMeshComponent;
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnMobaAbilityCast, EMobaAbilitySlot /*Slot*/);
 
 /** 플레이어가 조종하는 챔피언의 기본 클래스. */
 UCLASS()
@@ -29,6 +33,7 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
 
@@ -74,6 +79,36 @@ public:
 
 	float GetWardPlaceRange() const { return WardPlaceRange; }
 
+	/** 스킬이 발동될 때 모든 PC에서 호출된다. 애니메이션·사운드 연결용. */
+	FOnMobaAbilityCast OnAbilityCast;
+
+	/** 서버 전용. 스킬이 마나와 쿨다운을 소모하고 실제로 발동됐을 때 스킬이 호출한다. */
+	void NotifyAbilityCast(EMobaAbilitySlot Slot);
+
+	/** 자기 팀 우물 안에 있는지. */
+	bool IsInFountain() const;
+
+	/** 지금 상점을 쓸 수 있는지. 우물 안이거나 죽어 있을 때만 된다. */
+	bool CanShop() const { return IsDead() || IsInFountain(); }
+
+	bool CanBuyItem(int32 ItemIndex) const;
+
+	/** 조종하는 클라이언트 또는 서버에서 호출한다. */
+	void BuyItem(int32 ItemIndex);
+
+	/** 가방의 Slot번째 아이템을 판다. */
+	void SellItem(int32 Slot);
+
+	/** 조종하는 클라이언트 또는 서버에서 호출한다. 제자리에서 귀환을 준비하고, 끝나면 우물로 돌아간다. */
+	void StartRecall();
+
+	bool IsRecalling() const;
+
+	/** 귀환까지 남은 시간(초). 귀환 중이 아니면 0. */
+	float GetRecallRemaining() const;
+
+	float GetRecallDuration() const { return RecallDuration; }
+
 protected:
 	/** PlayerState의 팀 변경을 구독하고 현재 팀을 외형에 반영한다. */
 	void BindToPlayerStateTeam();
@@ -105,6 +140,33 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerPlaceWard(FVector_NetQuantize Location);
 
+	UFUNCTION(Server, Reliable)
+	void ServerBuyItem(int32 ItemIndex);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSellItem(int32 Slot);
+
+	UFUNCTION(Server, Reliable)
+	void ServerStartRecall();
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastAbilityCast(EMobaAbilitySlot Slot);
+
+	UFUNCTION()
+	void OnRep_ChampionData();
+
+	/** 챔피언 데이터의 메시·애니메이션을 입힌다. 메시가 없으면 임시 원기둥의 크기만 맞춘다. */
+	void ApplyChampionAppearance();
+
+	/** 서버 전용. 아이템의 수치를 더하거나(Sign = 1) 뺀다(Sign = -1). */
+	void ApplyItemStats(const FMobaItemDefinition& Item, float Sign);
+
+	/** 서버 전용. */
+	void TickRecall();
+	void CancelRecall();
+	void FinishRecall();
+	void HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, float Damage);
+
 	/** 서버 전용. 레벨이 올랐을 때 성장 스탯을 더한다. */
 	void HandleLevelUp(int32 NewLevel);
 
@@ -125,8 +187,20 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UMobaCombatComponent> CombatComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UMobaAnimationComponent> AnimationComponent;
+
+	/** 메시가 있을 때 사망 애니메이션을 보여 준 뒤 숨기기까지의 시간(초). */
+	UPROPERTY(EditDefaultsOnly, Category = "Appearance")
+	float DeathHideDelay = 2.5f;
+
+	/** 실제 메시를 쓰는지. 임시 원기둥은 발밑의 팀 색 원판으로 바뀐다. */
+	bool bUsingSkeletalMesh = false;
+
+	FTimerHandle DeathHideTimer;
+
 	/** 이 챔피언의 정의. 서버가 스폰 직후 정한다. 비어 있으면 아래 기본값을 쓴다. */
-	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = "Champion")
+	UPROPERTY(ReplicatedUsing = OnRep_ChampionData, EditDefaultsOnly, BlueprintReadOnly, Category = "Champion")
 	TObjectPtr<UMobaChampionData> ChampionData;
 
 	/** 챔피언 데이터가 없을 때 쓰는 기본 스탯. */
@@ -141,8 +215,24 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Champion|Fallback")
 	TMap<EMobaAbilitySlot, TSubclassOf<UMobaGameplayAbility>> DefaultAbilities;
 
-	/** 처음 스폰된 자기 팀 우물의 위치. 이 근처에서는 체력과 마나가 빠르게 찬다. */
+	/** 처음 스폰된 자기 팀 우물의 위치. 이 근처에서는 체력과 마나가 빠르게 차고 상점을 쓸 수 있다. */
+	UPROPERTY(Replicated)
 	FVector HomeLocation = FVector::ZeroVector;
+
+	/** 귀환을 준비하는 시간(초). */
+	UPROPERTY(EditDefaultsOnly, Category = "Recall")
+	float RecallDuration = 8.0f;
+
+	/** 귀환이 끝나는 시각(서버 월드 시간). 귀환 중이 아니면 0. */
+	UPROPERTY(Replicated)
+	float RecallEndServerTime = 0.0f;
+
+	/** 귀환을 시작한 시각(서버의 월드 시간). 직후의 잔여 속도로 취소되지 않게 하는 데 쓴다. */
+	double RecallStartTime = 0.0;
+
+	FTimerHandle RecallTimer;
+	FTimerHandle RecallCheckTimer;
+	FDelegateHandle DamageDealtHandle;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Fountain")
 	float FountainRadius = 900.0f;

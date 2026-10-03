@@ -82,6 +82,9 @@ namespace MobaTeam
 	VER1_API FName GetTeamTag(EMobaTeam Team);
 
 	VER1_API FLinearColor GetTeamColor(EMobaTeam Team);
+
+	/** 화면에 보여 줄 팀 이름 ("블루" / "레드"). */
+	VER1_API FString GetTeamDisplayName(EMobaTeam Team);
 }
 
 UINTERFACE(MinimalAPI, BlueprintType, meta = (CannotImplementInterfaceInBlueprint))

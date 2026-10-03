@@ -10,6 +10,15 @@ class UInputAction;
 class UInputMappingContext;
 struct FInputActionValue;
 
+/** 팀에게 보내는 위치 신호. */
+struct FMobaPing
+{
+	FVector Location = FVector::ZeroVector;
+
+	/** 받은 시각(이 PC의 월드 시간). */
+	double Time = 0.0;
+};
+
 UCLASS()
 class VER1_API AMobaPlayerController : public APlayerController
 {
@@ -31,6 +40,12 @@ public:
 	/** 커서가 가리키는 지면 위치. */
 	bool GetCursorGroundLocation(FVector& OutLocation) const;
 
+	bool IsShopOpen() const { return bShopOpen; }
+	bool IsScoreboardShown() const { return bScoreboardHeld; }
+
+	/** 최근에 받은 핑. 오래된 것부터 들어 있다. */
+	const TArray<FMobaPing>& GetPings() const { return Pings; }
+
 protected:
 	/** 입력 에셋을 만들기 전까지 쓰는 기본 키 배치를 코드로 구성한다. */
 	void CreateDefaultInput();
@@ -49,6 +64,21 @@ protected:
 	void OnConfirmTarget();
 	void OnReturnToMenu();
 	void OnPlaceWard();
+	void OnRecall();
+	void OnToggleShop();
+	void OnScoreboardStarted();
+	void OnScoreboardCompleted();
+
+	/** Alt + 좌클릭. 커서 위치(미니맵 위라면 그 지점)를 같은 팀에게 알린다. */
+	void SendPingAtCursor();
+
+	UFUNCTION(Server, Reliable)
+	void ServerPing(FVector_NetQuantize Location);
+
+	UFUNCTION(Client, Reliable)
+	void ClientShowPing(FVector_NetQuantize Location);
+
+	bool IsAltKeyDown() const;
 
 	/** 스킬 키를 눌렀을 때. Ctrl과 함께면 스킬 단계를 올리고, 아니면 즉시 시전하거나 조준 모드로 들어간다. */
 	void HandleAbilityKey(EMobaAbilitySlot Slot);
@@ -158,6 +188,15 @@ protected:
 	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> PlaceWardAction;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> RecallAction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> ShopAction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> ScoreboardAction;
+
 #if WITH_EDITORONLY_DATA
 	/** 에디터 자동 검증용. bDebugIssueMove를 켜면 다음 틱에 DebugMoveGoal로 이동 명령을 내린다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
@@ -194,12 +233,38 @@ protected:
 	/** 에디터 자동 검증용. 켜면 다음 틱에 DebugCastLocation에 와드를 놓는다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugPlaceWard = false;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 DebugItemIndex번 아이템을 사거나, 가방의 DebugItemIndex번 칸을 판다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	int32 DebugItemIndex = 0;
+
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugBuyItem = false;
+
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugSellItem = false;
+
+	/** 에디터 자동 검증용. 호스트의 컨트롤러에 0보다 큰 값을 넣으면 다음 틱에 모든 플레이어에게 그만큼 경험치를 준다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	float DebugGrantExperience = 0.0f;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 귀환을 시작한다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugRecall = false;
 #endif
 
 	bool bTargeting = false;
 	EMobaAbilitySlot TargetingSlot = EMobaAbilitySlot::Q;
 
 	bool bAttackTargeting = false;
+
+	bool bShopOpen = false;
+	bool bScoreboardHeld = false;
+
+	TArray<FMobaPing> Pings;
+
+	/** 서버에서 핑을 너무 자주 보내지 못하게 막는 데 쓴다. */
+	double LastPingTime = -10.0;
 
 	bool bCameraCenterHeld = false;
 	float LastHeldMoveTime = 0.0f;

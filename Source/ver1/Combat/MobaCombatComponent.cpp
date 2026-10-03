@@ -244,6 +244,13 @@ void UMobaCombatComponent::UpdateIdleAutoAcquire()
 	}
 	LastScanTime = Now;
 
+	// 귀환을 준비하는 동안에는 알아서 공격하지 않는다(공격하면 귀환이 취소된다).
+	const UAbilitySystemComponent* OwnerAbilitySystem = MobaCombat::GetAbilitySystem(GetOwner());
+	if (OwnerAbilitySystem && OwnerAbilitySystem->HasMatchingGameplayTag(MobaTags::State_Recalling))
+	{
+		return;
+	}
+
 	// 가만히 서 있을 때는 건물과 정글 몬스터를 알아서 치지 않는다.
 	if (AActor* Enemy = FindNearestEnemy(GetAttackRange(), false, false))
 	{

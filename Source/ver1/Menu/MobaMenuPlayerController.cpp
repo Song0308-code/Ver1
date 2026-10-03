@@ -1,7 +1,9 @@
 #include "Menu/MobaMenuPlayerController.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
+#include "Character/MobaChampionData.h"
 #include "Game/MobaGameInstance.h"
+#include "Game/MobaGameMode.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Menu/SMobaMainMenu.h"
@@ -55,12 +57,12 @@ void AMobaMenuPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason
 
 void AMobaMenuPlayerController::HostGame()
 {
-	UGameplayStatics::OpenLevel(this, FName(*GameMap), true, FString::Printf(TEXT("listen?Players=%d"), HostRequiredPlayers));
+	UGameplayStatics::OpenLevel(this, FName(*GameMap), true, FString::Printf(TEXT("listen?Players=%d%s"), HostRequiredPlayers, *MakeChampionOption()));
 }
 
 void AMobaMenuPlayerController::StartPractice()
 {
-	UGameplayStatics::OpenLevel(this, FName(*GameMap), true);
+	UGameplayStatics::OpenLevel(this, FName(*GameMap), true, MakeChampionOption().RightChop(1));
 }
 
 bool AMobaMenuPlayerController::JoinGame(const FString& Address)
@@ -78,8 +80,42 @@ bool AMobaMenuPlayerController::JoinGame(const FString& Address)
 		return false;
 	}
 
-	ClientTravel(Host, TRAVEL_Absolute);
+	ClientTravel(Host + MakeChampionOption(), TRAVEL_Absolute);
 	return true;
+}
+
+TArray<FMobaChampionChoice> AMobaMenuPlayerController::GetChampionChoices() const
+{
+	TArray<FMobaChampionChoice> Choices;
+	for (const FSoftObjectPath& Path : GetDefault<AMobaGameMode>()->GetChampionRoster())
+	{
+		FMobaChampionChoice& Choice = Choices.AddDefaulted_GetRef();
+		Choice.AssetName = Path.GetAssetName();
+
+		const UMobaChampionData* Data = Cast<UMobaChampionData>(Path.TryLoad());
+		Choice.DisplayName = Data && !Data->DisplayName.IsEmpty() ? Data->DisplayName : FText::FromString(Choice.AssetName);
+	}
+	return Choices;
+}
+
+FString AMobaMenuPlayerController::GetSelectedChampion() const
+{
+	const UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>();
+	return MobaGameInstance ? MobaGameInstance->GetSelectedChampion() : FString();
+}
+
+void AMobaMenuPlayerController::SelectChampion(const FString& AssetName)
+{
+	if (UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>())
+	{
+		MobaGameInstance->SetSelectedChampion(AssetName);
+	}
+}
+
+FString AMobaMenuPlayerController::MakeChampionOption() const
+{
+	const FString Selected = GetSelectedChampion();
+	return Selected.IsEmpty() ? FString() : FString::Printf(TEXT("?Champion=%s"), *Selected);
 }
 
 void AMobaMenuPlayerController::QuitGame()

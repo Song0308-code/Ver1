@@ -18,6 +18,11 @@ namespace
 	{
 		return AbilitySystem ? AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAbilityPowerAttribute()) : 0.0f;
 	}
+
+	float GetAttackDamage(const UAbilitySystemComponent* AbilitySystem)
+	{
+		return AbilitySystem ? AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackDamageAttribute()) : 0.0f;
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -189,10 +194,15 @@ void UMobaAbility_GroundAoE::Detonate(FVector Location)
 		TArray<AActor*> Enemies;
 		MobaAbility::FindEnemiesInRadius(Caster, Location, Radius, Enemies);
 
-		const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAbilityPower(AbilitySystem) * AbilityPowerRatio;
+		const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAbilityPower(AbilitySystem) * AbilityPowerRatio + GetAttackDamage(AbilitySystem) * AttackDamageRatio;
 		for (AActor* Enemy : Enemies)
 		{
-			MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(AbilitySystem, Caster, 0.0f, Damage, 0.0f), Enemy);
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(AbilitySystem, Caster, bPhysicalDamage ? Damage : 0.0f, bPhysicalDamage ? 0.0f : Damage, 0.0f), Enemy);
+
+			if (SlowMoveSpeedMultiplier < 1.0f && SlowDuration > 0.0f && !MobaCombat::IsDead(Enemy))
+			{
+				MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatModSpec(AbilitySystem, Caster, SlowDuration, SlowMoveSpeedMultiplier, 1.0f, MobaTags::State_Slowed), Enemy);
+			}
 
 			// 이 피해로 죽은 대상에게는 기절을 남기지 않는다.
 			if (StunDuration > 0.0f && !MobaCombat::IsDead(Enemy))
@@ -203,4 +213,99 @@ void UMobaAbility_GroundAoE::Detonate(FVector Location)
 	}
 
 	FinishCast();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Dash strike
+
+UMobaAbility_DashStrike::UMobaAbility_DashStrike()
+{
+	DisplayName = NSLOCTEXT("Moba", "DashStrikeName", "돌진 베기");
+	TargetingMode = EMobaTargetingMode::Location;
+	CastRange = 450.0f;
+	ManaCost = 45.0f;
+	CooldownDuration = 7.0f;
+}
+
+void UMobaAbility_DashStrike::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	FVector Facing = TargetLocation - Caster->GetActorLocation();
+	Facing.Z = 0.0;
+	const FRotator Rotation = Facing.IsNearlyZero() ? Caster->GetActorRotation() : Facing.Rotation();
+
+	Caster->TeleportChampion(TargetLocation, Rotation);
+
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+
+	TArray<AActor*> Enemies;
+	MobaAbility::FindEnemiesInRadius(Caster, TargetLocation, Radius, Enemies);
+
+	const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAttackDamage(AbilitySystem) * AttackDamageRatio;
+	for (AActor* Enemy : Enemies)
+	{
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(AbilitySystem, Caster, Damage, 0.0f, 0.0f), Enemy);
+	}
+
+	FinishCast();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Self heal
+
+UMobaAbility_SelfHeal::UMobaAbility_SelfHeal()
+{
+	DisplayName = NSLOCTEXT("Moba", "SelfHealName", "재정비");
+	TargetingMode = EMobaTargetingMode::None;
+	ManaCost = 60.0f;
+	CooldownDuration = 14.0f;
+}
+
+void UMobaAbility_SelfHeal::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	if (UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo())
+	{
+		const float Health = AbilitySystem->GetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute());
+		const float MaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
+		const float Heal = ScaleByLevel(BaseHeal, HealPerLevel) + (MaxHealth - Health) * MissingHealthFraction;
+
+		AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute(), FMath::Min(Health + Heal, MaxHealth));
+	}
+
+	FinishCast();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Ground slam / Frenzy
+
+UMobaAbility_GroundSlam::UMobaAbility_GroundSlam()
+{
+	DisplayName = NSLOCTEXT("Moba", "GroundSlamName", "지면 강타");
+	TargetingMode = EMobaTargetingMode::None;
+	CastRange = 0.0f;
+	ManaCost = 50.0f;
+	CooldownDuration = 9.0f;
+	bUltimate = false;
+
+	Radius = 350.0f;
+	Delay = 0.0f;
+	BaseDamage = 60.0f;
+	DamagePerLevel = 35.0f;
+	AbilityPowerRatio = 0.0f;
+	AttackDamageRatio = 0.5f;
+	bPhysicalDamage = true;
+	StunDuration = 0.0f;
+	SlowMoveSpeedMultiplier = 0.6f;
+	SlowDuration = 1.5f;
+}
+
+UMobaAbility_Frenzy::UMobaAbility_Frenzy()
+{
+	DisplayName = NSLOCTEXT("Moba", "FrenzyName", "전투 광분");
+	ManaCost = 100.0f;
+	CooldownDuration = 70.0f;
+	bUltimate = true;
+
+	BuffDuration = 8.0f;
+	MoveSpeedMultiplier = 1.35f;
+	AttackSpeedMultiplier = 1.8f;
 }

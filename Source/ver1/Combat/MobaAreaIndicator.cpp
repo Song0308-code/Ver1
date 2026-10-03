@@ -1,4 +1,5 @@
 #include "Combat/MobaAreaIndicator.h"
+#include "Game/MobaVisuals.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Net/UnrealNetwork.h"
@@ -20,6 +21,7 @@ AMobaAreaIndicator::AMobaAreaIndicator()
 	if (CylinderMesh.Succeeded())
 	{
 		Mesh->SetStaticMesh(CylinderMesh.Object);
+		MobaVisuals::UseColorableMaterial(Mesh);
 	}
 }
 
@@ -34,6 +36,8 @@ void AMobaAreaIndicator::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// 곧 터질 자리라는 것을 알리는 주황색.
+	Mesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(1.0, 0.45, 0.05));
 	ApplyRadiusToMesh();
 }
 

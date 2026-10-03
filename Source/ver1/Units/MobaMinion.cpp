@@ -1,4 +1,5 @@
 #include "Units/MobaMinion.h"
+#include "Game/MobaVisuals.h"
 #include "AIController.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
 #include "AbilitySystemComponent.h"
@@ -50,6 +51,7 @@ AMobaMinion::AMobaMinion()
 	if (CubeMesh.Succeeded())
 	{
 		PlaceholderMesh->SetStaticMesh(CubeMesh.Object);
+		MobaVisuals::UseColorableMaterial(PlaceholderMesh);
 	}
 
 	CombatComponent = CreateDefaultSubobject<UMobaCombatComponent>(TEXT("CombatComponent"));

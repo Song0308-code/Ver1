@@ -1,17 +1,23 @@
 #include "Character/MobaCharacter.h"
+#include "Game/MobaVisuals.h"
 #include "AbilitySystem/Abilities/MobaAbilityArchetypes.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
 #include "AbilitySystem/MobaGameplayAbility.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "Character/MobaAnimationComponent.h"
 #include "Character/MobaChampionData.h"
 #include "Combat/MobaCombatComponent.h"
+#include "Combat/MobaCombatEvents.h"
 #include "Combat/MobaCombatLibrary.h"
 #include "Game/MobaGameMode.h"
 #include "Game/MobaGameplayTags.h"
+#include "Game/MobaItems.h"
 #include "GameFramework/Controller.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
@@ -54,6 +60,7 @@ AMobaCharacter::AMobaCharacter()
 	if (CylinderMesh.Succeeded())
 	{
 		PlaceholderMesh->SetStaticMesh(CylinderMesh.Object);
+		MobaVisuals::UseColorableMaterial(PlaceholderMesh);
 		const float Radius = GetCapsuleComponent()->GetUnscaledCapsuleRadius();
 		const float HalfHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 		PlaceholderMesh->SetRelativeScale3D(FVector(Radius / 50.0f, Radius / 50.0f, HalfHeight / 50.0f));
@@ -61,6 +68,12 @@ AMobaCharacter::AMobaCharacter()
 
 	CombatComponent = CreateDefaultSubobject<UMobaCombatComponent>(TEXT("CombatComponent"));
 	CombatComponent->SetAutoAcquireWhenIdle(true);
+
+	AnimationComponent = CreateDefaultSubobject<UMobaAnimationComponent>(TEXT("AnimationComponent"));
+
+	// 메시는 보이기만 하고 충돌·클릭 판정은 캡슐이 맡는다.
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetMesh()->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
 
 	DefaultAbilities.Add(EMobaAbilitySlot::Q, UMobaAbility_Skillshot::StaticClass());
 	DefaultAbilities.Add(EMobaAbilitySlot::W, UMobaAbility_SelfBuff::StaticClass());
@@ -73,16 +86,83 @@ void AMobaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMobaCharacter, ChampionData);
+	DOREPLIFETIME(AMobaCharacter, HomeLocation);
+	DOREPLIFETIME(AMobaCharacter, RecallEndServerTime);
 }
 
 void AMobaCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	ApplyChampionAppearance();
+
 	if (HasAuthority())
 	{
 		GetWorldTimerManager().SetTimer(RegenTimer, this, &AMobaCharacter::TickRegen, 0.25f, true);
+
+		if (UMobaCombatEvents* Events = UMobaCombatEvents::Get(this))
+		{
+			DamageDealtHandle = Events->OnDamageDealt.AddUObject(this, &AMobaCharacter::HandleDamageDealt);
+		}
 	}
+}
+
+void AMobaCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UMobaCombatEvents* Events = UMobaCombatEvents::Get(this))
+	{
+		Events->OnDamageDealt.Remove(DamageDealtHandle);
+	}
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void AMobaCharacter::OnRep_ChampionData()
+{
+	ApplyChampionAppearance();
+}
+
+void AMobaCharacter::ApplyChampionAppearance()
+{
+	if (!ChampionData)
+	{
+		return;
+	}
+
+	const float Radius = GetCapsuleComponent()->GetUnscaledCapsuleRadius();
+	const float HalfHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+	const FVector& Shape = ChampionData->PlaceholderScale;
+	PlaceholderMesh->SetRelativeScale3D(FVector(Radius / 50.0f * Shape.X, Radius / 50.0f * Shape.Y, HalfHeight / 50.0f * Shape.Z));
+
+	// 원기둥의 바닥이 캡슐 바닥에 닿도록 높이를 맞춘다.
+	PlaceholderMesh->SetRelativeLocation(FVector(0.0, 0.0, HalfHeight * (Shape.Z - 1.0)));
+
+	USkeletalMesh* ChampionMesh = ChampionData->Mesh.LoadSynchronous();
+	if (!ChampionMesh)
+	{
+		return;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	MeshComponent->SetSkeletalMesh(ChampionMesh);
+	MeshComponent->SetRelativeLocationAndRotation(ChampionData->MeshOffset, ChampionData->MeshRotation);
+	MeshComponent->SetRelativeScale3D(FVector(ChampionData->MeshScale));
+	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	if (UClass* AnimClass = ChampionData->AnimClass.LoadSynchronous())
+	{
+		MeshComponent->SetAnimInstanceClass(AnimClass);
+	}
+	else
+	{
+		AnimationComponent->Configure(MeshComponent, ChampionData->Animations);
+	}
+
+	// 임시 원기둥은 발밑의 납작한 팀 색 원판으로 바꿔 아군·적을 구분하는 표시로 쓴다.
+	bUsingSkeletalMesh = true;
+	PlaceholderMesh->SetRelativeScale3D(FVector(Radius * 1.6f / 50.0f, Radius * 1.6f / 50.0f, 0.02f));
+	PlaceholderMesh->SetRelativeLocation(FVector(0.0, 0.0, -HalfHeight + 2.0f));
+	PlaceholderMesh->SetCastShadow(false);
 }
 
 const FMobaBaseStats& AMobaCharacter::GetBaseStats() const
@@ -127,10 +207,19 @@ void AMobaCharacter::PossessedBy(AController* NewController)
 
 	if (!ChampionData)
 	{
-		if (const AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
+		// 접속할 때 정해 둔 챔피언을 쓰고, 없으면 기본 챔피언으로 한다.
+		const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+		const AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>();
+		if (MobaPlayerState && MobaPlayerState->GetChampion())
+		{
+			ChampionData = MobaPlayerState->GetChampion();
+		}
+		else if (GameMode)
 		{
 			ChampionData = GameMode->GetDefaultChampion();
 		}
+
+		ApplyChampionAppearance();
 	}
 
 	BindToPlayerStateTeam();
@@ -253,7 +342,23 @@ void AMobaCharacter::HandleStunnedTagChanged(const FGameplayTag Tag, int32 NewCo
 
 void AMobaCharacter::ApplyDeadState(bool bDead)
 {
-	SetActorHiddenInGame(bDead);
+	GetWorldTimerManager().ClearTimer(DeathHideTimer);
+
+	// 사망 애니메이션이 있으면 쓰러지는 모습을 잠깐 보여 준 뒤 숨긴다.
+	if (bDead && bUsingSkeletalMesh && AnimationComponent->HasDeathAnimation())
+	{
+		GetWorldTimerManager().SetTimer(DeathHideTimer, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (IsDead())
+			{
+				SetActorHiddenInGame(true);
+			}
+		}), DeathHideDelay, false);
+	}
+	else
+	{
+		SetActorHiddenInGame(bDead);
+	}
 	SetActorEnableCollision(!bDead);
 
 	UpdateMovementLock();
@@ -583,4 +688,239 @@ void AMobaCharacter::HandleTeamChanged(EMobaTeam NewTeam)
 {
 	const FLinearColor TeamColor = MobaTeam::GetTeamColor(NewTeam);
 	PlaceholderMesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(TeamColor.R, TeamColor.G, TeamColor.B));
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 스킬 시전 알림
+
+void AMobaCharacter::NotifyAbilityCast(EMobaAbilitySlot Slot)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	// 스킬을 쓰면 귀환이 끊긴다.
+	CancelRecall();
+	MulticastAbilityCast(Slot);
+}
+
+void AMobaCharacter::MulticastAbilityCast_Implementation(EMobaAbilitySlot Slot)
+{
+	OnAbilityCast.Broadcast(Slot);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 상점
+
+bool AMobaCharacter::IsInFountain() const
+{
+	return FVector::DistSquared2D(GetActorLocation(), HomeLocation) <= FMath::Square(FountainRadius);
+}
+
+bool AMobaCharacter::CanBuyItem(int32 ItemIndex) const
+{
+	const FMobaItemDefinition* Item = MobaItems::GetItem(ItemIndex);
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	if (!Item || !MobaPlayerState || !CanShop() || MobaPlayerState->GetGold() < Item->Cost || MobaPlayerState->GetItems().Num() >= MobaItems::MaxInventorySlots)
+	{
+		return false;
+	}
+
+	return !Item->bUnique || !MobaPlayerState->GetItems().Contains(static_cast<uint8>(ItemIndex));
+}
+
+void AMobaCharacter::BuyItem(int32 ItemIndex)
+{
+	if (CanBuyItem(ItemIndex))
+	{
+		ServerBuyItem(ItemIndex);
+	}
+}
+
+void AMobaCharacter::ServerBuyItem_Implementation(int32 ItemIndex)
+{
+	const FMobaItemDefinition* Item = MobaItems::GetItem(ItemIndex);
+	AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	if (!Item || !MobaPlayerState || !CanBuyItem(ItemIndex) || !MobaPlayerState->SpendGold(Item->Cost))
+	{
+		return;
+	}
+
+	MobaPlayerState->AddItem(static_cast<uint8>(ItemIndex));
+	ApplyItemStats(*Item, 1.0f);
+}
+
+void AMobaCharacter::SellItem(int32 Slot)
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	if (MobaPlayerState && CanShop() && MobaPlayerState->GetItems().IsValidIndex(Slot))
+	{
+		ServerSellItem(Slot);
+	}
+}
+
+void AMobaCharacter::ServerSellItem_Implementation(int32 Slot)
+{
+	AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	if (!MobaPlayerState || !CanShop() || !MobaPlayerState->GetItems().IsValidIndex(Slot))
+	{
+		return;
+	}
+
+	const FMobaItemDefinition* Item = MobaItems::GetItem(MobaPlayerState->GetItems()[Slot]);
+	MobaPlayerState->RemoveItemAt(Slot);
+	if (Item)
+	{
+		MobaPlayerState->AddGold(FMath::FloorToFloat(Item->Cost * MobaItems::SellRefundFraction));
+		ApplyItemStats(*Item, -1.0f);
+	}
+}
+
+void AMobaCharacter::ApplyItemStats(const FMobaItemDefinition& Item, float Sign)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!HasAuthority() || !AbilitySystem)
+	{
+		return;
+	}
+
+	const auto AddToBase = [AbilitySystem, Sign](const FGameplayAttribute& Attribute, float Amount)
+	{
+		if (Amount != 0.0f)
+		{
+			AbilitySystem->SetNumericAttributeBase(Attribute, AbilitySystem->GetNumericAttributeBase(Attribute) + Amount * Sign);
+		}
+	};
+
+	AddToBase(UMobaAttributeSet::GetAttackDamageAttribute(), Item.AttackDamage);
+	AddToBase(UMobaAttributeSet::GetAbilityPowerAttribute(), Item.AbilityPower);
+	AddToBase(UMobaAttributeSet::GetArmorAttribute(), Item.Armor);
+	AddToBase(UMobaAttributeSet::GetMagicResistAttribute(), Item.MagicResist);
+	AddToBase(UMobaAttributeSet::GetMoveSpeedAttribute(), Item.MoveSpeed);
+	AddToBase(UMobaAttributeSet::GetAttackSpeedAttribute(), GetBaseStats().AttackSpeed * Item.AttackSpeedFraction);
+	AddToBase(UMobaAttributeSet::GetMaxHealthAttribute(), Item.MaxHealth);
+	AddToBase(UMobaAttributeSet::GetMaxManaAttribute(), Item.MaxMana);
+
+	// 살 때는 늘어난 최대치만큼 현재 수치도 채워 주고, 팔 때는 줄어든 최대치를 넘지 않게만 한다.
+	const auto AdjustCurrent = [AbilitySystem, Sign, this](const FGameplayAttribute& Attribute, const FGameplayAttribute& MaxAttribute, float Amount)
+	{
+		if (Amount == 0.0f || IsDead())
+		{
+			return;
+		}
+
+		const float Current = AbilitySystem->GetNumericAttributeBase(Attribute) + (Sign > 0.0f ? Amount : 0.0f);
+		AbilitySystem->SetNumericAttributeBase(Attribute, FMath::Clamp(Current, 1.0f, AbilitySystem->GetNumericAttribute(MaxAttribute)));
+	};
+
+	AdjustCurrent(UMobaAttributeSet::GetHealthAttribute(), UMobaAttributeSet::GetMaxHealthAttribute(), Item.MaxHealth);
+	if (Item.MaxMana != 0.0f)
+	{
+		const float Mana = AbilitySystem->GetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute()) + (Sign > 0.0f ? Item.MaxMana : 0.0f);
+		AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute(), FMath::Clamp(Mana, 0.0f, AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxManaAttribute())));
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 귀환
+
+bool AMobaCharacter::IsRecalling() const
+{
+	return RecallEndServerTime > 0.0f;
+}
+
+float AMobaCharacter::GetRecallRemaining() const
+{
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	if (!GameState || RecallEndServerTime <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	return FMath::Max(RecallEndServerTime - static_cast<float>(GameState->GetServerWorldTimeSeconds()), 0.0f);
+}
+
+void AMobaCharacter::StartRecall()
+{
+	if (!CanAct() || IsRecalling())
+	{
+		return;
+	}
+
+	// 걷던 중이면 먼저 멈춘다. 움직이면 귀환이 취소되기 때문이다.
+	if (AController* MyController = GetController())
+	{
+		MyController->StopMovement();
+	}
+	GetCharacterMovement()->StopMovementImmediately();
+	CombatComponent->SetAttackTarget(nullptr);
+
+	ServerStartRecall();
+}
+
+void AMobaCharacter::ServerStartRecall_Implementation()
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	if (!AbilitySystem || !GameState || !CanAct() || IsRecalling() || MobaCombat::IsMatchOver(this))
+	{
+		return;
+	}
+
+	CombatComponent->SetAttackTarget(nullptr);
+
+	RecallStartTime = GetWorld()->GetTimeSeconds();
+	RecallEndServerTime = static_cast<float>(GameState->GetServerWorldTimeSeconds()) + RecallDuration;
+	AbilitySystem->SetLooseGameplayTagCount(MobaTags::State_Recalling, 1, EGameplayTagReplicationState::TagOnly);
+
+	GetWorldTimerManager().SetTimer(RecallTimer, this, &AMobaCharacter::FinishRecall, RecallDuration, false);
+	GetWorldTimerManager().SetTimer(RecallCheckTimer, this, &AMobaCharacter::TickRecall, 0.1f, true);
+}
+
+void AMobaCharacter::TickRecall()
+{
+	// 시작 직후에는 멈추는 중의 잔여 속도가 남아 있을 수 있어 잠깐은 속도를 보지 않는다.
+	const bool bMoved = GetWorld()->GetTimeSeconds() - RecallStartTime > 0.4 && GetVelocity().Size2D() > 10.0f;
+	if (!CanAct() || bMoved || CombatComponent->GetAttackTarget())
+	{
+		CancelRecall();
+	}
+}
+
+void AMobaCharacter::CancelRecall()
+{
+	if (!HasAuthority() || !IsRecalling())
+	{
+		return;
+	}
+
+	RecallEndServerTime = 0.0f;
+	GetWorldTimerManager().ClearTimer(RecallTimer);
+	GetWorldTimerManager().ClearTimer(RecallCheckTimer);
+
+	if (UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent())
+	{
+		AbilitySystem->SetLooseGameplayTagCount(MobaTags::State_Recalling, 0, EGameplayTagReplicationState::TagOnly);
+	}
+}
+
+void AMobaCharacter::FinishRecall()
+{
+	if (!IsRecalling())
+	{
+		return;
+	}
+
+	CancelRecall();
+	TeleportChampion(HomeLocation, GetActorRotation());
+}
+
+void AMobaCharacter::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, float Damage)
+{
+	// 맞으면 귀환이 끊긴다.
+	if (Victim == this && Damage > 0.0f)
+	{
+		CancelRecall();
+	}
 }

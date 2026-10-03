@@ -8,6 +8,7 @@
 
 class UAbilitySystemComponent;
 class UMobaAttributeSet;
+class UMobaChampionData;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMobaTeamChanged, EMobaTeam);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMobaLevelUp, int32 /*NewLevel*/);
@@ -37,6 +38,27 @@ public:
 
 	/** 서버 전용. */
 	void AddGold(float Amount) { Gold += Amount; }
+
+	/** 서버 전용. 골드가 충분하면 쓰고 true를 돌려준다. */
+	bool SpendGold(float Amount);
+
+	/** 서버 전용. 이 플레이어가 쓸 챔피언. 스폰 전에 정한다. */
+	void SetChampion(UMobaChampionData* InChampion) { Champion = InChampion; }
+	UMobaChampionData* GetChampion() const { return Champion; }
+
+	/** 화면에 보여 줄 챔피언 이름. */
+	FString GetChampionDisplayName() const;
+
+	/** 가방에 든 아이템 번호들(MobaItems::GetItems의 인덱스). */
+	const TArray<uint8>& GetItems() const { return Items; }
+
+	/** 서버 전용. */
+	void AddItem(uint8 ItemIndex) { Items.Add(ItemIndex); }
+	void RemoveItemAt(int32 Slot) { Items.RemoveAt(Slot); }
+
+	/** 서버 전용. 미니언·몬스터 처치 수. */
+	void AddMinionKill() { ++MinionKills; }
+	int32 GetMinionKills() const { return MinionKills; }
 
 	/** 서버 전용. 와드를 다시 놓을 수 있는 시각(서버 월드 시간). */
 	void SetNextWardServerTime(float NewTime) { NextWardServerTime = NewTime; }
@@ -98,6 +120,15 @@ protected:
 
 	UPROPERTY(Replicated)
 	float NextWardServerTime = 0.0f;
+
+	UPROPERTY(Replicated)
+	TObjectPtr<UMobaChampionData> Champion;
+
+	UPROPERTY(Replicated)
+	TArray<uint8> Items;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 MinionKills = 0;
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Progression")
 	int32 ChampionLevel = 1;

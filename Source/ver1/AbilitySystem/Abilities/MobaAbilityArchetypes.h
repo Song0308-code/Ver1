@@ -122,8 +122,92 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Damage")
 	float AbilityPowerRatio = 0.8f;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 0.0f;
+
+	/** true면 물리 피해, false면 마법 피해. */
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	bool bPhysicalDamage = false;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Stun")
 	float StunDuration = 1.5f;
 
+	/** 1보다 작으면 맞은 적을 둔화시킨다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Slow")
+	float SlowMoveSpeedMultiplier = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Slow")
+	float SlowDuration = 0.0f;
+
 	FTimerHandle DetonateTimer;
+};
+
+/** 커서 쪽으로 짧게 돌진해 도착 지점 주변의 적에게 물리 피해를 준다. */
+UCLASS()
+class VER1_API UMobaAbility_DashStrike : public UMobaAbility_Blink
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_DashStrike();
+
+	virtual float GetIndicatorRadius() const override { return Radius; }
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float Radius = 220.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 70.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 40.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 0.8f;
+};
+
+/** 즉시 발동. 자신의 체력을 회복한다. 잃은 체력이 많을수록 더 많이 회복한다. */
+UCLASS()
+class VER1_API UMobaAbility_SelfHeal : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_SelfHeal();
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Heal")
+	float BaseHeal = 60.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Heal")
+	float HealPerLevel = 30.0f;
+
+	/** 잃은 체력 중 추가로 회복하는 비율. */
+	UPROPERTY(EditDefaultsOnly, Category = "Heal")
+	float MissingHealthFraction = 0.1f;
+};
+
+/** 즉시 발동. 자기 주변의 적에게 물리 피해와 둔화를 준다. */
+UCLASS()
+class VER1_API UMobaAbility_GroundSlam : public UMobaAbility_GroundAoE
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_GroundSlam();
+};
+
+/** 궁극기. 한동안 이동 속도와 공격 속도가 크게 오른다. */
+UCLASS()
+class VER1_API UMobaAbility_Frenzy : public UMobaAbility_SelfBuff
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_Frenzy();
 };

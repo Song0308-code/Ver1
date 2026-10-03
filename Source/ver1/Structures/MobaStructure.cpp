@@ -1,4 +1,5 @@
 #include "Structures/MobaStructure.h"
+#include "Game/MobaVisuals.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "Character/MobaCharacter.h"
@@ -7,6 +8,7 @@
 #include "Combat/MobaCombatLibrary.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Materials/MaterialInterface.h"
 #include "EngineUtils.h"
 #include "GameFramework/GameStateBase.h"
 #include "Game/MobaGameMode.h"
@@ -49,6 +51,7 @@ AMobaStructure::AMobaStructure()
 	if (CylinderMesh.Succeeded())
 	{
 		Mesh->SetStaticMesh(CylinderMesh.Object);
+		MobaVisuals::UseColorableMaterial(Mesh);
 	}
 
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
@@ -102,6 +105,15 @@ void AMobaStructure::OnRep_Team()
 
 void AMobaStructure::ApplyTeamColor()
 {
+	// 예전에 배치해 저장된 건물은 색 파라미터가 없는 머티리얼을 들고 있을 수 있다. 클래스 기본값의 머티리얼로 되돌린다.
+	const AMobaStructure* Defaults = GetClass()->GetDefaultObject<AMobaStructure>();
+	UMaterialInterface* ShapeMaterial = Defaults && Defaults->Mesh ? Defaults->Mesh->GetMaterial(0) : nullptr;
+	UMaterialInterface* Current = Mesh->GetMaterial(0);
+	if (ShapeMaterial && (!Current || Current->GetBaseMaterial() != ShapeMaterial->GetBaseMaterial()))
+	{
+		Mesh->SetMaterial(0, ShapeMaterial);
+	}
+
 	const FLinearColor TeamColor = MobaTeam::GetTeamColor(Team);
 	Mesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(TeamColor.R, TeamColor.G, TeamColor.B));
 }
@@ -368,6 +380,11 @@ void AMobaInhibitor::HandleOutOfHealth(AActor* DamageInstigator)
 	{
 		RespawnServerTime = 0.0f;
 		Revive();
+
+		if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
+		{
+			GameMode->Announce(FString::Printf(TEXT("%s 억제기 재생성"), *MobaTeam::GetTeamDisplayName(Team)), Team);
+		}
 	}), RespawnDelay, false);
 }
 

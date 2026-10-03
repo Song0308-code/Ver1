@@ -6,6 +6,15 @@
 
 class SMobaMainMenu;
 
+/** 메뉴에 보여 줄 챔피언 하나. */
+struct FMobaChampionChoice
+{
+	/** 접속 옵션으로 넘기는 에셋 이름. */
+	FString AssetName;
+
+	FText DisplayName;
+};
+
 /** 메인 메뉴 화면을 띄우고, 방 만들기·접속 같은 메뉴 동작을 실행한다. */
 UCLASS()
 class VER1_API AMobaMenuPlayerController : public APlayerController
@@ -29,7 +38,17 @@ public:
 
 	void QuitGame();
 
+	/** 고를 수 있는 챔피언 목록. */
+	TArray<FMobaChampionChoice> GetChampionChoices() const;
+
+	/** 고른 챔피언의 에셋 이름. 맵을 옮겨도 유지된다. */
+	FString GetSelectedChampion() const;
+	void SelectChampion(const FString& AssetName);
+
 protected:
+	/** 접속 주소 뒤에 붙일 챔피언 옵션. 고른 것이 없으면 빈 문자열. */
+	FString MakeChampionOption() const;
+
 	/** 경기를 진행하는 맵. */
 	UPROPERTY(EditDefaultsOnly, Category = "Menu")
 	FString GameMap = TEXT("/Game/Maps/L_SummonersRift");

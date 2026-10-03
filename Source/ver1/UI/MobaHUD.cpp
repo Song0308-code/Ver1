@@ -11,6 +11,7 @@
 #include "EngineUtils.h"
 #include "Game/MobaGameState.h"
 #include "Game/MobaGameplayTags.h"
+#include "Game/MobaItems.h"
 #include "Map/MobaJungleCamp.h"
 #include "Map/MobaLanePath.h"
 #include "Player/MobaPlayerController.h"
@@ -46,9 +47,21 @@ void AMobaHUD::DrawHUD()
 		DrawTargetingIndicator(LocalCharacter);
 		DrawStatusBar(LocalCharacter);
 		DrawBuffsAndWard(LocalCharacter);
+		DrawInventory(LocalCharacter);
+		DrawRecall(LocalCharacter);
 	}
 
+	DrawPings();
 	DrawMinimap();
+	DrawAnnouncements();
+
+	bShopDrawn = false;
+	if (const AMobaCharacter* ShopCharacter = Cast<AMobaCharacter>(GetOwningPawn()))
+	{
+		DrawShop(ShopCharacter);
+	}
+
+	DrawScoreboard();
 
 	DrawMatchResult();
 }
@@ -393,7 +406,9 @@ void AMobaHUD::DrawMatchInfo()
 	}
 
 	const int32 TotalSeconds = FMath::FloorToInt(GameState->GetMatchTimeSeconds());
-	const FString Text = FString::Printf(TEXT("%02d:%02d    K %d / D %d"), TotalSeconds / 60, TotalSeconds % 60, PlayerState->GetKills(), PlayerState->GetDeaths());
+	const FString Text = FString::Printf(TEXT("블루 %d : %d 레드    %02d:%02d    K %d / D %d / CS %d"),
+		GameState->GetTeamKills(EMobaTeam::Blue), GameState->GetTeamKills(EMobaTeam::Red),
+		TotalSeconds / 60, TotalSeconds % 60, PlayerState->GetKills(), PlayerState->GetDeaths(), PlayerState->GetMinionKills());
 	DrawCenteredText(Text, FLinearColor::White, Canvas->ClipX * 0.5f, 12.0f, GEngine->GetSmallFont(), 1.3f);
 }
 
@@ -462,6 +477,279 @@ void AMobaHUD::DrawMatchResult()
 
 	const FString Detail = GameState->WasEndedByForfeit() ? TEXT("상대가 게임을 떠났습니다.    Enter: 메뉴로 돌아가기") : TEXT("Enter: 메뉴로 돌아가기");
 	DrawCenteredText(Detail, FLinearColor::White, Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f, GEngine->GetSmallFont(), 1.3f);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 알림, 핑, 귀환
+
+void AMobaHUD::DrawAnnouncements()
+{
+	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
+	if (!GameState)
+	{
+		return;
+	}
+
+	const double Now = GetWorld()->GetTimeSeconds();
+	const double Lifetime = 7.0;
+	UFont* Font = GEngine->GetSmallFont();
+	float Top = 44.0f;
+
+	for (const FMobaAnnouncement& Announcement : GameState->GetAnnouncements())
+	{
+		if (Now - Announcement.Time > Lifetime)
+		{
+			continue;
+		}
+
+		float TextWidth = 0.0f;
+		float TextHeight = 0.0f;
+		GetTextSize(Announcement.Message, TextWidth, TextHeight, Font, 1.2f);
+
+		const float Left = Canvas->ClipX - TextWidth - 20.0f;
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.55f), Left - 6.0f, Top - 2.0f, TextWidth + 12.0f, TextHeight + 4.0f);
+		DrawText(Announcement.Message, GetRelationColor(Announcement.Team, false), Left, Top, Font, 1.2f);
+		Top += TextHeight + 8.0f;
+	}
+}
+
+void AMobaHUD::DrawPings()
+{
+	const AMobaPlayerController* MobaController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+	if (!MobaController)
+	{
+		return;
+	}
+
+	const double Now = GetWorld()->GetTimeSeconds();
+	const double Lifetime = 4.0;
+	const FLinearColor Color(1.0f, 0.9f, 0.2f);
+
+	for (const FMobaPing& Ping : MobaController->GetPings())
+	{
+		const double Age = Now - Ping.Time;
+		if (Age > Lifetime)
+		{
+			continue;
+		}
+
+		// 퍼져 나가는 원을 반복해서 그린다.
+		const float Pulse = FMath::Frac(static_cast<float>(Age));
+		DrawGroundCircle(Ping.Location, 60.0f, Color, 3.0f);
+		DrawGroundCircle(Ping.Location, 60.0f + 180.0f * Pulse, Color.CopyWithNewOpacity(1.0f - Pulse), 2.0f);
+
+		if (bMinimapDrawn)
+		{
+			DrawMinimapDot(Ping.Location, 6.0f + 6.0f * Pulse, Color);
+		}
+	}
+}
+
+void AMobaHUD::DrawRecall(const AMobaCharacter* Character)
+{
+	const float Remaining = Character->GetRecallRemaining();
+	if (!Character->IsRecalling() || Remaining <= 0.0f)
+	{
+		return;
+	}
+
+	const float Width = 260.0f;
+	const float Height = 18.0f;
+	const float Left = (Canvas->ClipX - Width) * 0.5f;
+	const float Top = Canvas->ClipY * 0.68f;
+	const float Fraction = 1.0f - FMath::Clamp(Remaining / Character->GetRecallDuration(), 0.0f, 1.0f);
+
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), Left - 2.0f, Top - 2.0f, Width + 4.0f, Height + 4.0f);
+	DrawRect(FLinearColor(0.3f, 0.6f, 1.0f), Left, Top, Width * Fraction, Height);
+	DrawCenteredText(FString::Printf(TEXT("귀환 중 %.1f"), Remaining), FLinearColor::White, Canvas->ClipX * 0.5f, Top + 1.0f, GEngine->GetSmallFont(), 1.1f);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 가방과 상점
+
+void AMobaHUD::DrawInventory(const AMobaCharacter* Character)
+{
+	InventoryRects.Reset();
+
+	const AMobaPlayerState* PlayerState = Character->GetPlayerState<AMobaPlayerState>();
+	if (!PlayerState)
+	{
+		return;
+	}
+
+	UFont* Font = GEngine->GetSmallFont();
+	const float Gap = 8.0f;
+	const float TotalWidth = AbilityBoxSize * 4.0f + Gap * 3.0f;
+	const float BoxTop = Canvas->ClipY - AbilityBoxSize - 16.0f * 2.0f - 28.0f;
+
+	// 와드 칸 오른쪽에 3칸씩 두 줄로 놓는다.
+	const float SlotWidth = 74.0f;
+	const float SlotHeight = 27.0f;
+	const float Left = (Canvas->ClipX - TotalWidth) * 0.5f + TotalWidth + Gap * 2.0f + AbilityBoxSize * 0.7f + 14.0f;
+	const TArray<uint8>& Items = PlayerState->GetItems();
+
+	for (int32 Index = 0; Index < MobaItems::MaxInventorySlots; ++Index)
+	{
+		const float SlotLeft = Left + (SlotWidth + 4.0f) * (Index % 3);
+		const float SlotTop = BoxTop + (SlotHeight + 4.0f) * (Index / 3);
+		InventoryRects.Add(FBox2D(FVector2D(SlotLeft, SlotTop), FVector2D(SlotLeft + SlotWidth, SlotTop + SlotHeight)));
+
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), SlotLeft - 1.0f, SlotTop - 1.0f, SlotWidth + 2.0f, SlotHeight + 2.0f);
+
+		const FMobaItemDefinition* Item = Items.IsValidIndex(Index) ? MobaItems::GetItem(Items[Index]) : nullptr;
+		DrawRect(Item ? FLinearColor(0.25f, 0.2f, 0.1f) : FLinearColor(0.08f, 0.08f, 0.08f), SlotLeft, SlotTop, SlotWidth, SlotHeight);
+		if (Item)
+		{
+			DrawText(Item->Name, FLinearColor(1.0f, 0.9f, 0.6f), SlotLeft + 4.0f, SlotTop + 6.0f, Font, 1.0f);
+		}
+	}
+}
+
+void AMobaHUD::DrawShop(const AMobaCharacter* Character)
+{
+	ShopItemRects.Reset();
+
+	const AMobaPlayerController* MobaController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+	const AMobaPlayerState* PlayerState = Character->GetPlayerState<AMobaPlayerState>();
+	if (!MobaController || !MobaController->IsShopOpen() || !PlayerState)
+	{
+		return;
+	}
+
+	UFont* Font = GEngine->GetSmallFont();
+	const TArray<FMobaItemDefinition>& Items = MobaItems::GetItems();
+
+	const float Left = 20.0f;
+	const float Top = 110.0f;
+	const float Width = 360.0f;
+	const float RowHeight = 30.0f;
+	const float HeaderHeight = 54.0f;
+	const float Height = HeaderHeight + RowHeight * Items.Num() + 30.0f;
+
+	ShopPanelRect = FBox2D(FVector2D(Left, Top), FVector2D(Left + Width, Top + Height));
+	bShopDrawn = true;
+
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.85f), Left, Top, Width, Height);
+	DrawText(TEXT("상점  [P]"), FLinearColor::White, Left + 10.0f, Top + 8.0f, Font, 1.4f);
+	DrawText(FString::Printf(TEXT("%d G"), FMath::FloorToInt(PlayerState->GetGold())), FLinearColor(1.0f, 0.85f, 0.3f), Left + Width - 80.0f, Top + 8.0f, Font, 1.4f);
+
+	const bool bCanShop = Character->CanShop();
+	DrawText(bCanShop ? TEXT("눌러서 구매. 가방의 아이템을 누르면 70%에 판매.") : TEXT("우물 안에 있거나 죽어 있을 때만 살 수 있습니다."),
+		bCanShop ? FLinearColor(0.7f, 0.9f, 0.7f) : FLinearColor(1.0f, 0.55f, 0.4f), Left + 10.0f, Top + 32.0f, Font, 1.0f);
+
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
+	{
+		const FMobaItemDefinition& Item = Items[Index];
+		const float RowTop = Top + HeaderHeight + RowHeight * Index;
+		ShopItemRects.Add(FBox2D(FVector2D(Left + 6.0f, RowTop), FVector2D(Left + Width - 6.0f, RowTop + RowHeight - 3.0f)));
+
+		const bool bCanBuy = Character->CanBuyItem(Index);
+		DrawRect(bCanBuy ? FLinearColor(0.12f, 0.2f, 0.14f) : FLinearColor(0.1f, 0.1f, 0.1f), Left + 6.0f, RowTop, Width - 12.0f, RowHeight - 3.0f);
+
+		const FLinearColor TextColor = bCanBuy ? FLinearColor::White : FLinearColor(0.5f, 0.5f, 0.5f);
+		DrawText(Item.Name, TextColor, Left + 14.0f, RowTop + 6.0f, Font, 1.1f);
+		DrawText(Item.Description, TextColor, Left + 120.0f, RowTop + 6.0f, Font, 1.0f);
+		DrawText(FString::FromInt(Item.Cost), bCanBuy ? FLinearColor(1.0f, 0.85f, 0.3f) : FLinearColor(0.5f, 0.45f, 0.3f), Left + Width - 60.0f, RowTop + 6.0f, Font, 1.1f);
+	}
+
+	DrawText(FString::Printf(TEXT("가방 %d / %d"), PlayerState->GetItems().Num(), MobaItems::MaxInventorySlots), FLinearColor(0.8f, 0.8f, 0.8f), Left + 10.0f, Top + Height - 24.0f, Font, 1.0f);
+}
+
+bool AMobaHUD::IsOverPanel(const FVector2D& ScreenPosition) const
+{
+	return bShopDrawn && ShopPanelRect.IsInsideOrOn(ScreenPosition);
+}
+
+bool AMobaHUD::HandleClick(const FVector2D& ScreenPosition)
+{
+	AMobaCharacter* Character = Cast<AMobaCharacter>(GetOwningPawn());
+	if (!bShopDrawn || !Character)
+	{
+		return false;
+	}
+
+	for (int32 Index = 0; Index < ShopItemRects.Num(); ++Index)
+	{
+		if (ShopItemRects[Index].IsInsideOrOn(ScreenPosition))
+		{
+			Character->BuyItem(Index);
+			return true;
+		}
+	}
+
+	for (int32 Index = 0; Index < InventoryRects.Num(); ++Index)
+	{
+		if (InventoryRects[Index].IsInsideOrOn(ScreenPosition))
+		{
+			Character->SellItem(Index);
+			return true;
+		}
+	}
+
+	return ShopPanelRect.IsInsideOrOn(ScreenPosition);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 점수판
+
+void AMobaHUD::DrawScoreboard()
+{
+	const AMobaPlayerController* MobaController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	if (!MobaController || !MobaController->IsScoreboardShown() || !GameState)
+	{
+		return;
+	}
+
+	TArray<const AMobaPlayerState*> Players;
+	for (const APlayerState* PlayerState : GameState->PlayerArray)
+	{
+		if (const AMobaPlayerState* MobaPlayerState = Cast<AMobaPlayerState>(PlayerState))
+		{
+			Players.Add(MobaPlayerState);
+		}
+	}
+	Players.Sort([](const AMobaPlayerState& A, const AMobaPlayerState& B) { return static_cast<uint8>(A.GetTeam()) < static_cast<uint8>(B.GetTeam()); });
+
+	UFont* Font = GEngine->GetSmallFont();
+	const float Width = 760.0f;
+	const float RowHeight = 30.0f;
+	const float Height = 50.0f + RowHeight * Players.Num() + 12.0f;
+	const float Left = (Canvas->ClipX - Width) * 0.5f;
+	const float Top = Canvas->ClipY * 0.2f;
+
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.85f), Left, Top, Width, Height);
+
+	const float Columns[] = { 14.0f, 90.0f, 230.0f, 290.0f, 380.0f, 440.0f };
+	const TCHAR* Headers[] = { TEXT("팀"), TEXT("챔피언"), TEXT("레벨"), TEXT("K / D"), TEXT("CS"), TEXT("아이템") };
+	for (int32 Index = 0; Index < 6; ++Index)
+	{
+		DrawText(Headers[Index], FLinearColor(0.7f, 0.7f, 0.7f), Left + Columns[Index], Top + 12.0f, Font, 1.1f);
+	}
+
+	const AMobaPlayerState* LocalState = MobaController->GetPlayerState<AMobaPlayerState>();
+	for (int32 Row = 0; Row < Players.Num(); ++Row)
+	{
+		const AMobaPlayerState* Player = Players[Row];
+		const float RowTop = Top + 46.0f + RowHeight * Row;
+		const FLinearColor Color = GetRelationColor(Player->GetTeam(), Player == LocalState);
+
+		FString ItemNames;
+		for (const uint8 ItemIndex : Player->GetItems())
+		{
+			if (const FMobaItemDefinition* Item = MobaItems::GetItem(ItemIndex))
+			{
+				ItemNames += ItemNames.IsEmpty() ? FString(Item->Name) : FString::Printf(TEXT(", %s"), Item->Name);
+			}
+		}
+
+		DrawText(MobaTeam::GetTeamDisplayName(Player->GetTeam()), Color, Left + Columns[0], RowTop, Font, 1.2f);
+		DrawText(Player->GetChampionDisplayName(), Color, Left + Columns[1], RowTop, Font, 1.2f);
+		DrawText(FString::FromInt(Player->GetChampionLevel()), FLinearColor::White, Left + Columns[2], RowTop, Font, 1.2f);
+		DrawText(FString::Printf(TEXT("%d / %d"), Player->GetKills(), Player->GetDeaths()), FLinearColor::White, Left + Columns[3], RowTop, Font, 1.2f);
+		DrawText(FString::FromInt(Player->GetMinionKills()), FLinearColor::White, Left + Columns[4], RowTop, Font, 1.2f);
+		DrawText(ItemNames, FLinearColor(1.0f, 0.9f, 0.6f), Left + Columns[5], RowTop + 2.0f, Font, 1.0f);
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

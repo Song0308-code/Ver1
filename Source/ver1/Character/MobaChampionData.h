@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystem/MobaAttributeSet.h"
+#include "Character/MobaAnimationComponent.h"
 #include "Engine/DataAsset.h"
 #include "Game/MobaTypes.h"
 #include "MobaChampionData.generated.h"
@@ -40,6 +41,25 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
 	TSoftObjectPtr<USkeletalMesh> Mesh;
 
+	/** MobaAnimInstance를 부모로 만든 애니메이션 블루프린트를 지정한다. 비어 있으면 아래 Animations로 직접 재생한다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
 	TSoftClassPtr<UAnimInstance> AnimClass;
+
+	/** 애니메이션 블루프린트 없이 재생할 애니메이션. AnimClass가 지정돼 있으면 쓰지 않는다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
+	FMobaAnimationSet Animations;
+
+	/** 캡슐 중심을 기준으로 한 메시의 위치·회전·크기. 보통 발이 바닥에 닿도록 Z를 캡슐 절반 높이만큼 내리고 요를 -90으로 둔다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
+	FVector MeshOffset = FVector(0.0, 0.0, -88.0);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
+	FRotator MeshRotation = FRotator(0.0, -90.0, 0.0);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
+	float MeshScale = 1.0f;
+
+	/** 메시가 없을 때 쓰는 임시 원기둥의 굵기·높이 배율. 챔피언을 눈으로 구분하기 위한 것이다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
+	FVector PlaceholderScale = FVector(1.0, 1.0, 1.0);
 };
