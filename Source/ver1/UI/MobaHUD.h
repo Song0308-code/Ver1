@@ -186,6 +186,10 @@ protected:
 	TArray<FBox2D> InventoryRects;
 	bool bShopDrawn = false;
 
+	/** 마지막으로 그린 캔버스 크기. 에디터 검증에서 화면 좌표를 계산할 때 읽는다. */
+	UPROPERTY(VisibleAnywhere, Transient, Category = "Debug")
+	FVector2D LastCanvasSize = FVector2D::ZeroVector;
+
 	/** 이번 프레임에 그린 미니맵의 화면 위치. */
 	FVector2D MinimapOrigin = FVector2D::ZeroVector;
 	bool bMinimapDrawn = false;

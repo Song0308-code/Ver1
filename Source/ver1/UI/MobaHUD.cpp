@@ -38,6 +38,8 @@ void AMobaHUD::DrawHUD()
 		return;
 	}
 
+	LastCanvasSize = FVector2D(Canvas->ClipX, Canvas->ClipY);
+
 	DrawFogOfWar();
 	UpdateDamageNumbers();
 
@@ -64,10 +66,8 @@ void AMobaHUD::DrawHUD()
 		DrawBuffsAndWard(LocalCharacter);
 		DrawInventory(LocalCharacter);
 		DrawRecall(LocalCharacter);
-		DrawAbilityTooltip(LocalCharacter);
 	}
 
-	DrawPings();
 	if (!bMatchOver)
 	{
 		DrawMinimap();
@@ -76,6 +76,9 @@ void AMobaHUD::DrawHUD()
 	{
 		bMinimapDrawn = false;
 	}
+
+	// 미니맵 위의 핑 표시가 미니맵 배경에 덮이지 않도록 미니맵 다음에 그린다.
+	DrawPings();
 	DrawAnnouncements();
 
 	bShopDrawn = false;
@@ -85,6 +88,13 @@ void AMobaHUD::DrawHUD()
 	}
 
 	DrawScoreboard();
+
+	// 툴팁은 미니맵·점수판보다 위에 보이도록 늦게 그린다.
+	if (LocalCharacter)
+	{
+		DrawAbilityTooltip(LocalCharacter);
+	}
+
 	DrawGameMenu();
 
 	DrawMatchResult();
@@ -497,7 +507,8 @@ void AMobaHUD::DrawAbilityTooltip(const AMobaCharacter* Character)
 {
 	float MouseX = 0.0f;
 	float MouseY = 0.0f;
-	if (!GetOwningPlayerController() || !GetOwningPlayerController()->GetMousePosition(MouseX, MouseY))
+	const AMobaPlayerController* PointerController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+	if (!PointerController || !PointerController->GetPointerPosition(MouseX, MouseY))
 	{
 		return;
 	}

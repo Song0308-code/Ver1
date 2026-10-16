@@ -209,6 +209,42 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		DebugLobbyChampion.Reset();
 	}
 
+	if (bDebugToggleShop)
+	{
+		bDebugToggleShop = false;
+		OnToggleShop();
+	}
+
+	if (bDebugToggleGameMenu)
+	{
+		bDebugToggleGameMenu = false;
+		OnToggleGameMenu();
+	}
+
+	if (bDebugShowScoreboard)
+	{
+		bDebugShowScoreboard = false;
+		bScoreboardHeld = !bScoreboardHeld;
+	}
+
+	if (bDebugLeftClick)
+	{
+		bDebugLeftClick = false;
+		OnConfirmTarget();
+	}
+
+	if (bDebugRightClick)
+	{
+		bDebugRightClick = false;
+		OnMoveCommandStarted();
+	}
+
+	if (bDebugPing)
+	{
+		bDebugPing = false;
+		SendPingAtCursor();
+	}
+
 	if (bDebugSurrender)
 	{
 		bDebugSurrender = false;
@@ -387,12 +423,25 @@ AActor* AMobaPlayerController::FindEnemyAtCursor(FVector& OutCursorLocation) con
 	return Nearest;
 }
 
+bool AMobaPlayerController::GetPointerPosition(float& OutX, float& OutY) const
+{
+#if WITH_EDITORONLY_DATA
+	if (bDebugPointerOverride)
+	{
+		OutX = DebugPointerPosition.X;
+		OutY = DebugPointerPosition.Y;
+		return true;
+	}
+#endif
+	return GetMousePosition(OutX, OutY);
+}
+
 bool AMobaPlayerController::GetCursorMinimapLocation(FVector& OutLocation) const
 {
 	float MouseX = 0.0f;
 	float MouseY = 0.0f;
 	const AMobaHUD* MobaHUD = GetHUD<AMobaHUD>();
-	return MobaHUD && GetMousePosition(MouseX, MouseY) && MobaHUD->GetMinimapWorldLocation(FVector2D(MouseX, MouseY), OutLocation);
+	return MobaHUD && GetPointerPosition(MouseX, MouseY) && MobaHUD->GetMinimapWorldLocation(FVector2D(MouseX, MouseY), OutLocation);
 }
 
 bool AMobaPlayerController::ProjectToNavigation(const FVector& WorldLocation, FVector& OutLocation) const
@@ -448,7 +497,7 @@ void AMobaPlayerController::IssueCommandAtCursor()
 	float MouseX = 0.0f;
 	float MouseY = 0.0f;
 	const AMobaHUD* MobaHUD = GetHUD<AMobaHUD>();
-	if (MobaHUD && GetMousePosition(MouseX, MouseY) && MobaHUD->IsOverPanel(FVector2D(MouseX, MouseY)))
+	if (MobaHUD && GetPointerPosition(MouseX, MouseY) && MobaHUD->IsOverPanel(FVector2D(MouseX, MouseY)))
 	{
 		return;
 	}
@@ -549,7 +598,7 @@ void AMobaPlayerController::OnConfirmTarget()
 	float MouseX = 0.0f;
 	float MouseY = 0.0f;
 	AMobaHUD* MobaHUD = GetHUD<AMobaHUD>();
-	if (MobaHUD && GetMousePosition(MouseX, MouseY) && MobaHUD->HandleClick(FVector2D(MouseX, MouseY)))
+	if (MobaHUD && GetPointerPosition(MouseX, MouseY) && MobaHUD->HandleClick(FVector2D(MouseX, MouseY)))
 	{
 		return;
 	}

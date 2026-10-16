@@ -40,6 +40,9 @@ public:
 	/** 커서가 가리키는 지면 위치. */
 	bool GetCursorGroundLocation(FVector& OutLocation) const;
 
+	/** UI 판정에 쓰는 마우스 위치. 에디터 검증 중에는 지정한 좌표를 대신 돌려준다. */
+	bool GetPointerPosition(float& OutX, float& OutY) const;
+
 	bool IsShopOpen() const { return bShopOpen; }
 	bool IsGameMenuOpen() const { return bGameMenuOpen; }
 	void CloseGameMenu() { bGameMenuOpen = false; }
@@ -282,6 +285,35 @@ protected:
 	/** 에디터 자동 검증용. 켜면 다음 틱에 로비 준비 상태를 뒤집는다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugToggleReady = false;
+
+	/** 에디터 자동 검증용. 켜면 UI 판정(상점·메뉴·미니맵·툴팁)에 실제 마우스 대신 DebugPointerPosition을 쓴다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugPointerOverride = false;
+
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	FVector2D DebugPointerPosition = FVector2D::ZeroVector;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 그 위치를 좌클릭·우클릭한 것처럼 처리한다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugLeftClick = false;
+
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugRightClick = false;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 그 위치로 핑을 보낸다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugPing = false;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 상점·게임 메뉴를 여닫는다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugToggleShop = false;
+
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugToggleGameMenu = false;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 점수판을 켜거나 끈다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugShowScoreboard = false;
 
 	/** 에디터 자동 검증용. 켜면 다음 틱에 항복에 동의한다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
