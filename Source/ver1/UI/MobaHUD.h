@@ -76,8 +76,30 @@ protected:
 	/** 경기 전 챔피언 선택 화면. 챔피언 버튼과 준비 버튼을 누를 수 있다. */
 	void DrawLobby();
 
-	/** F10 게임 메뉴(항복, 메뉴로 나가기, 계속하기). */
+	/** F10 게임 메뉴(항복, 메뉴로 나가기, 계속하기, 화면 설정, 조작 안내). */
 	void DrawGameMenu();
+
+	/** 피해를 받은 챔피언·몬스터·건물 위로 떠오르는 숫자. 체력이 줄어든 만큼을 표시한다. */
+	void UpdateDamageNumbers();
+	void DrawDamageNumbers();
+
+	/** 마우스를 올린 스킬 칸의 설명. */
+	void DrawAbilityTooltip(const AMobaCharacter* Character);
+
+	struct FDamageNumber
+	{
+		FVector Location;
+		FString Text;
+		FLinearColor Color;
+		double Time;
+	};
+
+	/** 유닛마다 지난 프레임의 체력. */
+	TMap<TWeakObjectPtr<AActor>, float> LastHealth;
+	TArray<FDamageNumber> DamageNumbers;
+
+	/** 이번 프레임에 그린 스킬 칸의 화면 위치. */
+	FBox2D AbilityRects[4];
 
 	/** 호스트에게 보여 줄, 상대에게 알려 줄 주소 안내. */
 	FString GetHostAddressHint();
@@ -153,6 +175,8 @@ protected:
 	FBox2D GameMenuSurrenderRect = FBox2D(ForceInit);
 	FBox2D GameMenuLeaveRect = FBox2D(ForceInit);
 	FBox2D GameMenuResumeRect = FBox2D(ForceInit);
+	FBox2D GameMenuWindowModeRect = FBox2D(ForceInit);
+	FBox2D GameMenuResolutionRect = FBox2D(ForceInit);
 	bool bGameMenuDrawn = false;
 	bool bSurrenderAllowed = false;
 

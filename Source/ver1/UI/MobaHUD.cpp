@@ -13,6 +13,7 @@
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "Game/MobaGameState.h"
+#include "Game/MobaDisplaySettings.h"
 #include "Game/MobaGameMode.h"
 #include "Game/MobaGameplayTags.h"
 #include "Character/MobaChampionData.h"
@@ -38,12 +39,14 @@ void AMobaHUD::DrawHUD()
 	}
 
 	DrawFogOfWar();
+	UpdateDamageNumbers();
 
 	DrawStructureBars();
 	DrawMonsterBars();
 	DrawMinionBars();
 	DrawChampionBars();
 	DrawWorldTimers();
+	DrawDamageNumbers();
 
 	DrawMatchInfo();
 	DrawRespawnCountdown();
@@ -61,6 +64,7 @@ void AMobaHUD::DrawHUD()
 		DrawBuffsAndWard(LocalCharacter);
 		DrawInventory(LocalCharacter);
 		DrawRecall(LocalCharacter);
+		DrawAbilityTooltip(LocalCharacter);
 	}
 
 	DrawPings();
@@ -413,6 +417,141 @@ void AMobaHUD::DrawMinimap()
 		const FVector2D& From = MapCorners[Index];
 		const FVector2D& To = MapCorners[(Index + 1) % 4];
 		DrawLine(From.X, From.Y, To.X, To.Y, FLinearColor::White, 1.0f);
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 피해량 숫자와 툴팁
+
+void AMobaHUD::UpdateDamageNumbers()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	const AActor* LocalPawn = GetOwningPawn();
+
+	const auto Track = [this, Now, LocalPawn](AActor* Unit, const UAbilitySystemComponent* AbilitySystem, float HeightOffset)
+	{
+		if (!Unit || !AbilitySystem || !IsSeen(Unit))
+		{
+			return;
+		}
+
+		const float Health = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetHealthAttribute());
+		float& Previous = LastHealth.FindOrAdd(Unit, Health);
+		const float Lost = Previous - Health;
+		Previous = Health;
+
+		// 재생이나 회복으로 늘어난 것과 아주 작은 변화는 표시하지 않는다.
+		if (Lost >= 1.0f)
+		{
+			const bool bMine = Unit == LocalPawn;
+			DamageNumbers.Add({ Unit->GetActorLocation() + FVector(FMath::FRandRange(-30.0, 30.0), FMath::FRandRange(-30.0, 30.0), HeightOffset),
+				FString::FromInt(FMath::RoundToInt(Lost)), bMine ? FLinearColor(1.0f, 0.3f, 0.25f) : FLinearColor(1.0f, 0.95f, 0.7f), Now });
+		}
+	};
+
+	for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+	{
+		Track(*It, It->GetAbilitySystemComponent(), 140.0f);
+	}
+	for (TActorIterator<AMobaMonster> It(GetWorld()); It; ++It)
+	{
+		Track(*It, It->GetAbilitySystemComponent(), 120.0f);
+	}
+	for (TActorIterator<AMobaStructure> It(GetWorld()); It; ++It)
+	{
+		Track(*It, It->GetAbilitySystemComponent(), It->GetHealthBarHeight() + 40.0f);
+	}
+
+	// 사라진 유닛과 오래된 숫자를 정리한다.
+	for (auto It = LastHealth.CreateIterator(); It; ++It)
+	{
+		if (!It->Key.IsValid())
+		{
+			It.RemoveCurrent();
+		}
+	}
+	DamageNumbers.RemoveAll([Now](const FDamageNumber& Number) { return Now - Number.Time > 1.1; });
+}
+
+void AMobaHUD::DrawDamageNumbers()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	UFont* Font = GEngine->GetSmallFont();
+
+	for (const FDamageNumber& Number : DamageNumbers)
+	{
+		const float Age = static_cast<float>(Now - Number.Time);
+		const FVector Screen = Project(Number.Location + FVector(0.0, 0.0, Age * 120.0f));
+		if (Screen.Z <= 0.0)
+		{
+			continue;
+		}
+
+		const float Alpha = FMath::Clamp(1.0f - Age / 1.1f, 0.0f, 1.0f);
+		DrawCenteredText(Number.Text, FLinearColor(0.0f, 0.0f, 0.0f, Alpha), Screen.X + 1.5f, Screen.Y + 1.5f, Font, 1.5f);
+		DrawCenteredText(Number.Text, Number.Color.CopyWithNewOpacity(Alpha), Screen.X, Screen.Y, Font, 1.5f);
+	}
+}
+
+void AMobaHUD::DrawAbilityTooltip(const AMobaCharacter* Character)
+{
+	float MouseX = 0.0f;
+	float MouseY = 0.0f;
+	if (!GetOwningPlayerController() || !GetOwningPlayerController()->GetMousePosition(MouseX, MouseY))
+	{
+		return;
+	}
+
+	const EMobaAbilitySlot Slots[] = { EMobaAbilitySlot::Q, EMobaAbilitySlot::W, EMobaAbilitySlot::E, EMobaAbilitySlot::R };
+	for (int32 Index = 0; Index < 4; ++Index)
+	{
+		if (!AbilityRects[Index].bIsValid || !AbilityRects[Index].IsInsideOrOn(FVector2D(MouseX, MouseY)))
+		{
+			continue;
+		}
+
+		const UMobaGameplayAbility* Ability = Character->GetAbilityInSlot(Slots[Index]);
+		if (!Ability)
+		{
+			return;
+		}
+
+		UFont* Font = GEngine->GetSmallFont();
+		TArray<FString> Lines;
+		Lines.Add(FString::Printf(TEXT("%s  (%d / %d)"), *Ability->GetDisplayName().ToString(), Character->GetAbilityLevel(Slots[Index]), Ability->GetMaxLevel()));
+		Lines.Add(Ability->GetDescription().ToString());
+		FString Costs = FString::Printf(TEXT("마나 %d    재사용 대기 %.0f초"), FMath::RoundToInt(Ability->GetManaCost()), Ability->GetCooldownDuration());
+		if (Ability->GetCastRange() > 0.0f)
+		{
+			Costs += FString::Printf(TEXT("    사거리 %d"), FMath::RoundToInt(Ability->GetCastRange()));
+		}
+		Lines.Add(Costs);
+		if (Character->GetAbilityLevel(Slots[Index]) <= 0)
+		{
+			Lines.Add(TEXT("아직 배우지 않았습니다. Ctrl + 키로 배웁니다."));
+		}
+
+		float Width = 0.0f;
+		for (const FString& Line : Lines)
+		{
+			float LineWidth = 0.0f;
+			float LineHeight = 0.0f;
+			GetTextSize(Line, LineWidth, LineHeight, Font, 1.1f);
+			Width = FMath::Max(Width, LineWidth);
+		}
+
+		const float LineSpacing = 20.0f;
+		const float Height = LineSpacing * Lines.Num() + 12.0f;
+		const float Left = FMath::Clamp(AbilityRects[Index].Min.X, 8.0f, Canvas->ClipX - Width - 24.0f);
+		const float Top = AbilityRects[Index].Min.Y - Height - 30.0f;
+
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.88f), Left, Top, Width + 16.0f, Height);
+		for (int32 Line = 0; Line < Lines.Num(); ++Line)
+		{
+			const FLinearColor Color = Line == 0 ? FLinearColor(1.0f, 0.9f, 0.5f) : (Line == 2 ? FLinearColor(0.6f, 0.8f, 1.0f) : FLinearColor::White);
+			DrawText(Lines[Line], Color, Left + 8.0f, Top + 6.0f + LineSpacing * Line, Font, 1.1f);
+		}
+		return;
 	}
 }
 
@@ -951,7 +1090,7 @@ void AMobaHUD::DrawGameMenu()
 	float Top = Canvas->ClipY * 0.28f;
 
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.5f), 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY);
-	DrawRect(FLinearColor(0.03f, 0.04f, 0.07f, 0.95f), Left - 20.0f, Top - 20.0f, Width + 40.0f, ButtonHeight * 3.0f + 120.0f);
+	DrawRect(FLinearColor(0.03f, 0.04f, 0.07f, 0.95f), Left - 20.0f, Top - 20.0f, Width + 40.0f, ButtonHeight * 5.0f + 330.0f);
 	DrawCenteredText(TEXT("게임 메뉴  [F10]"), FLinearColor::White, Canvas->ClipX * 0.5f, Top, Font, 1.4f);
 	Top += 40.0f;
 
@@ -984,6 +1123,26 @@ void AMobaHUD::DrawGameMenu()
 	GameMenuLeaveRect = DrawButton(Top, GameState->IsMatchOver() ? TEXT("메뉴로 나가기") : TEXT("메뉴로 나가기 (패배 처리)"), true, FLinearColor(0.25f, 0.25f, 0.3f));
 	Top += ButtonHeight + 12.0f;
 	GameMenuResumeRect = DrawButton(Top, TEXT("계속하기"), true, FLinearColor(0.15f, 0.4f, 0.25f));
+	Top += ButtonHeight + 24.0f;
+
+	GameMenuWindowModeRect = DrawButton(Top, FString::Printf(TEXT("화면: %s"), *MobaDisplaySettings::DescribeWindowMode()), true, FLinearColor(0.18f, 0.2f, 0.28f));
+	Top += ButtonHeight + 12.0f;
+	GameMenuResolutionRect = DrawButton(Top, FString::Printf(TEXT("해상도: %s"), *MobaDisplaySettings::DescribeResolution()), true, FLinearColor(0.18f, 0.2f, 0.28f));
+	Top += ButtonHeight + 20.0f;
+
+	// 조작 안내.
+	const TCHAR* Help[] = {
+		TEXT("우클릭 이동·공격   A+좌클릭 공격 이동"),
+		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기"),
+		TEXT("4 와드   B 귀환   P 상점   Tab 점수판"),
+		TEXT("Y 카메라 고정   Space 내 챔피언 보기"),
+		TEXT("Alt+좌클릭 핑   미니맵 좌클릭 카메라 이동"),
+	};
+	for (const TCHAR* Line : Help)
+	{
+		DrawText(Line, FLinearColor(0.75f, 0.78f, 0.85f), Left, Top, Font, 1.05f);
+		Top += 19.0f;
+	}
 }
 
 bool AMobaHUD::HandleClick(const FVector2D& ScreenPosition)
@@ -1005,6 +1164,14 @@ bool AMobaHUD::HandleClick(const FVector2D& ScreenPosition)
 			else if (GameMenuResumeRect.IsInsideOrOn(ScreenPosition))
 			{
 				MobaController->CloseGameMenu();
+			}
+			else if (GameMenuWindowModeRect.IsInsideOrOn(ScreenPosition))
+			{
+				MobaDisplaySettings::ToggleFullscreen();
+			}
+			else if (GameMenuResolutionRect.IsInsideOrOn(ScreenPosition))
+			{
+				MobaDisplaySettings::CycleResolution();
 			}
 		}
 		return true;
@@ -1314,6 +1481,7 @@ void AMobaHUD::DrawStatusBar(const AMobaCharacter* Character)
 	{
 		const UMobaGameplayAbility* Ability = Character->GetAbilityInSlot(Slots[Index]);
 		const float BoxLeft = Left + (AbilityBoxSize + Gap) * Index;
+		AbilityRects[Index] = FBox2D(FVector2D(BoxLeft, BoxTop), FVector2D(BoxLeft + AbilityBoxSize, BoxTop + AbilityBoxSize));
 
 		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), BoxLeft - 2.0f, BoxTop - 2.0f, AbilityBoxSize + 4.0f, AbilityBoxSize + 4.0f);
 		if (!Ability)

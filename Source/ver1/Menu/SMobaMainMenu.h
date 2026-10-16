@@ -40,6 +40,9 @@ private:
 	/** 고른 챔피언 이름을 버튼 아래 문구에 반영한다. */
 	void RefreshChampionText();
 
+	/** 화면 모드와 해상도 버튼. */
+	TSharedRef<SWidget> MakeDisplayRow();
+
 	TWeakObjectPtr<AMobaMenuPlayerController> OwnerController;
 	TSharedPtr<SEditableTextBox> AddressBox;
 	TSharedPtr<STextBlock> StatusText;

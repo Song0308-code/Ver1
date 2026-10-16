@@ -1,5 +1,6 @@
 #include "Menu/SMobaMainMenu.h"
 #include "Menu/MobaMenuPlayerController.h"
+#include "Game/MobaDisplaySettings.h"
 #include "Styling/CoreStyle.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SEditableTextBox.h"
@@ -12,7 +13,7 @@ void SMobaMainMenu::Construct(const FArguments& InArgs)
 {
 	OwnerController = InArgs._OwnerController;
 
-	const FSlateFontInfo TitleFont = FCoreStyle::GetDefaultFontStyle("Bold", 44);
+	const FSlateFontInfo TitleFont = FCoreStyle::GetDefaultFontStyle("Bold", 34);
 	const FSlateFontInfo LabelFont = FCoreStyle::GetDefaultFontStyle("Regular", 13);
 	const FSlateFontInfo InputFont = FCoreStyle::GetDefaultFontStyle("Regular", 16);
 
@@ -24,7 +25,7 @@ void SMobaMainMenu::Construct(const FArguments& InArgs)
 		.VAlign(VAlign_Center)
 		[
 			SNew(SBox)
-			.WidthOverride(420.0f)
+			.WidthOverride(460.0f)
 			[
 				SNew(SVerticalBox)
 
@@ -104,6 +105,13 @@ void SMobaMainMenu::Construct(const FArguments& InArgs)
 				.Padding(0.0f, 0.0f, 0.0f, 28.0f)
 				[
 					MakeButton(FText::FromString(TEXT("접속")), &SMobaMainMenu::OnJoinClicked)
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f, 0.0f, 0.0f, 10.0f)
+				[
+					MakeDisplayRow()
 				]
 
 				+ SVerticalBox::Slot()
@@ -198,6 +206,40 @@ void SMobaMainMenu::RefreshChampionText()
 	}
 
 	ChampionText->SetText(FText::GetEmpty());
+}
+
+TSharedRef<SWidget> SMobaMainMenu::MakeDisplayRow()
+{
+	const FSlateFontInfo Font = FCoreStyle::GetDefaultFontStyle("Regular", 13);
+
+	return SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		.Padding(0.0f, 0.0f, 6.0f, 0.0f)
+		[
+			SNew(SButton)
+			.HAlign(HAlign_Center)
+			.ContentPadding(FMargin(0.0f, 6.0f))
+			.OnClicked_Lambda([]() { MobaDisplaySettings::ToggleFullscreen(); return FReply::Handled(); })
+			[
+				SNew(STextBlock)
+				.Text_Lambda([]() { return FText::FromString(FString::Printf(TEXT("화면: %s"), *MobaDisplaySettings::DescribeWindowMode())); })
+				.Font(Font)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		[
+			SNew(SButton)
+			.HAlign(HAlign_Center)
+			.ContentPadding(FMargin(0.0f, 6.0f))
+			.OnClicked_Lambda([]() { MobaDisplaySettings::CycleResolution(); return FReply::Handled(); })
+			[
+				SNew(STextBlock)
+				.Text_Lambda([]() { return FText::FromString(FString::Printf(TEXT("해상도: %s"), *MobaDisplaySettings::DescribeResolution())); })
+				.Font(Font)
+			]
+		];
 }
 
 TSharedRef<SWidget> SMobaMainMenu::MakeButton(const FText& Label, FReply (SMobaMainMenu::*Handler)())

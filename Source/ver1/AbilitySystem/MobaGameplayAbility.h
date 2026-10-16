@@ -27,6 +27,7 @@ public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
 	const FText& GetDisplayName() const { return DisplayName; }
+	const FText& GetDescription() const { return Description; }
 	EMobaTargetingMode GetTargetingMode() const { return TargetingMode; }
 	float GetCastRange() const { return CastRange; }
 	float GetManaCost() const { return ManaCost; }
@@ -58,6 +59,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Skill")
 	FText DisplayName;
+
+	/** 툴팁에 보여 줄 한두 줄 설명. */
+	UPROPERTY(EditDefaultsOnly, Category = "Skill")
+	FText Description;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Skill")
 	EMobaTargetingMode TargetingMode = EMobaTargetingMode::None;

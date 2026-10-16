@@ -31,6 +31,7 @@ namespace
 UMobaAbility_Skillshot::UMobaAbility_Skillshot()
 {
 	DisplayName = NSLOCTEXT("Moba", "SkillshotName", "직선 투사체");
+	Description = NSLOCTEXT("Moba", "SkillshotDesc", "커서 방향으로 투사체를 쏩니다. 처음 맞은 적에게 마법 피해를 주고 2초 동안 30% 둔화시킵니다.");
 	TargetingMode = EMobaTargetingMode::Direction;
 	CastRange = 1100.0f;
 	ManaCost = 50.0f;
@@ -79,6 +80,7 @@ void UMobaAbility_Skillshot::ExecuteCast(AMobaCharacter* Caster, const FVector& 
 UMobaAbility_SelfBuff::UMobaAbility_SelfBuff()
 {
 	DisplayName = NSLOCTEXT("Moba", "SelfBuffName", "가속");
+	Description = NSLOCTEXT("Moba", "SelfBuffDesc", "4초 동안 이동 속도가 30%, 공격 속도가 40% 오릅니다.");
 	TargetingMode = EMobaTargetingMode::None;
 	ManaCost = 40.0f;
 	CooldownDuration = 12.0f;
@@ -98,6 +100,7 @@ void UMobaAbility_SelfBuff::ExecuteCast(AMobaCharacter* Caster, const FVector& T
 UMobaAbility_Blink::UMobaAbility_Blink()
 {
 	DisplayName = NSLOCTEXT("Moba", "BlinkName", "점멸");
+	Description = NSLOCTEXT("Moba", "BlinkDesc", "커서 쪽으로 짧게 순간이동합니다. 벽을 넘을 수 있습니다.");
 	TargetingMode = EMobaTargetingMode::Location;
 	CastRange = 450.0f;
 	ManaCost = 60.0f;
@@ -147,6 +150,7 @@ void UMobaAbility_Blink::ExecuteCast(AMobaCharacter* Caster, const FVector& Targ
 UMobaAbility_GroundAoE::UMobaAbility_GroundAoE()
 {
 	DisplayName = NSLOCTEXT("Moba", "GroundAoEName", "범위 폭발");
+	Description = NSLOCTEXT("Moba", "GroundAoEDesc", "지정한 곳이 잠시 뒤 폭발해 범위 안의 적에게 마법 피해를 주고 기절시킵니다.");
 	TargetingMode = EMobaTargetingMode::Location;
 	CastRange = 800.0f;
 	ManaCost = 100.0f;
@@ -221,6 +225,7 @@ void UMobaAbility_GroundAoE::Detonate(FVector Location)
 UMobaAbility_DashStrike::UMobaAbility_DashStrike()
 {
 	DisplayName = NSLOCTEXT("Moba", "DashStrikeName", "돌진 베기");
+	Description = NSLOCTEXT("Moba", "DashStrikeDesc", "커서 쪽으로 돌진해 도착 지점 주변의 적에게 물리 피해를 줍니다.");
 	TargetingMode = EMobaTargetingMode::Location;
 	CastRange = 450.0f;
 	ManaCost = 45.0f;
@@ -255,6 +260,7 @@ void UMobaAbility_DashStrike::ExecuteCast(AMobaCharacter* Caster, const FVector&
 UMobaAbility_SelfHeal::UMobaAbility_SelfHeal()
 {
 	DisplayName = NSLOCTEXT("Moba", "SelfHealName", "재정비");
+	Description = NSLOCTEXT("Moba", "SelfHealDesc", "체력을 회복합니다. 잃은 체력이 많을수록 더 많이 회복합니다.");
 	TargetingMode = EMobaTargetingMode::None;
 	ManaCost = 60.0f;
 	CooldownDuration = 14.0f;
@@ -280,6 +286,7 @@ void UMobaAbility_SelfHeal::ExecuteCast(AMobaCharacter* Caster, const FVector& T
 UMobaAbility_GroundSlam::UMobaAbility_GroundSlam()
 {
 	DisplayName = NSLOCTEXT("Moba", "GroundSlamName", "지면 강타");
+	Description = NSLOCTEXT("Moba", "GroundSlamDesc", "주변의 적에게 물리 피해를 주고 1.5초 동안 40% 둔화시킵니다.");
 	TargetingMode = EMobaTargetingMode::None;
 	CastRange = 0.0f;
 	ManaCost = 50.0f;
@@ -301,6 +308,7 @@ UMobaAbility_GroundSlam::UMobaAbility_GroundSlam()
 UMobaAbility_Frenzy::UMobaAbility_Frenzy()
 {
 	DisplayName = NSLOCTEXT("Moba", "FrenzyName", "전투 광분");
+	Description = NSLOCTEXT("Moba", "FrenzyDesc", "8초 동안 이동 속도가 35%, 공격 속도가 80% 오릅니다.");
 	ManaCost = 100.0f;
 	CooldownDuration = 70.0f;
 	bUltimate = true;
