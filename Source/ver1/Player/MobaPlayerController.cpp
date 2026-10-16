@@ -8,6 +8,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "EngineUtils.h"
+#include "Game/MobaGameInstance.h"
 #include "Game/MobaGameMode.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -749,6 +750,36 @@ void AMobaPlayerController::ServerPing_Implementation(FVector_NetQuantize Locati
 			It->ClientShowPing(Location);
 		}
 	}
+}
+
+void AMobaPlayerController::RequestChampion(const FString& AssetName)
+{
+	const AMobaPlayerState* MyState = GetPlayerState<AMobaPlayerState>();
+	if (MyState && MyState->IsReady())
+	{
+		return;
+	}
+
+	if (UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>())
+	{
+		MobaGameInstance->SetSelectedChampion(AssetName);
+	}
+	ServerRequestChampion(AssetName);
+}
+
+void AMobaPlayerController::RequestSummonerSpell(int32 Index, EMobaSummonerSpell Spell)
+{
+	const AMobaPlayerState* MyState = GetPlayerState<AMobaPlayerState>();
+	if (MyState && MyState->IsReady())
+	{
+		return;
+	}
+
+	if (UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>())
+	{
+		MobaGameInstance->SetSelectedSpell(Index, Spell);
+	}
+	ServerRequestSummonerSpell(Index, Spell);
 }
 
 void AMobaPlayerController::ServerRequestChampion_Implementation(const FString& AssetName)

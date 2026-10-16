@@ -132,8 +132,34 @@ void AMobaMenuPlayerController::SelectChampion(const FString& AssetName)
 
 FString AMobaMenuPlayerController::MakeChampionOption() const
 {
-	const FString Selected = GetSelectedChampion();
-	return Selected.IsEmpty() ? FString() : FString::Printf(TEXT("?Champion=%s"), *Selected);
+	const UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>();
+	return MobaGameInstance ? MobaGameInstance->MakeLoadoutOptions() : FString();
+}
+
+EMobaSummonerSpell AMobaMenuPlayerController::GetSelectedSpell(int32 Index) const
+{
+	const UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>();
+	return MobaGameInstance ? MobaGameInstance->GetSelectedSpell(Index) : (Index == 0 ? EMobaSummonerSpell::Flash : EMobaSummonerSpell::Ignite);
+}
+
+void AMobaMenuPlayerController::CycleSpell(int32 Index)
+{
+	UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>();
+	if (!MobaGameInstance)
+	{
+		return;
+	}
+
+	const int32 Count = static_cast<int32>(EMobaSummonerSpell::Count);
+	const EMobaSummonerSpell Other = MobaGameInstance->GetSelectedSpell(1 - Index);
+	int32 Next = static_cast<int32>(MobaGameInstance->GetSelectedSpell(Index));
+	do
+	{
+		Next = (Next + 1) % Count;
+	}
+	while (static_cast<EMobaSummonerSpell>(Next) == Other);
+
+	MobaGameInstance->SetSelectedSpell(Index, static_cast<EMobaSummonerSpell>(Next));
 }
 
 void AMobaMenuPlayerController::QuitGame()

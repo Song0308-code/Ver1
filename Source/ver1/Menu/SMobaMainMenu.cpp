@@ -1,4 +1,5 @@
 #include "Menu/SMobaMainMenu.h"
+#include "AbilitySystem/Abilities/MobaSummonerSpells.h"
 #include "Menu/MobaMenuPlayerController.h"
 #include "Game/MobaDisplaySettings.h"
 #include "Styling/CoreStyle.h"
@@ -59,11 +60,18 @@ void SMobaMainMenu::Construct(const FArguments& InArgs)
 
 				+ SVerticalBox::Slot()
 				.AutoHeight()
-				.Padding(0.0f, 0.0f, 0.0f, 24.0f)
+				.Padding(0.0f, 0.0f, 0.0f, 8.0f)
 				[
 					SAssignNew(ChampionText, STextBlock)
 					.Font(LabelFont)
 					.ColorAndOpacity(FLinearColor(0.6f, 0.9f, 0.7f))
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f, 0.0f, 0.0f, 22.0f)
+				[
+					MakeSpellRow()
 				]
 
 				+ SVerticalBox::Slot()
@@ -180,6 +188,58 @@ TSharedRef<SWidget> SMobaMainMenu::MakeChampionRow()
 					SNew(STextBlock)
 					.Text(Choice.DisplayName)
 					.Font(FCoreStyle::GetDefaultFontStyle("Regular", 15))
+				]
+			];
+	}
+
+	return Row;
+}
+
+TSharedRef<SWidget> SMobaMainMenu::MakeSpellRow()
+{
+	const FSlateFontInfo Font = FCoreStyle::GetDefaultFontStyle("Regular", 13);
+	TSharedRef<SHorizontalBox> Row = SNew(SHorizontalBox);
+
+	Row->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0.0f, 0.0f, 10.0f, 0.0f)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(TEXT("소환사 주문")))
+			.Font(Font)
+			.ColorAndOpacity(FLinearColor(0.7f, 0.75f, 0.85f))
+		];
+
+	const TCHAR* Keys[] = { TEXT("D"), TEXT("F") };
+	for (int32 Index = 0; Index < 2; ++Index)
+	{
+		const FString Key = Keys[Index];
+		Row->AddSlot()
+			.FillWidth(1.0f)
+			.Padding(0.0f, 0.0f, Index == 0 ? 6.0f : 0.0f, 0.0f)
+			[
+				SNew(SButton)
+				.HAlign(HAlign_Center)
+				.ContentPadding(FMargin(0.0f, 6.0f))
+				.ToolTipText(FText::FromString(TEXT("누를 때마다 다음 주문으로 바뀝니다.")))
+				.OnClicked_Lambda([this, Index]()
+				{
+					if (AMobaMenuPlayerController* MenuController = OwnerController.Get())
+					{
+						MenuController->CycleSpell(Index);
+					}
+					return FReply::Handled();
+				})
+				[
+					SNew(STextBlock)
+					.Font(Font)
+					.Text_Lambda([this, Index, Key]()
+					{
+						const AMobaMenuPlayerController* MenuController = OwnerController.Get();
+						const FText Name = MenuController ? MobaSummoner::GetDisplayName(MenuController->GetSelectedSpell(Index)) : FText::GetEmpty();
+						return FText::FromString(FString::Printf(TEXT("%s: %s"), *Key, *Name.ToString()));
+					})
 				]
 			];
 	}

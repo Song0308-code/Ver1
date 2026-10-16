@@ -2,6 +2,11 @@
 #include "Engine/Engine.h"
 #include "Engine/NetDriver.h"
 #include "Engine/World.h"
+#include "Game/MobaGameMode.h"
+#include "Game/MobaProfileSave.h"
+#include "Kismet/GameplayStatics.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 void UMobaGameInstance::Init()
 {
@@ -12,6 +17,96 @@ void UMobaGameInstance::Init()
 		NetworkFailureHandle = GEngine->OnNetworkFailure().AddUObject(this, &UMobaGameInstance::RecordNetworkFailure);
 		TravelFailureHandle = GEngine->OnTravelFailure().AddUObject(this, &UMobaGameInstance::RecordTravelFailure);
 	}
+
+	LoadProfile();
+
+#if !UE_BUILD_SHIPPING
+	// 검증용: -MobaChampion=에셋이름, -MobaSpells=Flash,Smite 로 메뉴에서 고른 것처럼 정하고 저장한다.
+	FString Value;
+	if (FParse::Value(FCommandLine::Get(), TEXT("MobaChampion="), Value))
+	{
+		SetSelectedChampion(Value);
+	}
+	EMobaSummonerSpell SpellD;
+	EMobaSummonerSpell SpellF;
+	if (FParse::Value(FCommandLine::Get(), TEXT("MobaSpells="), Value, false) && AMobaGameMode::ParseSpellsOption(Value, SpellD, SpellF))
+	{
+		SetSelectedSpell(0, SpellD);
+		SetSelectedSpell(1, SpellF);
+	}
+#endif
+}
+
+void UMobaGameInstance::SetSelectedChampion(const FString& InName)
+{
+	if (SelectedChampion != InName)
+	{
+		SelectedChampion = InName;
+		SaveProfile();
+	}
+}
+
+void UMobaGameInstance::SetSelectedSpell(int32 Index, EMobaSummonerSpell Spell)
+{
+	if (Spell >= EMobaSummonerSpell::Count || (Index != 0 && Index != 1))
+	{
+		return;
+	}
+
+	EMobaSummonerSpell& Mine = Index == 0 ? SelectedSpellD : SelectedSpellF;
+	EMobaSummonerSpell& Other = Index == 0 ? SelectedSpellF : SelectedSpellD;
+	if (Mine == Spell)
+	{
+		return;
+	}
+	if (Other == Spell)
+	{
+		Other = Mine;
+	}
+	Mine = Spell;
+	SaveProfile();
+}
+
+FString UMobaGameInstance::MakeLoadoutOptions() const
+{
+	FString Options;
+	if (!SelectedChampion.IsEmpty())
+	{
+		Options += FString::Printf(TEXT("?Champion=%s"), *SelectedChampion);
+	}
+	Options += FString::Printf(TEXT("?Spells=%s"), *AMobaGameMode::MakeSpellsOption(SelectedSpellD, SelectedSpellF));
+	return Options;
+}
+
+void UMobaGameInstance::LoadProfile()
+{
+	const UMobaProfileSave* Profile = Cast<UMobaProfileSave>(UGameplayStatics::LoadGameFromSlot(UMobaProfileSave::SlotName, 0));
+	if (!Profile)
+	{
+		return;
+	}
+
+	SelectedChampion = Profile->ChampionAssetName;
+	if (Profile->SpellD < EMobaSummonerSpell::Count && Profile->SpellF < EMobaSummonerSpell::Count && Profile->SpellD != Profile->SpellF)
+	{
+		SelectedSpellD = Profile->SpellD;
+		SelectedSpellF = Profile->SpellF;
+	}
+	UE_LOG(LogTemp, Log, TEXT("저장된 구성 불러옴: 챔피언 %s, 주문 %s"), *SelectedChampion, *AMobaGameMode::MakeSpellsOption(SelectedSpellD, SelectedSpellF));
+}
+
+void UMobaGameInstance::SaveProfile() const
+{
+	UMobaProfileSave* Profile = Cast<UMobaProfileSave>(UGameplayStatics::CreateSaveGameObject(UMobaProfileSave::StaticClass()));
+	if (!Profile)
+	{
+		return;
+	}
+
+	Profile->ChampionAssetName = SelectedChampion;
+	Profile->SpellD = SelectedSpellD;
+	Profile->SpellF = SelectedSpellF;
+	UGameplayStatics::SaveGameToSlot(Profile, UMobaProfileSave::SlotName, 0);
 }
 
 void UMobaGameInstance::Shutdown()

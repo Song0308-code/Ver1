@@ -57,14 +57,14 @@ public:
 	/** 최근에 받은 핑. 오래된 것부터 들어 있다. */
 	const TArray<FMobaPing>& GetPings() const { return Pings; }
 
-	/** 로비에서 챔피언을 바꾼다. */
-	void RequestChampion(const FString& AssetName) { ServerRequestChampion(AssetName); }
+	/** 로비에서 챔피언을 바꾼다. 고른 것은 다음 경기를 위해 저장해 둔다. */
+	void RequestChampion(const FString& AssetName);
 
 	/** 로비에서 준비 상태를 바꾼다. */
 	void RequestReady(bool bReady) { ServerRequestReady(bReady); }
 
-	/** 로비에서 소환사 주문을 바꾼다. Index 0이 D, 1이 F. */
-	void RequestSummonerSpell(int32 Index, EMobaSummonerSpell Spell) { ServerRequestSummonerSpell(Index, Spell); }
+	/** 로비에서 소환사 주문을 바꾼다. Index 0이 D, 1이 F. 고른 것은 다음 경기를 위해 저장해 둔다. */
+	void RequestSummonerSpell(int32 Index, EMobaSummonerSpell Spell);
 
 protected:
 	/** 입력 에셋을 만들기 전까지 쓰는 기본 키 배치를 코드로 구성한다. */

@@ -167,6 +167,37 @@ namespace
 	}
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaSpellsOptionTest, "Moba.Rules.SpellsOption", MobaTestFlags)
+bool FMobaSpellsOptionTest::RunTest(const FString& Parameters)
+{
+	EMobaSummonerSpell D = EMobaSummonerSpell::Flash;
+	EMobaSummonerSpell F = EMobaSummonerSpell::Flash;
+	TestTrue(TEXT("Smite,Heal"), AMobaGameMode::ParseSpellsOption(TEXT("Smite,Heal"), D, F));
+	TestTrue(TEXT("D는 강타"), D == EMobaSummonerSpell::Smite);
+	TestTrue(TEXT("F는 회복"), F == EMobaSummonerSpell::Heal);
+	TestTrue(TEXT("대소문자·공백 무시"), AMobaGameMode::ParseSpellsOption(TEXT(" ghost , FLASH "), D, F) && D == EMobaSummonerSpell::Ghost && F == EMobaSummonerSpell::Flash);
+	TestFalse(TEXT("같은 주문 둘"), AMobaGameMode::ParseSpellsOption(TEXT("Flash,Flash"), D, F));
+	TestFalse(TEXT("모르는 이름"), AMobaGameMode::ParseSpellsOption(TEXT("Flash,Teleport"), D, F));
+	TestFalse(TEXT("하나만"), AMobaGameMode::ParseSpellsOption(TEXT("Flash"), D, F));
+	TestFalse(TEXT("Count는 고를 수 없음"), AMobaGameMode::ParseSpellsOption(TEXT("Flash,Count"), D, F));
+	TestFalse(TEXT("빈 값"), AMobaGameMode::ParseSpellsOption(TEXT(""), D, F));
+
+	// 만든 문자열을 다시 읽으면 같은 값.
+	for (int32 A = 0; A < static_cast<int32>(EMobaSummonerSpell::Count); ++A)
+	{
+		for (int32 B = 0; B < static_cast<int32>(EMobaSummonerSpell::Count); ++B)
+		{
+			if (A == B)
+			{
+				continue;
+			}
+			const FString Option = AMobaGameMode::MakeSpellsOption(static_cast<EMobaSummonerSpell>(A), static_cast<EMobaSummonerSpell>(B));
+			TestTrue(Option, AMobaGameMode::ParseSpellsOption(Option, D, F) && D == static_cast<EMobaSummonerSpell>(A) && F == static_cast<EMobaSummonerSpell>(B));
+		}
+	}
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaAbilityHasteTest, "Moba.Rules.AbilityHaste", MobaTestFlags)
 bool FMobaAbilityHasteTest::RunTest(const FString& Parameters)
 {

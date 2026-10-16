@@ -258,6 +258,50 @@ void AMobaGameMode::RequestChampionChange(APlayerController* Player, const FStri
 	}
 }
 
+bool AMobaGameMode::ParseSpellsOption(const FString& Value, EMobaSummonerSpell& OutD, EMobaSummonerSpell& OutF)
+{
+	TArray<FString> Names;
+	Value.ParseIntoArray(Names, TEXT(","));
+	if (Names.Num() != 2)
+	{
+		return false;
+	}
+
+	const UEnum* SpellEnum = StaticEnum<EMobaSummonerSpell>();
+	int64 Values[2];
+	for (int32 Index = 0; Index < 2; ++Index)
+	{
+		Values[Index] = INDEX_NONE;
+		const FString Name = Names[Index].TrimStartAndEnd();
+		for (int32 EnumIndex = 0; EnumIndex < static_cast<int32>(EMobaSummonerSpell::Count); ++EnumIndex)
+		{
+			if (SpellEnum->GetNameStringByValue(EnumIndex).Equals(Name, ESearchCase::IgnoreCase))
+			{
+				Values[Index] = EnumIndex;
+			}
+		}
+		if (Values[Index] == INDEX_NONE)
+		{
+			return false;
+		}
+	}
+
+	if (Values[0] == Values[1])
+	{
+		return false;
+	}
+
+	OutD = static_cast<EMobaSummonerSpell>(Values[0]);
+	OutF = static_cast<EMobaSummonerSpell>(Values[1]);
+	return true;
+}
+
+FString AMobaGameMode::MakeSpellsOption(EMobaSummonerSpell SpellD, EMobaSummonerSpell SpellF)
+{
+	const UEnum* SpellEnum = StaticEnum<EMobaSummonerSpell>();
+	return FString::Printf(TEXT("%s,%s"), *SpellEnum->GetNameStringByValue(static_cast<int64>(SpellD)), *SpellEnum->GetNameStringByValue(static_cast<int64>(SpellF)));
+}
+
 void AMobaGameMode::RequestSummonerSpell(APlayerController* Player, int32 Index, EMobaSummonerSpell Spell)
 {
 	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
@@ -713,7 +757,17 @@ FString AMobaGameMode::InitNewPlayer(APlayerController* NewPlayerController, con
 		MobaPlayerState->SetTeam(PickTeamForNewPlayer());
 		MobaPlayerState->SetChampion(PickChampionForNewPlayer(Options, MobaPlayerState));
 
-		UE_LOG(LogTemp, Log, TEXT("플레이어 입장: %s 팀, 챔피언 %s"), *MobaTeam::GetTeamTag(MobaPlayerState->GetTeam()).ToString(), *GetNameSafe(MobaPlayerState->GetChampion()));
+		// 메뉴에서 고른 소환사 주문(?Spells=D,F). 없거나 잘못되면 기본값(점멸·점화)을 둔다.
+		EMobaSummonerSpell SpellD;
+		EMobaSummonerSpell SpellF;
+		if (ParseSpellsOption(UGameplayStatics::ParseOption(Options, TEXT("Spells")), SpellD, SpellF))
+		{
+			MobaPlayerState->SetSummonerSpell(0, SpellD);
+			MobaPlayerState->SetSummonerSpell(1, SpellF);
+		}
+
+		UE_LOG(LogTemp, Log, TEXT("플레이어 입장: %s 팀, 챔피언 %s, 주문 %s"), *MobaTeam::GetTeamTag(MobaPlayerState->GetTeam()).ToString(), *GetNameSafe(MobaPlayerState->GetChampion()),
+			*MakeSpellsOption(MobaPlayerState->GetSummonerSpell(0), MobaPlayerState->GetSummonerSpell(1)));
 	}
 
 	return Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);

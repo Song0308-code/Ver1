@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Game/MobaTypes.h"
 #include "MobaMenuPlayerController.generated.h"
 
 class SMobaMainMenu;
@@ -45,8 +46,14 @@ public:
 	FString GetSelectedChampion() const;
 	void SelectChampion(const FString& AssetName);
 
+	/** 고른 소환사 주문. Index 0이 D, 1이 F. */
+	EMobaSummonerSpell GetSelectedSpell(int32 Index) const;
+
+	/** 그 칸의 주문을 다음 주문으로 바꾼다(다른 칸의 주문은 건너뛴다). */
+	void CycleSpell(int32 Index);
+
 protected:
-	/** 접속 주소 뒤에 붙일 챔피언 옵션. 고른 것이 없으면 빈 문자열. */
+	/** 접속 주소 뒤에 붙일 챔피언·소환사 주문 옵션("?Champion=..?Spells=.."). */
 	FString MakeChampionOption() const;
 
 	/** 경기를 진행하는 맵. */

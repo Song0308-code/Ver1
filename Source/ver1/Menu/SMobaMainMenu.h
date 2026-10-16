@@ -40,6 +40,9 @@ private:
 	/** 고른 챔피언 이름을 버튼 아래 문구에 반영한다. */
 	void RefreshChampionText();
 
+	/** 소환사 주문 D·F 버튼. 누를 때마다 다음 주문으로 바뀐다. */
+	TSharedRef<SWidget> MakeSpellRow();
+
 	/** 화면 모드와 해상도 버튼. */
 	TSharedRef<SWidget> MakeDisplayRow();
 

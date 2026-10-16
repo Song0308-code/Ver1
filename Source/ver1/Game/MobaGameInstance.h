@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Engine/EngineBaseTypes.h"
 #include "Engine/GameInstance.h"
+#include "Game/MobaTypes.h"
 #include "MobaGameInstance.generated.h"
 
 class UNetDriver;
@@ -20,16 +21,30 @@ public:
 	/** 메뉴에 한 번 보여 줄 안내 문구를 꺼내고 비운다. */
 	FText ConsumePendingMessage();
 
-	/** 메뉴에서 고른 챔피언의 에셋 이름. 고르지 않았으면 비어 있다. */
+	/** 메뉴에서 고른 챔피언의 에셋 이름. 고르지 않았으면 비어 있다. 바꾸면 저장한다. */
 	const FString& GetSelectedChampion() const { return SelectedChampion; }
-	void SetSelectedChampion(const FString& InName) { SelectedChampion = InName; }
+	void SetSelectedChampion(const FString& InName);
+
+	/** 고른 소환사 주문. Index 0이 D, 1이 F. */
+	EMobaSummonerSpell GetSelectedSpell(int32 Index) const { return Index == 0 ? SelectedSpellD : SelectedSpellF; }
+
+	/** 바꾸면 저장한다. 다른 칸에 같은 주문이 있으면 두 칸을 맞바꾼다. */
+	void SetSelectedSpell(int32 Index, EMobaSummonerSpell Spell);
+
+	/** 접속 주소 뒤에 붙일 "?Champion=..?Spells=.." 옵션. */
+	FString MakeLoadoutOptions() const;
 
 protected:
 	void RecordNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString);
 	void RecordTravelFailure(UWorld* World, ETravelFailure::Type FailureType, const FString& ErrorString);
 
+	void LoadProfile();
+	void SaveProfile() const;
+
 	FText PendingMessage;
 	FString SelectedChampion;
+	EMobaSummonerSpell SelectedSpellD = EMobaSummonerSpell::Flash;
+	EMobaSummonerSpell SelectedSpellF = EMobaSummonerSpell::Ignite;
 
 	FDelegateHandle NetworkFailureHandle;
 	FDelegateHandle TravelFailureHandle;

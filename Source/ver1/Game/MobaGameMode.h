@@ -44,6 +44,15 @@ public:
 	/** 서버 전용. 로비에서 챔피언을 바꾼다. 경기가 시작된 뒤에는 무시한다. */
 	void RequestChampionChange(APlayerController* Player, const FString& AssetName);
 
+	/**
+	 * 접속 옵션의 "Spells" 값("Flash,Smite"처럼 D, F 순서)을 해석한다. 이름은 대소문자를 가리지 않는다.
+	 * 둘 다 알맞고 서로 다를 때만 true.
+	 */
+	static bool ParseSpellsOption(const FString& Value, EMobaSummonerSpell& OutD, EMobaSummonerSpell& OutF);
+
+	/** 접속 옵션에 넣을 "Flash,Smite" 형태의 문자열. */
+	static FString MakeSpellsOption(EMobaSummonerSpell SpellD, EMobaSummonerSpell SpellF);
+
 	/** 서버 전용. 로비에서 소환사 주문을 바꾼다. Index 0이 D, 1이 F. */
 	void RequestSummonerSpell(APlayerController* Player, int32 Index, EMobaSummonerSpell Spell);
 
