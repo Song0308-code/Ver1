@@ -8,6 +8,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "EngineUtils.h"
+#include "Game/MobaGameMode.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputAction.h"
@@ -197,6 +198,19 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		{
 			MobaCharacter->LevelUpAbility(DebugCastSlot);
 		}
+	}
+
+	if (!DebugLobbyChampion.IsEmpty())
+	{
+		RequestChampion(DebugLobbyChampion);
+		DebugLobbyChampion.Reset();
+	}
+
+	if (bDebugToggleReady)
+	{
+		bDebugToggleReady = false;
+		const AMobaPlayerState* MyState = GetPlayerState<AMobaPlayerState>();
+		RequestReady(!(MyState && MyState->IsReady()));
 	}
 
 	if (bDebugBuyItem || bDebugSellItem || bDebugRecall)
@@ -623,6 +637,22 @@ void AMobaPlayerController::ServerPing_Implementation(FVector_NetQuantize Locati
 		{
 			It->ClientShowPing(Location);
 		}
+	}
+}
+
+void AMobaPlayerController::ServerRequestChampion_Implementation(const FString& AssetName)
+{
+	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
+	{
+		GameMode->RequestChampionChange(this, AssetName);
+	}
+}
+
+void AMobaPlayerController::ServerRequestReady_Implementation(bool bReady)
+{
+	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
+	{
+		GameMode->RequestReady(this, bReady);
 	}
 }
 

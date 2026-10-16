@@ -27,6 +27,7 @@ public:
 	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
+	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
 	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual void StartPlay() override;
@@ -39,6 +40,12 @@ public:
 
 	/** 서버에서 호출하면 모든 PC의 화면에 알림 한 줄이 뜬다. */
 	void Announce(const FString& Message, EMobaTeam Team);
+
+	/** 서버 전용. 로비에서 챔피언을 바꾼다. 경기가 시작된 뒤에는 무시한다. */
+	void RequestChampionChange(APlayerController* Player, const FString& AssetName);
+
+	/** 서버 전용. 로비에서 준비 상태를 바꾼다. */
+	void RequestReady(APlayerController* Player, bool bReady);
 
 	/** 미니언 종류별 수치와 외형. 클라이언트는 외형을 고를 때 클래스 기본값에서 읽는다. */
 	const FMobaMinionConfig& GetMinionConfig(EMobaMinionType Type) const;
@@ -62,8 +69,19 @@ public:
 	void EndMatch(EMobaTeam WinningTeam, bool bForfeit = false);
 
 protected:
-	/** 필요한 인원이 모였으면 경기를 시작한다. 미니언 웨이브와 골드 지급이 이때부터 돈다. */
+	/** 필요한 인원이 모였으면(로비를 쓰면 모두 준비되면) 경기를 시작한다. 미니언 웨이브와 골드 지급이 이때부터 돈다. */
 	void TryStartMatch();
+
+	/** 카운트다운이 끝났을 때. 모두 그대로 준비돼 있으면 챔피언을 내보내고 경기를 시작한다. */
+	void FinishCountdown();
+
+	void StartMatchNow();
+
+	/** 로비에서 모두 준비됐는지. */
+	bool AreAllPlayersReady() const;
+
+	/** 챔피언끼리 준 피해를 결과 화면용으로 모은다. */
+	void HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, float Damage);
 
 	/** 인원이 더 적은 팀을 고른다. 같으면 블루. */
 	EMobaTeam PickTeamForNewPlayer() const;
@@ -152,6 +170,16 @@ protected:
 	 */
 	UPROPERTY(EditDefaultsOnly, Category = "Match")
 	int32 RequiredPlayers = 1;
+
+	/** 경기 전에 챔피언을 고르는 로비를 거칠지. 접속 주소에 Players(2 이상)가 있을 때 켜진다. */
+	bool bUseLobby = false;
+
+
+	/** 모두 준비된 뒤 시작까지의 시간(초). */
+	UPROPERTY(EditDefaultsOnly, Category = "Match")
+	float StartCountdown = 3.0f;
+
+	FTimerHandle CountdownTimer;
 
 	/** 이 인원이 차면 더 받지 않는다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Match")

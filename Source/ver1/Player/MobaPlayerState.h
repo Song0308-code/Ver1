@@ -56,6 +56,18 @@ public:
 	void AddItem(uint8 ItemIndex) { Items.Add(ItemIndex); }
 	void RemoveItemAt(int32 Slot) { Items.RemoveAt(Slot); }
 
+	/** 로비에서 준비를 마쳤는지. */
+	bool IsReady() const { return bReady; }
+
+	/** 서버 전용. */
+	void SetReady(bool bInReady) { bReady = bInReady; }
+
+	/** 상대 챔피언에게 준 피해의 합. 결과 화면에 쓴다. */
+	float GetDamageToChampions() const { return DamageToChampions; }
+
+	/** 서버 전용. */
+	void AddDamageToChampions(float Amount) { DamageToChampions += Amount; }
+
 	/** 서버 전용. 미니언·몬스터 처치 수. */
 	void AddMinionKill() { ++MinionKills; }
 	int32 GetMinionKills() const { return MinionKills; }
@@ -135,6 +147,12 @@ protected:
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	int32 MinionKills = 0;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	float DamageToChampions = 0.0f;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Lobby")
+	bool bReady = false;
 
 	UPROPERTY(ReplicatedUsing = OnRep_ChampionLevel, VisibleAnywhere, BlueprintReadOnly, Category = "Progression")
 	int32 ChampionLevel = 1;

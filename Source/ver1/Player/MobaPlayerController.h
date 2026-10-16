@@ -46,6 +46,12 @@ public:
 	/** 최근에 받은 핑. 오래된 것부터 들어 있다. */
 	const TArray<FMobaPing>& GetPings() const { return Pings; }
 
+	/** 로비에서 챔피언을 바꾼다. */
+	void RequestChampion(const FString& AssetName) { ServerRequestChampion(AssetName); }
+
+	/** 로비에서 준비 상태를 바꾼다. */
+	void RequestReady(bool bReady) { ServerRequestReady(bReady); }
+
 protected:
 	/** 입력 에셋을 만들기 전까지 쓰는 기본 키 배치를 코드로 구성한다. */
 	void CreateDefaultInput();
@@ -74,6 +80,12 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerPing(FVector_NetQuantize Location);
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestChampion(const FString& AssetName);
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestReady(bool bReady);
 
 	UFUNCTION(Client, Reliable)
 	void ClientShowPing(FVector_NetQuantize Location);
@@ -247,6 +259,14 @@ protected:
 	/** 에디터 자동 검증용. 호스트의 컨트롤러에 0보다 큰 값을 넣으면 다음 틱에 모든 플레이어에게 그만큼 경험치를 준다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	float DebugGrantExperience = 0.0f;
+
+	/** 에디터 자동 검증용. 비어 있지 않으면 다음 틱에 로비에서 이 챔피언으로 바꾼다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	FString DebugLobbyChampion;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 로비 준비 상태를 뒤집는다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugToggleReady = false;
 
 	/** 에디터 자동 검증용. 켜면 다음 틱에 귀환을 시작한다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")

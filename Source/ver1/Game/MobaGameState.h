@@ -28,6 +28,19 @@ public:
 	/** 필요한 인원이 모여 경기가 시작됐는지. 시작 전에는 미니언이 나오지 않는다. */
 	bool HasMatchStarted() const { return bMatchStarted; }
 
+	/** 경기 전에 챔피언을 고르는 로비를 거치는 방인지. */
+	bool UsesLobby() const { return bUsesLobby; }
+
+	/** 모두 준비돼 시작을 기다리는 중이면 남은 시간(초), 아니면 0. */
+	float GetCountdownRemaining() const;
+
+	/** 경기 시작을 위해 모여야 하는 인원. */
+	int32 GetRequiredPlayers() const { return RequiredPlayers; }
+
+	/** 서버 전용. */
+	void SetLobbyInfo(bool bInUsesLobby, int32 InRequiredPlayers) { bUsesLobby = bInUsesLobby; RequiredPlayers = InRequiredPlayers; }
+	void SetCountdownEndServerTime(float InTime) { CountdownEndServerTime = InTime; }
+
 	bool IsMatchOver() const { return bMatchOver; }
 
 	/** 경기가 끝났을 때 이긴 팀. 진행 중이면 None. */
@@ -73,6 +86,16 @@ protected:
 
 	UPROPERTY(Replicated)
 	bool bEndedByForfeit = false;
+
+	UPROPERTY(Replicated)
+	bool bUsesLobby = false;
+
+	UPROPERTY(Replicated)
+	int32 RequiredPlayers = 1;
+
+	/** 시작 카운트다운이 끝나는 시각(서버 월드 시간). 카운트다운 중이 아니면 0. */
+	UPROPERTY(Replicated)
+	float CountdownEndServerTime = 0.0f;
 
 	TArray<FMobaAnnouncement> Announcements;
 };

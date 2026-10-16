@@ -70,6 +70,15 @@ protected:
 	/** Tab을 누르고 있는 동안 보이는 점수판. */
 	void DrawScoreboard();
 
+	/** 플레이어별 챔피언·레벨·K/D·CS·피해량·아이템 표. 점수판과 결과 화면이 같이 쓴다. */
+	void DrawPlayerTable(float Top);
+
+	/** 경기 전 챔피언 선택 화면. 챔피언 버튼과 준비 버튼을 누를 수 있다. */
+	void DrawLobby();
+
+	/** 호스트에게 보여 줄, 상대에게 알려 줄 주소 안내. */
+	FString GetHostAddressHint();
+
 	/** 팀이 보낸 위치 신호. */
 	void DrawPings();
 
@@ -131,6 +140,11 @@ protected:
 	/** 미니맵이 나타내는 월드 범위(한 변). 월드 +X가 미니맵의 위쪽, +Y가 오른쪽이다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Minimap")
 	float MapWorldSize = 14870.0f;
+
+	/** 이번 프레임에 그린 로비의 챔피언 버튼(에셋 이름과 위치)과 준비 버튼. */
+	TArray<TPair<FString, FBox2D>> LobbyChampionRects;
+	FBox2D LobbyReadyRect = FBox2D(ForceInit);
+	bool bLobbyDrawn = false;
 
 	/** 이번 프레임에 그린 상점 창과 그 안의 줄, 가방 칸의 화면 위치. 클릭 판정에 쓴다. */
 	FBox2D ShopPanelRect = FBox2D(ForceInit);

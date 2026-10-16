@@ -13,7 +13,9 @@
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "Game/MobaGameState.h"
+#include "Game/MobaGameMode.h"
 #include "Game/MobaGameplayTags.h"
+#include "Character/MobaChampionData.h"
 #include "Game/MobaItems.h"
 #include "Map/MobaJungleCamp.h"
 #include "Map/MobaLanePath.h"
@@ -47,7 +49,12 @@ void AMobaHUD::DrawHUD()
 	DrawRespawnCountdown();
 	DrawWaitingForPlayers();
 
-	if (const AMobaCharacter* LocalCharacter = Cast<AMobaCharacter>(GetOwningPawn()))
+	// 경기가 끝나면 결과 화면만 보이도록 조작용 UI는 그리지 않는다.
+	const AMobaGameState* MobaGameState = GetWorld()->GetGameState<AMobaGameState>();
+	const bool bMatchOver = MobaGameState && MobaGameState->IsMatchOver();
+
+	const AMobaCharacter* LocalCharacter = bMatchOver ? nullptr : Cast<AMobaCharacter>(GetOwningPawn());
+	if (LocalCharacter)
 	{
 		DrawTargetingIndicator(LocalCharacter);
 		DrawStatusBar(LocalCharacter);
@@ -57,7 +64,14 @@ void AMobaHUD::DrawHUD()
 	}
 
 	DrawPings();
-	DrawMinimap();
+	if (!bMatchOver)
+	{
+		DrawMinimap();
+	}
+	else
+	{
+		bMinimapDrawn = false;
+	}
 	DrawAnnouncements();
 
 	bShopDrawn = false;
@@ -300,8 +314,9 @@ void AMobaHUD::DrawMinimapDot(const FVector& WorldLocation, float Size, const FL
 
 void AMobaHUD::DrawMinimap()
 {
+	// 로비 화면이 떠 있는 동안에는 그리지 않는다.
 	const AMobaPlayerState* LocalState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
-	if (!LocalState || LocalState->GetTeam() == EMobaTeam::None)
+	if (bLobbyDrawn || !LocalState || LocalState->GetTeam() == EMobaTeam::None)
 	{
 		bMinimapDrawn = false;
 		return;
@@ -575,9 +590,17 @@ void AMobaHUD::DrawRespawnCountdown()
 
 void AMobaHUD::DrawWaitingForPlayers()
 {
+	bLobbyDrawn = false;
+
 	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
 	if (!GameState || GameState->HasMatchStarted())
 	{
+		return;
+	}
+
+	if (GameState->UsesLobby())
+	{
+		DrawLobby();
 		return;
 	}
 
@@ -585,11 +608,14 @@ void AMobaHUD::DrawWaitingForPlayers()
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.5f), 0.0f, Canvas->ClipY * 0.16f, Canvas->ClipX, Canvas->ClipY * 0.14f);
 	DrawCenteredText(TEXT("상대를 기다리는 중..."), FLinearColor::White, CenterX, Canvas->ClipY * 0.18f, GEngine->GetLargeFont(), 2.0f);
 
-	if (GetNetMode() != NM_ListenServer)
+	if (GetNetMode() == NM_ListenServer)
 	{
-		return;
+		DrawCenteredText(GetHostAddressHint(), FLinearColor(1.0f, 0.85f, 0.4f), CenterX, Canvas->ClipY * 0.25f, GEngine->GetSmallFont(), 1.3f);
 	}
+}
 
+FString AMobaHUD::GetHostAddressHint()
+{
 	if (!bLocalAddressResolved)
 	{
 		bLocalAddressResolved = true;
@@ -601,10 +627,106 @@ void AMobaHUD::DrawWaitingForPlayers()
 	}
 
 	// 랜 어댑터가 여러 개면 다른 주소가 잡힐 수 있으므로 참고용이다.
-	const FString Hint = LocalAddress.IsEmpty()
+	return LocalAddress.IsEmpty()
 		? FString(TEXT("상대에게 이 PC의 IP 주소를 알려 주세요 (UDP 7777)"))
 		: FString::Printf(TEXT("상대에게 알려 줄 주소: %s (UDP 7777)"), *LocalAddress);
-	DrawCenteredText(Hint, FLinearColor(1.0f, 0.85f, 0.4f), CenterX, Canvas->ClipY * 0.25f, GEngine->GetSmallFont(), 1.3f);
+}
+
+void AMobaHUD::DrawLobby()
+{
+	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
+	const AMobaPlayerState* LocalState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!GameState || !LocalState)
+	{
+		return;
+	}
+
+	bLobbyDrawn = true;
+	LobbyChampionRects.Reset();
+
+	UFont* Font = GEngine->GetSmallFont();
+	const float CenterX = Canvas->ClipX * 0.5f;
+	const float Width = 640.0f;
+	const float Left = CenterX - Width * 0.5f;
+	float Top = Canvas->ClipY * 0.12f;
+
+	DrawRect(FLinearColor(0.01f, 0.015f, 0.03f, 0.92f), 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY);
+	DrawCenteredText(TEXT("챔피언 선택"), FLinearColor(0.85f, 0.9f, 1.0f), CenterX, Top, GEngine->GetLargeFont(), 2.0f);
+	Top += 54.0f;
+
+	const int32 Joined = GameState->PlayerArray.Num();
+	DrawCenteredText(FString::Printf(TEXT("플레이어 %d / %d"), Joined, GameState->GetRequiredPlayers()), FLinearColor(0.75f, 0.75f, 0.8f), CenterX, Top, Font, 1.3f);
+	Top += 26.0f;
+
+	if (GetNetMode() == NM_ListenServer && Joined < GameState->GetRequiredPlayers())
+	{
+		DrawCenteredText(GetHostAddressHint(), FLinearColor(1.0f, 0.85f, 0.4f), CenterX, Top, Font, 1.2f);
+	}
+	Top += 34.0f;
+
+	// 참가자 목록.
+	for (const APlayerState* PlayerState : GameState->PlayerArray)
+	{
+		const AMobaPlayerState* Player = Cast<AMobaPlayerState>(PlayerState);
+		if (!Player)
+		{
+			continue;
+		}
+
+		const bool bIsLocal = Player == LocalState;
+		DrawRect(FLinearColor(0.05f, 0.06f, 0.09f, 1.0f), Left, Top, Width, 36.0f);
+		DrawRect(MobaTeam::GetTeamColor(Player->GetTeam()), Left, Top, 6.0f, 36.0f);
+		DrawText(FString::Printf(TEXT("%s 팀%s"), *MobaTeam::GetTeamDisplayName(Player->GetTeam()), bIsLocal ? TEXT(" (나)") : TEXT("")), FLinearColor::White, Left + 18.0f, Top + 9.0f, Font, 1.2f);
+		DrawText(Player->GetChampionDisplayName(), FLinearColor(1.0f, 0.9f, 0.6f), Left + 220.0f, Top + 9.0f, Font, 1.2f);
+		DrawText(Player->IsReady() ? TEXT("준비 완료") : TEXT("고르는 중"), Player->IsReady() ? FLinearColor(0.4f, 1.0f, 0.5f) : FLinearColor(0.7f, 0.7f, 0.7f), Left + Width - 120.0f, Top + 9.0f, Font, 1.2f);
+		Top += 42.0f;
+	}
+	Top += 18.0f;
+
+	// 내 챔피언 고르기. 준비를 누르면 바꿀 수 없다.
+	DrawText(TEXT("내 챔피언"), FLinearColor(0.7f, 0.75f, 0.85f), Left, Top, Font, 1.1f);
+	Top += 24.0f;
+
+	const AMobaGameMode* ModeDefaults = Cast<AMobaGameMode>(GameState->GetDefaultGameMode());
+	const TArray<FSoftObjectPath> Roster = ModeDefaults ? ModeDefaults->GetChampionRoster() : TArray<FSoftObjectPath>();
+	const float ButtonGap = 10.0f;
+	const float ButtonWidth = Roster.Num() > 0 ? (Width - ButtonGap * (Roster.Num() - 1)) / Roster.Num() : Width;
+	const UMobaChampionData* Selected = LocalState->GetChampion();
+
+	for (int32 Index = 0; Index < Roster.Num(); ++Index)
+	{
+		const UMobaChampionData* Champion = Cast<UMobaChampionData>(Roster[Index].TryLoad());
+		const FString Name = Champion && !Champion->DisplayName.IsEmpty() ? Champion->DisplayName.ToString() : Roster[Index].GetAssetName();
+		const float ButtonLeft = Left + (ButtonWidth + ButtonGap) * Index;
+		const bool bSelected = Champion && Champion == Selected;
+
+		DrawRect(bSelected ? FLinearColor(0.2f, 0.35f, 0.6f) : FLinearColor(0.12f, 0.13f, 0.17f), ButtonLeft, Top, ButtonWidth, 48.0f);
+		DrawCenteredText(Name, LocalState->IsReady() && !bSelected ? FLinearColor(0.45f, 0.45f, 0.45f) : FLinearColor::White, ButtonLeft + ButtonWidth * 0.5f, Top + 14.0f, Font, 1.4f);
+		LobbyChampionRects.Add({ Roster[Index].GetAssetName(), FBox2D(FVector2D(ButtonLeft, Top), FVector2D(ButtonLeft + ButtonWidth, Top + 48.0f)) });
+	}
+	Top += 70.0f;
+
+	// 준비 버튼과 카운트다운.
+	const float ReadyWidth = 260.0f;
+	const float ReadyLeft = CenterX - ReadyWidth * 0.5f;
+	LobbyReadyRect = FBox2D(FVector2D(ReadyLeft, Top), FVector2D(ReadyLeft + ReadyWidth, Top + 52.0f));
+	DrawRect(LocalState->IsReady() ? FLinearColor(0.25f, 0.25f, 0.28f) : FLinearColor(0.15f, 0.55f, 0.25f), ReadyLeft, Top, ReadyWidth, 52.0f);
+	DrawCenteredText(LocalState->IsReady() ? TEXT("준비 취소") : TEXT("준비"), FLinearColor::White, CenterX, Top + 14.0f, Font, 1.6f);
+	Top += 76.0f;
+
+	const float Countdown = GameState->GetCountdownRemaining();
+	if (Countdown > 0.0f)
+	{
+		DrawCenteredText(FString::Printf(TEXT("%d초 후 시작"), FMath::CeilToInt(Countdown)), FLinearColor(1.0f, 0.85f, 0.3f), CenterX, Top, GEngine->GetLargeFont(), 1.8f);
+	}
+	else if (Joined < GameState->GetRequiredPlayers())
+	{
+		DrawCenteredText(TEXT("상대를 기다리는 중..."), FLinearColor(0.8f, 0.8f, 0.8f), CenterX, Top, Font, 1.4f);
+	}
+	else
+	{
+		DrawCenteredText(TEXT("모두 준비하면 시작합니다"), FLinearColor(0.8f, 0.8f, 0.8f), CenterX, Top, Font, 1.4f);
+	}
 }
 
 void AMobaHUD::DrawMatchResult()
@@ -617,11 +739,14 @@ void AMobaHUD::DrawMatchResult()
 	}
 
 	const bool bWon = GameState->GetWinningTeam() == PlayerState->GetTeam();
-	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.5f), 0.0f, Canvas->ClipY * 0.35f, Canvas->ClipX, Canvas->ClipY * 0.2f);
-	DrawCenteredText(bWon ? TEXT("승리") : TEXT("패배"), bWon ? FLinearColor(0.3f, 0.7f, 1.0f) : FLinearColor(1.0f, 0.3f, 0.25f), Canvas->ClipX * 0.5f, Canvas->ClipY * 0.38f, GEngine->GetLargeFont(), 4.0f);
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.6f), 0.0f, Canvas->ClipY * 0.1f, Canvas->ClipX, Canvas->ClipY * 0.2f);
+	DrawCenteredText(bWon ? TEXT("승리") : TEXT("패배"), bWon ? FLinearColor(0.3f, 0.7f, 1.0f) : FLinearColor(1.0f, 0.3f, 0.25f), Canvas->ClipX * 0.5f, Canvas->ClipY * 0.12f, GEngine->GetLargeFont(), 4.0f);
 
-	const FString Detail = GameState->WasEndedByForfeit() ? TEXT("상대가 게임을 떠났습니다.    Enter: 메뉴로 돌아가기") : TEXT("Enter: 메뉴로 돌아가기");
-	DrawCenteredText(Detail, FLinearColor::White, Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f, GEngine->GetSmallFont(), 1.3f);
+	const int32 TotalSeconds = FMath::FloorToInt(GameState->GetMatchTimeSeconds());
+	const FString Detail = FString::Printf(TEXT("경기 시간 %02d:%02d%s    Enter: 메뉴로 돌아가기"), TotalSeconds / 60, TotalSeconds % 60, GameState->WasEndedByForfeit() ? TEXT("    상대가 게임을 떠났습니다.") : TEXT(""));
+	DrawCenteredText(Detail, FLinearColor::White, Canvas->ClipX * 0.5f, Canvas->ClipY * 0.24f, GEngine->GetSmallFont(), 1.3f);
+
+	DrawPlayerTable(Canvas->ClipY * 0.34f);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -802,11 +927,37 @@ void AMobaHUD::DrawShop(const AMobaCharacter* Character)
 
 bool AMobaHUD::IsOverPanel(const FVector2D& ScreenPosition) const
 {
-	return bShopDrawn && ShopPanelRect.IsInsideOrOn(ScreenPosition);
+	return bLobbyDrawn || (bShopDrawn && ShopPanelRect.IsInsideOrOn(ScreenPosition));
 }
 
 bool AMobaHUD::HandleClick(const FVector2D& ScreenPosition)
 {
+	// 로비 화면은 화면 전체를 덮으므로 모든 클릭을 받는다.
+	if (bLobbyDrawn)
+	{
+		AMobaPlayerController* MobaController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+		const AMobaPlayerState* LocalState = MobaController ? MobaController->GetPlayerState<AMobaPlayerState>() : nullptr;
+		if (MobaController && LocalState)
+		{
+			if (LobbyReadyRect.IsInsideOrOn(ScreenPosition))
+			{
+				MobaController->RequestReady(!LocalState->IsReady());
+			}
+			else if (!LocalState->IsReady())
+			{
+				for (const TPair<FString, FBox2D>& Button : LobbyChampionRects)
+				{
+					if (Button.Value.IsInsideOrOn(ScreenPosition))
+					{
+						MobaController->RequestChampion(Button.Key);
+						break;
+					}
+				}
+			}
+		}
+		return true;
+	}
+
 	AMobaCharacter* Character = Cast<AMobaCharacter>(GetOwningPawn());
 	if (!bShopDrawn || !Character)
 	{
@@ -840,8 +991,19 @@ bool AMobaHUD::HandleClick(const FVector2D& ScreenPosition)
 void AMobaHUD::DrawScoreboard()
 {
 	const AMobaPlayerController* MobaController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
+	if (!MobaController || !MobaController->IsScoreboardShown() || !GameState || GameState->IsMatchOver())
+	{
+		return;
+	}
+
+	DrawPlayerTable(Canvas->ClipY * 0.2f);
+}
+
+void AMobaHUD::DrawPlayerTable(float Top)
+{
 	const AGameStateBase* GameState = GetWorld()->GetGameState();
-	if (!MobaController || !MobaController->IsScoreboardShown() || !GameState)
+	if (!GameState)
 	{
 		return;
 	}
@@ -857,22 +1019,29 @@ void AMobaHUD::DrawScoreboard()
 	Players.Sort([](const AMobaPlayerState& A, const AMobaPlayerState& B) { return static_cast<uint8>(A.GetTeam()) < static_cast<uint8>(B.GetTeam()); });
 
 	UFont* Font = GEngine->GetSmallFont();
-	const float Width = 760.0f;
+
+	// 창이 좁으면 표를 화면 폭에 맞춰 줄인다.
+	const float FullWidth = 860.0f;
+	const float Width = FMath::Min(FullWidth, Canvas->ClipX - 24.0f);
+	const float ColumnScale = Width / FullWidth;
 	const float RowHeight = 30.0f;
 	const float Height = 50.0f + RowHeight * Players.Num() + 12.0f;
 	const float Left = (Canvas->ClipX - Width) * 0.5f;
-	const float Top = Canvas->ClipY * 0.2f;
 
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.85f), Left, Top, Width, Height);
 
-	const float Columns[] = { 14.0f, 90.0f, 230.0f, 290.0f, 380.0f, 440.0f };
-	const TCHAR* Headers[] = { TEXT("팀"), TEXT("챔피언"), TEXT("레벨"), TEXT("K / D"), TEXT("CS"), TEXT("아이템") };
-	for (int32 Index = 0; Index < 6; ++Index)
+	float Columns[] = { 14.0f, 90.0f, 230.0f, 290.0f, 370.0f, 430.0f, 530.0f };
+	for (float& Column : Columns)
+	{
+		Column *= ColumnScale;
+	}
+	const TCHAR* Headers[] = { TEXT("팀"), TEXT("챔피언"), TEXT("레벨"), TEXT("K / D"), TEXT("CS"), TEXT("피해량"), TEXT("아이템") };
+	for (int32 Index = 0; Index < 7; ++Index)
 	{
 		DrawText(Headers[Index], FLinearColor(0.7f, 0.7f, 0.7f), Left + Columns[Index], Top + 12.0f, Font, 1.1f);
 	}
 
-	const AMobaPlayerState* LocalState = MobaController->GetPlayerState<AMobaPlayerState>();
+	const AMobaPlayerState* LocalState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
 	for (int32 Row = 0; Row < Players.Num(); ++Row)
 	{
 		const AMobaPlayerState* Player = Players[Row];
@@ -893,7 +1062,8 @@ void AMobaHUD::DrawScoreboard()
 		DrawText(FString::FromInt(Player->GetChampionLevel()), FLinearColor::White, Left + Columns[2], RowTop, Font, 1.2f);
 		DrawText(FString::Printf(TEXT("%d / %d"), Player->GetKills(), Player->GetDeaths()), FLinearColor::White, Left + Columns[3], RowTop, Font, 1.2f);
 		DrawText(FString::FromInt(Player->GetMinionKills()), FLinearColor::White, Left + Columns[4], RowTop, Font, 1.2f);
-		DrawText(ItemNames, FLinearColor(1.0f, 0.9f, 0.6f), Left + Columns[5], RowTop + 2.0f, Font, 1.0f);
+		DrawText(FString::FromInt(FMath::RoundToInt(Player->GetDamageToChampions())), FLinearColor::White, Left + Columns[5], RowTop, Font, 1.2f);
+		DrawText(ItemNames, FLinearColor(1.0f, 0.9f, 0.6f), Left + Columns[6], RowTop + 2.0f, Font, 1.0f);
 	}
 }
 

@@ -1,6 +1,7 @@
 #include "Game/MobaGameMode.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "Combat/MobaCombatEvents.h"
 #include "Character/MobaChampionData.h"
 #include "Character/MobaCharacter.h"
 #include "Combat/MobaCombatLibrary.h"
@@ -108,6 +109,29 @@ void AMobaGameMode::InitGame(const FString& MapName, const FString& Options, FSt
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	RequiredPlayers = FMath::Clamp(UGameplayStatics::GetIntOption(Options, TEXT("Players"), RequiredPlayers), 1, MaxPlayers);
+
+	// 메뉴에서 방을 만들면 상대를 기다리며 챔피언을 고르는 로비를 거친다. 에디터에서 바로 실행하거나 혼자 연습하면 거치지 않는다.
+	bUseLobby = UGameplayStatics::HasOption(Options, TEXT("Players")) && RequiredPlayers >= 2;
+
+	// 실행 인자 -MobaForceLobby를 주면 에디터에서도 2인 로비를 거친다(로비 시험용).
+	if (FParse::Param(FCommandLine::Get(), TEXT("MobaForceLobby")))
+	{
+		RequiredPlayers = FMath::Min(2, MaxPlayers);
+		bUseLobby = RequiredPlayers >= 2;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("방 설정: 필요 인원 %d, 로비 %s"), RequiredPlayers, bUseLobby ? TEXT("사용") : TEXT("사용 안 함"));
+}
+
+bool AMobaGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
+{
+	// 로비 동안에는 챔피언을 내보내지 않는다. 경기가 시작될 때 한꺼번에 내보낸다.
+	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	if (bUseLobby && MobaGameState && !MobaGameState->HasMatchStarted())
+	{
+		return false;
+	}
+	return Super::PlayerCanRestart_Implementation(Player);
 }
 
 void AMobaGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
@@ -119,9 +143,14 @@ void AMobaGameMode::PreLogin(const FString& Options, const FString& Address, con
 	}
 
 	// 여기서 채운 문구는 접속하려던 쪽의 메뉴에 그대로 표시된다.
+	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
 	if (MobaCombat::IsMatchOver(this))
 	{
 		ErrorMessage = TEXT("이미 끝난 경기입니다.");
+	}
+	else if (bUseLobby && MobaGameState && MobaGameState->HasMatchStarted())
+	{
+		ErrorMessage = TEXT("이미 시작된 경기입니다.");
 	}
 	else if (GetNumPlayers() >= MaxPlayers)
 	{
@@ -142,6 +171,12 @@ void AMobaGameMode::Logout(AController* Exiting)
 	const EMobaTeam LeavingTeam = LeavingState ? LeavingState->GetTeam() : EMobaTeam::None;
 
 	Super::Logout(Exiting);
+
+	// 로비 카운트다운 중에 누가 나가면 멈춘다.
+	if (bUseLobby && !GetWorld()->bIsTearingDown)
+	{
+		TryStartMatch();
+	}
 
 	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
 	if (!MobaGameState || !MobaGameState->HasMatchStarted() || MobaGameState->IsMatchOver() || LeavingTeam == EMobaTeam::None || GetWorld()->bIsTearingDown)
@@ -167,18 +202,151 @@ void AMobaGameMode::StartPlay()
 {
 	Super::StartPlay();
 
+	if (AMobaGameState* MobaGameState = GetGameState<AMobaGameState>())
+	{
+		MobaGameState->SetLobbyInfo(bUseLobby, RequiredPlayers);
+	}
+
+	if (UMobaCombatEvents* Events = UMobaCombatEvents::Get(this))
+	{
+		Events->OnDamageDealt.AddUObject(this, &AMobaGameMode::HandleDamageDealt);
+	}
+
 	TryStartMatch();
+}
+
+void AMobaGameMode::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, float Damage)
+{
+	const AMobaCharacter* Attacker = Cast<AMobaCharacter>(DamageInstigator);
+	if (Attacker && Victim && Victim->IsA<AMobaCharacter>() && Attacker != Victim)
+	{
+		if (AMobaPlayerState* AttackerState = Attacker->GetPlayerState<AMobaPlayerState>())
+		{
+			AttackerState->AddDamageToChampions(Damage);
+		}
+	}
+}
+
+void AMobaGameMode::RequestChampionChange(APlayerController* Player, const FString& AssetName)
+{
+	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	AMobaPlayerState* MobaPlayerState = Player ? Player->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!MobaGameState || MobaGameState->HasMatchStarted() || !MobaPlayerState || MobaPlayerState->IsReady())
+	{
+		return;
+	}
+
+	for (const FSoftObjectPath& Path : ChampionRoster)
+	{
+		if (Path.GetAssetName().Equals(AssetName, ESearchCase::IgnoreCase))
+		{
+			if (UMobaChampionData* Champion = Cast<UMobaChampionData>(Path.TryLoad()))
+			{
+				MobaPlayerState->SetChampion(Champion);
+			}
+			return;
+		}
+	}
+}
+
+void AMobaGameMode::RequestReady(APlayerController* Player, bool bReady)
+{
+	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	AMobaPlayerState* MobaPlayerState = Player ? Player->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!MobaGameState || MobaGameState->HasMatchStarted() || !MobaPlayerState)
+	{
+		return;
+	}
+
+	MobaPlayerState->SetReady(bReady);
+	TryStartMatch();
+}
+
+bool AMobaGameMode::AreAllPlayersReady() const
+{
+	if (!GameState)
+	{
+		return false;
+	}
+
+	for (const APlayerState* PlayerState : GameState->PlayerArray)
+	{
+		const AMobaPlayerState* MobaPlayerState = Cast<AMobaPlayerState>(PlayerState);
+		if (MobaPlayerState && !MobaPlayerState->IsReady())
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 void AMobaGameMode::TryStartMatch()
 {
 	AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
-	if (!MobaGameState || MobaGameState->HasMatchStarted() || !GetWorld()->HasBegunPlay() || GetNumPlayers() < RequiredPlayers)
+	if (!MobaGameState || MobaGameState->HasMatchStarted() || !GetWorld()->HasBegunPlay())
+	{
+		return;
+	}
+
+	const bool bEnoughPlayers = GetNumPlayers() >= RequiredPlayers;
+	if (!bUseLobby)
+	{
+		if (bEnoughPlayers)
+		{
+			StartMatchNow();
+		}
+		return;
+	}
+
+	// 로비: 인원이 차고 모두 준비되면 카운트다운을 시작하고, 그 사이 누가 준비를 풀거나 나가면 멈춘다.
+	const bool bCanStart = bEnoughPlayers && AreAllPlayersReady();
+	const bool bCountingDown = GetWorldTimerManager().IsTimerActive(CountdownTimer);
+	if (bCanStart && !bCountingDown)
+	{
+		GetWorldTimerManager().SetTimer(CountdownTimer, this, &AMobaGameMode::FinishCountdown, StartCountdown, false);
+		MobaGameState->SetCountdownEndServerTime(static_cast<float>(MobaGameState->GetServerWorldTimeSeconds()) + StartCountdown);
+	}
+	else if (!bCanStart && bCountingDown)
+	{
+		GetWorldTimerManager().ClearTimer(CountdownTimer);
+		MobaGameState->SetCountdownEndServerTime(0.0f);
+	}
+}
+
+void AMobaGameMode::FinishCountdown()
+{
+	AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	if (!MobaGameState || MobaGameState->HasMatchStarted())
+	{
+		return;
+	}
+
+	MobaGameState->SetCountdownEndServerTime(0.0f);
+	if (GetNumPlayers() >= RequiredPlayers && AreAllPlayersReady())
+	{
+		StartMatchNow();
+	}
+}
+
+void AMobaGameMode::StartMatchNow()
+{
+	AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	if (!MobaGameState || MobaGameState->HasMatchStarted())
 	{
 		return;
 	}
 
 	MobaGameState->StartMatch();
+
+	// 로비 동안 내보내지 않았던 챔피언을 지금 내보낸다.
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		APlayerController* PlayerController = It->Get();
+		if (PlayerController && !PlayerController->GetPawn())
+		{
+			RestartPlayer(PlayerController);
+		}
+	}
 
 	GetWorldTimerManager().SetTimer(WaveTimer, this, &AMobaGameMode::SpawnWave, WaveInterval, true, FirstWaveDelay);
 	GetWorldTimerManager().SetTimer(PassiveGoldTimer, this, &AMobaGameMode::GrantPassiveGold, 1.0f, true);

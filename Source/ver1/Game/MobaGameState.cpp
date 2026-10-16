@@ -12,6 +12,9 @@ void AMobaGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AMobaGameState, MatchEndServerTime);
 	DOREPLIFETIME(AMobaGameState, WinningTeam);
 	DOREPLIFETIME(AMobaGameState, bEndedByForfeit);
+	DOREPLIFETIME(AMobaGameState, bUsesLobby);
+	DOREPLIFETIME(AMobaGameState, RequiredPlayers);
+	DOREPLIFETIME(AMobaGameState, CountdownEndServerTime);
 }
 
 float AMobaGameState::GetMatchTimeSeconds() const
@@ -68,4 +71,13 @@ int32 AMobaGameState::GetTeamKills(EMobaTeam Team) const
 		}
 	}
 	return Total;
+}
+
+float AMobaGameState::GetCountdownRemaining() const
+{
+	if (CountdownEndServerTime <= 0.0f || bMatchStarted)
+	{
+		return 0.0f;
+	}
+	return FMath::Max(CountdownEndServerTime - static_cast<float>(GetServerWorldTimeSeconds()), 0.0f);
 }
