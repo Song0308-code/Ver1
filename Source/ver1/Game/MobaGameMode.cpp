@@ -415,6 +415,7 @@ void AMobaGameMode::StartMatchNow()
 
 	GetWorldTimerManager().SetTimer(WaveTimer, this, &AMobaGameMode::SpawnWave, WaveInterval, true, FirstWaveDelay);
 	GetWorldTimerManager().SetTimer(PassiveGoldTimer, this, &AMobaGameMode::GrantPassiveGold, 1.0f, true);
+	GetWorldTimerManager().SetTimer(PlatingTimer, this, &AMobaGameMode::EndTowerPlating, TowerPlatingDuration, false);
 
 	UE_LOG(LogTemp, Log, TEXT("경기 시작 (플레이어 %d명)."), GetNumPlayers());
 }
@@ -922,11 +923,14 @@ void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)
 		VictimState->SetRespawnServerTime(GameState ? GameState->GetServerWorldTimeSeconds() + RespawnTime : 0.0f);
 	}
 
+	// 경기의 첫 챔피언 처치는 선취점 보너스를 준다. 포탑·미니언에게 죽은 것은 치지 않는다.
+	const bool bFirstBlood = KillerState && !bFirstBloodTaken;
 	if (KillerState)
 	{
 		KillerState->AddKill();
-		KillerState->AddGold(Bounty);
+		KillerState->AddGold(Bounty + (bFirstBlood ? FirstBloodBonusGold : 0.0f));
 		KillerState->AddExperience(ChampionKillExperience);
+		bFirstBloodTaken = true;
 	}
 
 	// 최근에 함께 피해를 준 아군에게 어시스트를 준다. 1대1에서는 생기지 않지만 인원을 늘리면 쓰인다.
@@ -958,6 +962,11 @@ void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)
 	Announce(FString::Printf(TEXT("%s → %s 처치%s"), *DescribeUnit(Killer), *DescribeUnit(Victim),
 		bSpecialBounty ? *FString::Printf(TEXT(" (현상금 %dG)"), FMath::RoundToInt(Bounty)) : TEXT("")), MobaCombat::GetTeam(Killer));
 
+	if (bFirstBlood)
+	{
+		Announce(FString::Printf(TEXT("선취점! %s (+%dG)"), *DescribeUnit(KillerPawn), FMath::RoundToInt(FirstBloodBonusGold)), KillerState->GetTeam());
+	}
+
 	if (KillerState && KillerState->GetKillStreak() >= 3)
 	{
 		Announce(FString::Printf(TEXT("%s %d연속 처치!"), *DescribeUnit(KillerPawn), KillerState->GetKillStreak()), KillerState->GetTeam());
@@ -968,6 +977,58 @@ void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)
 	{
 		RespawnChampion(Victim);
 	}), RespawnTime, false);
+}
+
+void AMobaGameMode::HandleTowerPlateDestroyed(AMobaTower* Tower, AActor* DamageInstigator)
+{
+	if (!Tower)
+	{
+		return;
+	}
+
+	// 챔피언이 깼으면 그 챔피언이, 미니언 등이 깼으면 근처의 상대 챔피언들이 나눠 받는다.
+	TArray<AMobaPlayerState*> Receivers;
+	const APawn* InstigatorPawn = Cast<APawn>(DamageInstigator);
+	if (AMobaPlayerState* InstigatorState = InstigatorPawn ? InstigatorPawn->GetPlayerState<AMobaPlayerState>() : nullptr)
+	{
+		Receivers.Add(InstigatorState);
+	}
+	else
+	{
+		for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+		{
+			AMobaPlayerState* State = It->GetPlayerState<AMobaPlayerState>();
+			if (State && State->GetTeam() != Tower->GetTeam() && !It->IsDead()
+				&& FVector::Dist2D(It->GetActorLocation(), Tower->GetActorLocation()) <= TowerPlateShareRadius)
+			{
+				Receivers.Add(State);
+			}
+		}
+	}
+
+	for (AMobaPlayerState* Receiver : Receivers)
+	{
+		Receiver->AddGold(TowerPlateGold / Receivers.Num());
+	}
+
+	const EMobaTeam Breaker = Tower->GetTeam() == EMobaTeam::Blue ? EMobaTeam::Red : EMobaTeam::Blue;
+	Announce(FString::Printf(TEXT("%s 방패 파괴 (남은 방패 %d)%s"), *DescribeUnit(Tower), Tower->GetPlatesRemaining(),
+		Receivers.Num() > 0 ? *FString::Printf(TEXT(" +%dG"), FMath::RoundToInt(TowerPlateGold / Receivers.Num())) : TEXT("")), Breaker);
+}
+
+void AMobaGameMode::EndTowerPlating()
+{
+	bool bAnyRemoved = false;
+	for (TActorIterator<AMobaTower> It(GetWorld()); It; ++It)
+	{
+		bAnyRemoved |= It->GetPlatesRemaining() > 0;
+		It->RemovePlates();
+	}
+
+	if (bAnyRemoved)
+	{
+		Announce(TEXT("포탑 방패가 사라졌습니다"), EMobaTeam::None);
+	}
 }
 
 float AMobaGameMode::GetRespawnTime(int32 ChampionLevel) const

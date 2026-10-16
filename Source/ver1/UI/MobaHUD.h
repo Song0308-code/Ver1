@@ -28,7 +28,8 @@ public:
 
 protected:
 	/** 유닛 머리 위 체력바. bShowMana면 바로 아래에 마나바도 그린다. */
-	void DrawUnitBar(const UAbilitySystemComponent* AbilitySystem, const FVector& WorldLocation, const FVector2D& Size, const FLinearColor& FillColor, bool bShowMana, const FString& Label);
+	/** Segments가 2 이상이면 막대를 그 수만큼 나누는 눈금을 긋는다(포탑 방패). */
+	void DrawUnitBar(const UAbilitySystemComponent* AbilitySystem, const FVector& WorldLocation, const FVector2D& Size, const FLinearColor& FillColor, bool bShowMana, const FString& Label, int32 Segments = 0);
 
 	/** 내 유닛은 초록, 아군은 파랑, 적은 빨강. */
 	FLinearColor GetRelationColor(EMobaTeam UnitTeam, bool bIsLocalUnit) const;

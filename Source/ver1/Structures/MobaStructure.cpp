@@ -234,6 +234,12 @@ void AMobaTower::BeginPlay()
 
 	if (HasAuthority())
 	{
+		// 앞을 지켜 주는 건물이 없는 포탑(라인의 첫 포탑)이 외곽 포탑이다.
+		if (RequiresAllDestroyed.Num() == 0 && RequiresAnyDestroyed.Num() == 0)
+		{
+			PlatesRemaining = TotalPlates;
+		}
+
 		CombatComponent->ConfigureBasicAttack(true, ProjectileSpeed);
 		GetWorldTimerManager().SetTimer(TargetingTimer, this, &AMobaTower::UpdateTargeting, 0.2f, true);
 
@@ -304,8 +310,49 @@ AActor* AMobaTower::FindBestTarget(float Range) const
 	return Best;
 }
 
+void AMobaTower::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AMobaTower, PlatesRemaining);
+}
+
+int32 AMobaTower::GetPlatesForHealthFraction(float HealthFraction)
+{
+	// 경계 바로 아래 부동소수 오차를 흡수한다(0.8 → 4개).
+	return FMath::Clamp(FMath::CeilToInt(HealthFraction * TotalPlates - 0.0001f), 0, TotalPlates);
+}
+
+void AMobaTower::UpdatePlates(AActor* DamageInstigator)
+{
+	if (PlatesRemaining <= 0)
+	{
+		return;
+	}
+
+	const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
+	const float Health = AbilitySystemComponent->GetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute());
+	const int32 Expected = MaxHealth > 0.0f ? GetPlatesForHealthFraction(Health / MaxHealth) : 0;
+
+	AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>();
+	while (PlatesRemaining > Expected)
+	{
+		--PlatesRemaining;
+		if (GameMode)
+		{
+			GameMode->HandleTowerPlateDestroyed(this, DamageInstigator);
+		}
+	}
+}
+
 void AMobaTower::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, float Damage)
 {
+	if (Victim == this)
+	{
+		UpdatePlates(DamageInstigator);
+		return;
+	}
+
 	// 사거리 안의 적 챔피언이 아군 챔피언을 공격하면 그 적으로 대상을 바꾼다.
 	const AMobaCharacter* VictimChampion = Cast<AMobaCharacter>(Victim);
 	AMobaCharacter* AttackerChampion = Cast<AMobaCharacter>(DamageInstigator);

@@ -14,6 +14,7 @@
 #include "Game/MobaItems.h"
 #include "Map/MobaJungleCamp.h"
 #include "Player/MobaPlayerState.h"
+#include "Structures/MobaStructure.h"
 
 namespace
 {
@@ -165,6 +166,20 @@ namespace
 		}
 		return INDEX_NONE;
 	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaTowerPlateTest, "Moba.Rules.TowerPlates", MobaTestFlags)
+bool FMobaTowerPlateTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("가득 찬 체력"), AMobaTower::GetPlatesForHealthFraction(1.0f), 5);
+	TestEqual(TEXT("81%"), AMobaTower::GetPlatesForHealthFraction(0.81f), 5);
+	TestEqual(TEXT("정확히 80%면 하나 깨짐"), AMobaTower::GetPlatesForHealthFraction(0.8f), 4);
+	TestEqual(TEXT("79%"), AMobaTower::GetPlatesForHealthFraction(0.79f), 4);
+	TestEqual(TEXT("41%"), AMobaTower::GetPlatesForHealthFraction(0.41f), 3);
+	TestEqual(TEXT("1%"), AMobaTower::GetPlatesForHealthFraction(0.01f), 1);
+	TestEqual(TEXT("파괴"), AMobaTower::GetPlatesForHealthFraction(0.0f), 0);
+	TestEqual(TEXT("범위 밖"), AMobaTower::GetPlatesForHealthFraction(1.5f), 5);
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaSpellsOptionTest, "Moba.Rules.SpellsOption", MobaTestFlags)

@@ -163,7 +163,7 @@ FLinearColor AMobaHUD::GetRelationColor(EMobaTeam UnitTeam, bool bIsLocalUnit) c
 	return FLinearColor(0.85f, 0.1f, 0.1f);
 }
 
-void AMobaHUD::DrawUnitBar(const UAbilitySystemComponent* AbilitySystem, const FVector& WorldLocation, const FVector2D& Size, const FLinearColor& FillColor, bool bShowMana, const FString& Label)
+void AMobaHUD::DrawUnitBar(const UAbilitySystemComponent* AbilitySystem, const FVector& WorldLocation, const FVector2D& Size, const FLinearColor& FillColor, bool bShowMana, const FString& Label, int32 Segments)
 {
 	const float MaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
 	if (MaxHealth <= 0.0f)
@@ -191,6 +191,11 @@ void AMobaHUD::DrawUnitBar(const UAbilitySystemComponent* AbilitySystem, const F
 	if (ShieldFraction > 0.0f)
 	{
 		DrawRect(FLinearColor(0.92f, 0.92f, 0.92f), Left + Size.X * HealthFraction, Top, Size.X * ShieldFraction, Size.Y);
+	}
+
+	for (int32 Segment = 1; Segment < Segments; ++Segment)
+	{
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.9f), Left + Size.X * Segment / Segments - 1.0f, Top, 2.0f, Size.Y);
 	}
 
 	if (bShowMana)
@@ -279,7 +284,10 @@ void AMobaHUD::DrawStructureBars()
 		// 아직 공격할 수 없는 건물은 회색으로 표시한다.
 		const FLinearColor FillColor = Structure->IsInvulnerable() ? FLinearColor(0.45f, 0.45f, 0.45f) : GetRelationColor(Structure->GetTeam(), false);
 		const FVector BarLocation = Structure->GetActorLocation() + FVector(0.0, 0.0, Structure->GetHealthBarHeight());
-		DrawUnitBar(Structure->GetAbilitySystemComponent(), BarLocation, StructureBarSize, FillColor, false, FString());
+		// 방패가 남은 외곽 포탑은 막대를 방패 수만큼 나눠 보여 준다.
+		const AMobaTower* Tower = Cast<AMobaTower>(Structure);
+		const int32 Segments = Tower && Tower->GetPlatesRemaining() > 0 ? AMobaTower::TotalPlates : 0;
+		DrawUnitBar(Structure->GetAbilitySystemComponent(), BarLocation, StructureBarSize, FillColor, false, FString(), Segments);
 	}
 }
 

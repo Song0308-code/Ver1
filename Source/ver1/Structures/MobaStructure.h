@@ -109,6 +109,19 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	/** 남은 포탑 방패 수. 외곽 포탑만 경기 초반에 가지고, 정해진 시간이 지나면 0이 된다. 모든 PC로 복제된다. */
+	int32 GetPlatesRemaining() const { return PlatesRemaining; }
+
+	/** 서버 전용. 남은 방패를 모두 없앤다(골드 없이). */
+	void RemovePlates() { PlatesRemaining = 0; }
+
+	/** 외곽 포탑이 처음 가지는 방패 수. 방패 하나는 최대 체력의 1/TotalPlates다. */
+	static constexpr int32 TotalPlates = 5;
+
+	/** 체력 비율에 해당하는 남은 방패 수. 비율이 정확히 경계면 그 방패는 깨진 것으로 본다. */
+	static int32 GetPlatesForHealthFraction(float HealthFraction);
 
 protected:
 	virtual void HandleOutOfHealth(AActor* DamageInstigator) override;
@@ -122,6 +135,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Tower")
 	float ProjectileSpeed = 1200.0f;
+
+	/** 체력이 줄어 깨져야 할 방패를 깨고 게임 모드에 알린다. */
+	void UpdatePlates(AActor* DamageInstigator);
+
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Tower")
+	int32 PlatesRemaining = 0;
 
 	FTimerHandle TargetingTimer;
 	FDelegateHandle DamageDealtHandle;

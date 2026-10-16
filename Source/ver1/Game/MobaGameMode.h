@@ -56,6 +56,9 @@ public:
 	/** 서버 전용. 로비에서 소환사 주문을 바꾼다. Index 0이 D, 1이 F. */
 	void RequestSummonerSpell(APlayerController* Player, int32 Index, EMobaSummonerSpell Spell);
 
+	/** 서버 전용. 포탑 방패가 하나 깨졌다. 깬 챔피언(미니언이면 근처의 상대 챔피언들)에게 골드를 준다. */
+	void HandleTowerPlateDestroyed(class AMobaTower* Tower, AActor* DamageInstigator);
+
 	/** 서버 전용. 로비에서 준비 상태를 바꾼다. */
 	void RequestReady(APlayerController* Player, bool bReady);
 
@@ -287,6 +290,28 @@ protected:
 	/** 어시스트한 아군들이 나눠 받는 골드(현상금 대비 비율). */
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
 	float AssistGoldFraction = 0.5f;
+
+	/** 경기의 첫 챔피언 처치에 더 주는 골드. */
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float FirstBloodBonusGold = 100.0f;
+
+	/** 포탑 방패 하나를 깼을 때의 골드. */
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float TowerPlateGold = 160.0f;
+
+	/** 미니언이 방패를 깼을 때 골드를 나눠 받는 근처 상대 챔피언의 거리. */
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float TowerPlateShareRadius = 1200.0f;
+
+	/** 경기 시작 후 이 시간(초)이 지나면 포탑 방패가 모두 사라진다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float TowerPlatingDuration = 840.0f;
+
+	bool bFirstBloodTaken = false;
+	FTimerHandle PlatingTimer;
+
+	/** 포탑 방패 시간이 끝났을 때. */
+	void EndTowerPlating();
 
 	/** 이 간격(초)마다 새로 나오는 미니언이 강해진다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Minions")
