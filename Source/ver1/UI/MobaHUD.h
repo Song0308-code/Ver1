@@ -101,6 +101,9 @@ protected:
 	/** 이번 프레임에 그린 스킬 칸의 화면 위치. */
 	FBox2D AbilityRects[4];
 
+	/** 이번 프레임에 그린 패시브 칸의 화면 위치. */
+	FBox2D PassiveRect = FBox2D(ForceInit);
+
 	/** 호스트에게 보여 줄, 상대에게 알려 줄 주소 안내. */
 	FString GetHostAddressHint();
 

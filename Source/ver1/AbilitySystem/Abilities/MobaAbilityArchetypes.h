@@ -211,3 +211,43 @@ class VER1_API UMobaAbility_Frenzy : public UMobaAbility_SelfBuff
 public:
 	UMobaAbility_Frenzy();
 };
+
+/** 미스틱 Q. 사거리가 길고 둔화 없는 마법 투사체. */
+UCLASS()
+class VER1_API UMobaAbility_ArcaneBolt : public UMobaAbility_Skillshot
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_ArcaneBolt();
+};
+
+/** 미스틱 W. 잠시 뒤 범위 안의 적에게 마법 피해를 주고 크게 둔화시킨다. */
+UCLASS()
+class VER1_API UMobaAbility_GravityField : public UMobaAbility_GroundAoE
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_GravityField();
+};
+
+/** 미스틱 E. 짧은 순간이동. */
+UCLASS()
+class VER1_API UMobaAbility_PhaseShift : public UMobaAbility_Blink
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_PhaseShift();
+};
+
+/** 미스틱 R. 넓은 범위에 큰 마법 피해와 기절. */
+UCLASS()
+class VER1_API UMobaAbility_Meteor : public UMobaAbility_GroundAoE
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_Meteor();
+};

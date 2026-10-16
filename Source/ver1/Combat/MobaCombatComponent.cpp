@@ -3,6 +3,8 @@
 #include "AbilitySystem/MobaAttributeSet.h"
 #include "AbilitySystemComponent.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "Character/MobaCharacter.h"
+#include "Character/MobaPassive.h"
 #include "Combat/MobaCombatLibrary.h"
 #include "Combat/MobaProjectile.h"
 #include "Game/MobaGameplayTags.h"
@@ -457,8 +459,21 @@ void UMobaCombatComponent::FireAttack(AActor* Target)
 	// 레드 버프는 기본 공격에 고정 피해와 둔화를 더한다. 건물에는 적용하지 않는다.
 	const bool bRedBuff = SourceAbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Red) && Target->IsA<APawn>();
 
+	// 챔피언 패시브가 이번 공격에 더하는 피해와 마나.
+	FMobaAttackBonus PassiveBonus;
+	if (AMobaCharacter* Champion = Cast<AMobaCharacter>(GetOwner()))
+	{
+		PassiveBonus = Champion->ApplyPassiveOnBasicAttack(Target);
+	}
+	if (PassiveBonus.ManaRestore > 0.0f)
+	{
+		const float Mana = SourceAbilitySystem->GetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute());
+		const float MaxMana = SourceAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxManaAttribute());
+		SourceAbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute(), FMath::Min(Mana + PassiveBonus.ManaRestore, MaxMana));
+	}
+
 	const float AttackDamage = SourceAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackDamageAttribute());
-	const FGameplayEffectSpecHandle Spec = MobaAbility::MakeDamageSpec(SourceAbilitySystem, GetOwner(), AttackDamage, 0.0f, bRedBuff ? RedBuffTrueDamage : 0.0f);
+	const FGameplayEffectSpecHandle Spec = MobaAbility::MakeDamageSpec(SourceAbilitySystem, GetOwner(), AttackDamage + PassiveBonus.BonusPhysicalDamage, PassiveBonus.BonusMagicDamage, bRedBuff ? RedBuffTrueDamage : 0.0f);
 	if (!Spec.IsValid())
 	{
 		return;

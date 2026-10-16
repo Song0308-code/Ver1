@@ -11,6 +11,8 @@
 class AMobaPlayerState;
 class AMobaWard;
 class UMobaAnimationComponent;
+class UMobaPassive;
+struct FMobaAttackBonus;
 class UMobaChampionData;
 struct FMobaItemDefinition;
 class UMobaCombatComponent;
@@ -81,6 +83,18 @@ public:
 	float GetWardCooldownRemaining() const;
 
 	float GetWardPlaceRange() const { return WardPlaceRange; }
+
+	/** 서버 전용. 기본 공격을 쏘기 직전에 패시브가 더할 피해를 받는다. 패시브가 없으면 0. */
+	FMobaAttackBonus ApplyPassiveOnBasicAttack(AActor* Target);
+
+	/** 이 챔피언의 패시브 정의(클래스 기본값). 이름·설명을 화면에 보여 줄 때 쓴다. 없으면 nullptr. */
+	const UMobaPassive* GetPassiveDefaults() const;
+
+	/** 패시브 중첩(또는 켜짐 여부). 모든 PC로 복제된다. */
+	int32 GetPassiveStacks() const { return PassiveStacks; }
+
+	/** 서버 전용. 패시브가 호출한다. */
+	void SetPassiveStacks(int32 Stacks) { PassiveStacks = Stacks; }
 
 	/** 스킬이 발동될 때 모든 PC에서 호출된다. 애니메이션·사운드 연결용. */
 	FOnMobaAbilityCast OnAbilityCast;
@@ -201,6 +215,13 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UMobaAnimationComponent> AnimationComponent;
+
+	/** 서버에서만 만드는 패시브 인스턴스. */
+	UPROPERTY(Transient)
+	TObjectPtr<UMobaPassive> PassiveInstance;
+
+	UPROPERTY(VisibleInstanceOnly, Replicated, Category = "Passive")
+	int32 PassiveStacks = 0;
 
 	/** 메시가 있을 때 사망 애니메이션을 보여 준 뒤 숨기기까지의 시간(초). */
 	UPROPERTY(EditDefaultsOnly, Category = "Appearance")

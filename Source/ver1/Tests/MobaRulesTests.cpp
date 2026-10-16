@@ -7,6 +7,8 @@
 
 #include "AbilitySystem/Abilities/MobaAbilityArchetypes.h"
 #include "AbilitySystem/MobaDamageExecution.h"
+#include "Character/MobaChampionData.h"
+#include "Character/MobaPassive.h"
 #include "Game/MobaGameMode.h"
 #include "Game/MobaItems.h"
 #include "Map/MobaJungleCamp.h"
@@ -157,6 +159,44 @@ bool FMobaJungleCampTest::RunTest(const FString& Parameters)
 
 	TestTrue(TEXT("바위게는 반격하지 않는다"), AMobaJungleCamp::GetDefinition(EMobaCampType::Scuttle).Monsters[0].bPassive);
 	TestTrue(TEXT("바론은 드래곤보다 늦게 나온다"), AMobaJungleCamp::GetDefinition(EMobaCampType::Baron).InitialSpawnTime > AMobaJungleCamp::GetDefinition(EMobaCampType::Dragon).InitialSpawnTime);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaChampionDataTest, "Moba.Data.Champions", MobaTestFlags)
+bool FMobaChampionDataTest::RunTest(const FString& Parameters)
+{
+	const TArray<FSoftObjectPath>& Roster = GetDefault<AMobaGameMode>()->GetChampionRoster();
+	TestTrue(TEXT("고를 수 있는 챔피언이 셋 이상"), Roster.Num() >= 3);
+
+	for (const FSoftObjectPath& Path : Roster)
+	{
+		const UMobaChampionData* Champion = Cast<UMobaChampionData>(Path.TryLoad());
+		const FString Name = Path.GetAssetName();
+		if (!TestNotNull(Name + TEXT(" 로드"), Champion))
+		{
+			continue;
+		}
+
+		TestFalse(Name + TEXT(" 이름"), Champion->DisplayName.IsEmpty());
+		TestEqual(Name + TEXT(" 스킬 4개"), Champion->Abilities.Num(), 4);
+		TestNotNull(Name + TEXT(" 패시브"), Champion->Passive.Get());
+		TestTrue(Name + TEXT(" 체력"), Champion->BaseStats.MaxHealth > 0.0f);
+		TestTrue(Name + TEXT(" 사거리"), Champion->BaseStats.AttackRange > 0.0f);
+		TestFalse(Name + TEXT(" 메시"), Champion->Mesh.IsNull());
+
+		int32 Ultimates = 0;
+		for (const TPair<EMobaAbilitySlot, TSubclassOf<UMobaGameplayAbility>>& Entry : Champion->Abilities)
+		{
+			const UMobaGameplayAbility* Ability = Entry.Value ? Entry.Value->GetDefaultObject<UMobaGameplayAbility>() : nullptr;
+			if (TestNotNull(Name + TEXT(" 스킬 클래스"), Ability))
+			{
+				TestFalse(Name + TEXT(" 스킬 설명"), Ability->GetDescription().IsEmpty());
+				Ultimates += Ability->GetMaxLevel() == 3 ? 1 : 0;
+				TestEqual(Name + TEXT(" 궁극기는 R"), Ability->GetMaxLevel() == 3, Entry.Key == EMobaAbilitySlot::R);
+			}
+		}
+		TestEqual(Name + TEXT(" 궁극기 하나"), Ultimates, 1);
+	}
 	return true;
 }
 

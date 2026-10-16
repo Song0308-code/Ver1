@@ -17,6 +17,7 @@
 #include "Game/MobaGameMode.h"
 #include "Game/MobaGameplayTags.h"
 #include "Character/MobaChampionData.h"
+#include "Character/MobaPassive.h"
 #include "Game/MobaItems.h"
 #include "Map/MobaJungleCamp.h"
 #include "Map/MobaLanePath.h"
@@ -510,6 +511,25 @@ void AMobaHUD::DrawAbilityTooltip(const AMobaCharacter* Character)
 	const AMobaPlayerController* PointerController = Cast<AMobaPlayerController>(GetOwningPlayerController());
 	if (!PointerController || !PointerController->GetPointerPosition(MouseX, MouseY))
 	{
+		return;
+	}
+
+	// 패시브 칸.
+	const UMobaPassive* Passive = Character->GetPassiveDefaults();
+	if (Passive && PassiveRect.bIsValid && PassiveRect.IsInsideOrOn(FVector2D(MouseX, MouseY)))
+	{
+		UFont* Font = GEngine->GetSmallFont();
+		const FString Title = FString::Printf(TEXT("%s  (패시브)"), *Passive->GetDisplayName().ToString());
+		const FString Body = Passive->GetDescription().ToString();
+		float TitleWidth = 0.0f, BodyWidth = 0.0f, Height = 0.0f;
+		GetTextSize(Title, TitleWidth, Height, Font, 1.1f);
+		GetTextSize(Body, BodyWidth, Height, Font, 1.1f);
+		const float Width = FMath::Max(TitleWidth, BodyWidth);
+		const float Left = FMath::Clamp(PassiveRect.Min.X, 8.0f, Canvas->ClipX - Width - 24.0f);
+		const float Top = PassiveRect.Min.Y - 82.0f;
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.88f), Left, Top, Width + 16.0f, 52.0f);
+		DrawText(Title, FLinearColor(1.0f, 0.9f, 0.5f), Left + 8.0f, Top + 6.0f, Font, 1.1f);
+		DrawText(Body, FLinearColor::White, Left + 8.0f, Top + 26.0f, Font, 1.1f);
 		return;
 	}
 
@@ -1446,7 +1466,8 @@ void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
 		float TextWidth = 0.0f;
 		float TextHeight = 0.0f;
 		GetTextSize(Text, TextWidth, TextHeight, Font, 1.2f);
-		DrawText(Text, Label.Color, Left - TextWidth - Gap * 2.0f, LabelTop, Font, 1.2f);
+		// 패시브 칸을 피해 그 왼쪽에 적는다.
+		DrawText(Text, Label.Color, Left - TextWidth - Gap * 2.0f - 52.0f, LabelTop, Font, 1.2f);
 		LabelTop += 18.0f;
 	}
 }
@@ -1486,6 +1507,30 @@ void AMobaHUD::DrawStatusBar(const AMobaCharacter* Character)
 	DrawText(FString::Printf(TEXT("%d G"), FMath::FloorToInt(PlayerState->GetGold())), FLinearColor(1.0f, 0.85f, 0.3f), Left + TotalWidth - 70.0f, InfoTop, Font, 1.2f);
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), Left - 1.0f, InfoTop + 20.0f, TotalWidth + 2.0f, 6.0f);
 	DrawRect(FLinearColor(0.6f, 0.3f, 0.9f), Left, InfoTop + 21.0f, TotalWidth * ExperienceFraction, 4.0f);
+
+	// 스킬 칸 왼쪽의 패시브 칸. 중첩 수나 켜짐 여부를 보여 준다.
+	PassiveRect = FBox2D(ForceInit);
+	if (const UMobaPassive* Passive = Character->GetPassiveDefaults())
+	{
+		const float PassiveSize = 44.0f;
+		const float PassiveLeft = Left - Gap - PassiveSize;
+		const float PassiveTop = BoxTop + AbilityBoxSize - PassiveSize;
+		const int32 Stacks = Character->GetPassiveStacks();
+		const bool bActive = Passive->GetMaxStacks() > 0 ? Stacks > 0 : Stacks != 0;
+
+		PassiveRect = FBox2D(FVector2D(PassiveLeft, PassiveTop), FVector2D(PassiveLeft + PassiveSize, PassiveTop + PassiveSize));
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), PassiveLeft - 2.0f, PassiveTop - 2.0f, PassiveSize + 4.0f, PassiveSize + 4.0f);
+		DrawRect(bActive ? FLinearColor(0.55f, 0.4f, 0.1f) : FLinearColor(0.2f, 0.17f, 0.1f), PassiveLeft, PassiveTop, PassiveSize, PassiveSize);
+		DrawCenteredText(TEXT("패시브"), FLinearColor(0.9f, 0.85f, 0.7f), PassiveLeft + PassiveSize * 0.5f, PassiveTop + 3.0f, Font, 0.8f);
+		if (Passive->GetMaxStacks() > 0)
+		{
+			DrawCenteredText(FString::Printf(TEXT("%d/%d"), Stacks, Passive->GetMaxStacks()), FLinearColor::White, PassiveLeft + PassiveSize * 0.5f, PassiveTop + 20.0f, Font, 1.1f);
+		}
+		else if (bActive)
+		{
+			DrawCenteredText(TEXT("ON"), FLinearColor(1.0f, 0.9f, 0.4f), PassiveLeft + PassiveSize * 0.5f, PassiveTop + 20.0f, Font, 1.1f);
+		}
+	}
 
 	// QWER 스킬 칸.
 	for (int32 Index = 0; Index < 4; ++Index)

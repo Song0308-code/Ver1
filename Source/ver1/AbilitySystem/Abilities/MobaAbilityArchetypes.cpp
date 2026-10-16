@@ -317,3 +317,67 @@ UMobaAbility_Frenzy::UMobaAbility_Frenzy()
 	MoveSpeedMultiplier = 1.35f;
 	AttackSpeedMultiplier = 1.8f;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 미스틱
+
+UMobaAbility_ArcaneBolt::UMobaAbility_ArcaneBolt()
+{
+	DisplayName = NSLOCTEXT("Moba", "ArcaneBoltName", "마력 화살");
+	Description = NSLOCTEXT("Moba", "ArcaneBoltDesc", "커서 방향으로 빠른 마력 화살을 쏩니다. 처음 맞은 적에게 큰 마법 피해를 줍니다.");
+	CastRange = 1150.0f;
+	ManaCost = 55.0f;
+	CooldownDuration = 5.0f;
+
+	ProjectileSpeed = 2000.0f;
+	ProjectileRadius = 50.0f;
+	BaseDamage = 90.0f;
+	DamagePerLevel = 50.0f;
+	AbilityPowerRatio = 0.75f;
+	SlowMoveSpeedMultiplier = 1.0f;
+}
+
+UMobaAbility_GravityField::UMobaAbility_GravityField()
+{
+	DisplayName = NSLOCTEXT("Moba", "GravityFieldName", "중력장");
+	Description = NSLOCTEXT("Moba", "GravityFieldDesc", "지정한 곳에 잠시 뒤 중력장이 생겨 범위 안의 적에게 마법 피해를 주고 2초 동안 50% 둔화시킵니다.");
+	CastRange = 850.0f;
+	ManaCost = 70.0f;
+	CooldownDuration = 11.0f;
+	bUltimate = false;
+
+	Radius = 250.0f;
+	Delay = 0.75f;
+	BaseDamage = 70.0f;
+	DamagePerLevel = 40.0f;
+	AbilityPowerRatio = 0.5f;
+	StunDuration = 0.0f;
+	SlowMoveSpeedMultiplier = 0.5f;
+	SlowDuration = 2.0f;
+}
+
+UMobaAbility_PhaseShift::UMobaAbility_PhaseShift()
+{
+	DisplayName = NSLOCTEXT("Moba", "PhaseShiftName", "위상 이동");
+	Description = NSLOCTEXT("Moba", "PhaseShiftDesc", "커서 쪽으로 짧게 순간이동합니다. 벽을 넘을 수 있습니다.");
+	CastRange = 400.0f;
+	ManaCost = 50.0f;
+	CooldownDuration = 14.0f;
+}
+
+UMobaAbility_Meteor::UMobaAbility_Meteor()
+{
+	DisplayName = NSLOCTEXT("Moba", "MeteorName", "운석 낙하");
+	Description = NSLOCTEXT("Moba", "MeteorDesc", "넓은 범위에 1초 뒤 운석이 떨어져 큰 마법 피해를 주고 1초 동안 기절시킵니다.");
+	CastRange = 1200.0f;
+	ManaCost = 120.0f;
+	CooldownDuration = 70.0f;
+	bUltimate = true;
+
+	Radius = 400.0f;
+	Delay = 1.0f;
+	BaseDamage = 250.0f;
+	DamagePerLevel = 125.0f;
+	AbilityPowerRatio = 0.9f;
+	StunDuration = 1.0f;
+}

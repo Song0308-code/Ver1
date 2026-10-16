@@ -8,6 +8,8 @@
 #include "MobaChampionData.generated.h"
 
 class UAnimInstance;
+class UMaterialInterface;
+class UMobaPassive;
 class UMobaGameplayAbility;
 class USkeletalMesh;
 
@@ -37,6 +39,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Abilities")
 	TMap<EMobaAbilitySlot, TSubclassOf<UMobaGameplayAbility>> Abilities;
 
+	/** 항상 켜져 있는 고유 능력. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Abilities")
+	TSubclassOf<UMobaPassive> Passive;
+
 	/** 비어 있으면 임시 원기둥 외형을 쓴다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
 	TSoftObjectPtr<USkeletalMesh> Mesh;
@@ -58,6 +64,10 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
 	float MeshScale = 1.0f;
+
+	/** 지정하면 메시의 모든 머티리얼을 이것으로 바꾼다. 같은 메시를 쓰는 챔피언을 색으로 구분할 때 쓴다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
+	TSoftObjectPtr<UMaterialInterface> MeshMaterial;
 
 	/** 메시가 없을 때 쓰는 임시 원기둥의 굵기·높이 배율. 챔피언을 눈으로 구분하기 위한 것이다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")

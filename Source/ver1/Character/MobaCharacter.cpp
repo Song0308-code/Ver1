@@ -9,6 +9,8 @@
 #include "AbilitySystemComponent.h"
 #include "Character/MobaAnimationComponent.h"
 #include "Character/MobaChampionData.h"
+#include "Character/MobaPassive.h"
+#include "Materials/MaterialInterface.h"
 #include "Combat/MobaCombatComponent.h"
 #include "Combat/MobaCombatEvents.h"
 #include "Combat/MobaCombatLibrary.h"
@@ -90,6 +92,7 @@ void AMobaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AMobaCharacter, ChampionData);
 	DOREPLIFETIME(AMobaCharacter, HomeLocation);
 	DOREPLIFETIME(AMobaCharacter, RecallEndServerTime);
+	DOREPLIFETIME(AMobaCharacter, PassiveStacks);
 }
 
 void AMobaCharacter::BeginPlay()
@@ -150,6 +153,14 @@ void AMobaCharacter::ApplyChampionAppearance()
 	MeshComponent->SetRelativeLocationAndRotation(ChampionData->MeshOffset, ChampionData->MeshRotation);
 	MeshComponent->SetRelativeScale3D(FVector(ChampionData->MeshScale));
 	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	if (UMaterialInterface* Material = ChampionData->MeshMaterial.LoadSynchronous())
+	{
+		for (int32 Index = 0; Index < MeshComponent->GetNumMaterials(); ++Index)
+		{
+			MeshComponent->SetMaterial(Index, Material);
+		}
+	}
 
 	if (UClass* AnimClass = ChampionData->AnimClass.LoadSynchronous())
 	{
@@ -222,6 +233,12 @@ void AMobaCharacter::PossessedBy(AController* NewController)
 		}
 
 		ApplyChampionAppearance();
+	}
+
+	if (!PassiveInstance && ChampionData && ChampionData->Passive)
+	{
+		PassiveInstance = NewObject<UMobaPassive>(this, ChampionData->Passive);
+		PassiveInstance->Initialize(this);
 	}
 
 	BindToPlayerStateTeam();
@@ -402,6 +419,11 @@ void AMobaCharacter::Respawn(const FVector& Location, const FRotator& Rotation)
 	AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute(), AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute()));
 	AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute(), AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxManaAttribute()));
 	AbilitySystem->RemoveLooseGameplayTag(MobaTags::State_Dead, 1, EGameplayTagReplicationState::TagOnly);
+
+	if (PassiveInstance)
+	{
+		PassiveInstance->OnRespawned();
+	}
 }
 
 void AMobaCharacter::TeleportChampion(const FVector& Location, const FRotator& Rotation)
@@ -552,6 +574,11 @@ void AMobaCharacter::TickRegen()
 	const float MaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
 	const float BonusHealthRegen = AbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Red) ? MaxHealth * RedBuffHealFractionPerSecond : 0.0f;
 	const float BonusManaRegen = AbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Blue) ? BlueBuffManaRegenPerSecond : 0.0f;
+
+	if (PassiveInstance)
+	{
+		PassiveInstance->Tick(DeltaSeconds);
+	}
 
 	Regenerate(UMobaAttributeSet::GetHealthAttribute(), UMobaAttributeSet::GetMaxHealthAttribute(), Stats.HealthRegenPerSecond + BonusHealthRegen);
 	Regenerate(UMobaAttributeSet::GetManaAttribute(), UMobaAttributeSet::GetMaxManaAttribute(), Stats.ManaRegenPerSecond + BonusManaRegen);
@@ -740,6 +767,11 @@ void AMobaCharacter::NotifyAbilityCast(EMobaAbilitySlot Slot)
 	// 스킬을 쓰면 귀환이 끊긴다.
 	CancelRecall();
 	MulticastAbilityCast(Slot);
+
+	if (PassiveInstance)
+	{
+		PassiveInstance->OnAbilityCast(Slot);
+	}
 }
 
 void AMobaCharacter::MulticastAbilityCast_Implementation(EMobaAbilitySlot Slot)
@@ -968,10 +1000,28 @@ void AMobaCharacter::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim,
 	if (Victim == this && Damage > 0.0f)
 	{
 		CancelRecall();
+
+		if (PassiveInstance)
+		{
+			PassiveInstance->OnDamageTaken(Damage);
+		}
 	}
 }
 
 bool AMobaCharacter::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
 {
 	return UMobaVisionSubsystem::IsRelevantToViewer(this, RealViewer) && Super::IsNetRelevantFor(RealViewer, ViewTarget, SrcLocation);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 패시브
+
+FMobaAttackBonus AMobaCharacter::ApplyPassiveOnBasicAttack(AActor* Target)
+{
+	return PassiveInstance ? PassiveInstance->OnBasicAttack(Target) : FMobaAttackBonus();
+}
+
+const UMobaPassive* AMobaCharacter::GetPassiveDefaults() const
+{
+	return ChampionData && ChampionData->Passive ? ChampionData->Passive->GetDefaultObject<UMobaPassive>() : nullptr;
 }
