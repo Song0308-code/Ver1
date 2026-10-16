@@ -3,10 +3,13 @@
 #include "AbilitySystem/MobaGameplayAbility.h"
 #include "AbilitySystemComponent.h"
 #include "Character/MobaCharacter.h"
+#include "Combat/MobaCombatLibrary.h"
 #include "Combat/MobaCombatComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SplineComponent.h"
+#include "CanvasItem.h"
 #include "Engine/Canvas.h"
+#include "TextureResource.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "Game/MobaGameState.h"
@@ -31,6 +34,8 @@ void AMobaHUD::DrawHUD()
 	{
 		return;
 	}
+
+	DrawFogOfWar();
 
 	DrawStructureBars();
 	DrawMonsterBars();
@@ -195,7 +200,7 @@ void AMobaHUD::DrawMinionBars()
 	for (TActorIterator<AMobaMinion> It(GetWorld()); It; ++It)
 	{
 		const AMobaMinion* Minion = *It;
-		if (Minion->IsHidden() || !IsSeen(Minion))
+		if (Minion->IsHidden() || MobaCombat::IsDead(Minion) || !IsSeen(Minion))
 		{
 			continue;
 		}
@@ -308,6 +313,8 @@ void AMobaHUD::DrawMinimap()
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.85f), MinimapOrigin.X - 2.0f, MinimapOrigin.Y - 2.0f, MinimapSize + 4.0f, MinimapSize + 4.0f);
 	DrawRect(FLinearColor(0.06f, 0.1f, 0.07f, 0.9f), MinimapOrigin.X, MinimapOrigin.Y, MinimapSize, MinimapSize);
 
+	DrawMinimapFog();
+
 	// 라인.
 	for (TActorIterator<AMobaLanePath> It(GetWorld()); It; ++It)
 	{
@@ -390,6 +397,144 @@ void AMobaHUD::DrawMinimap()
 		const FVector2D& From = MapCorners[Index];
 		const FVector2D& To = MapCorners[(Index + 1) % 4];
 		DrawLine(From.X, From.Y, To.X, To.Y, FLinearColor::White, 1.0f);
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 전장의 안개
+
+void AMobaHUD::DrawFogOfWar()
+{
+	const UMobaVisionSubsystem* Vision = UMobaVisionSubsystem::Get(this);
+	if (!Vision || !Vision->HasFog())
+	{
+		return;
+	}
+
+	// 화면 네 귀퉁이를 지면에 내려 화면에 보이는 격자 범위를 구한다.
+	FBox2D ViewBounds(ForceInit);
+	const FVector2D Corners[] = { FVector2D(0.0, 0.0), FVector2D(Canvas->ClipX, 0.0), FVector2D(Canvas->ClipX, Canvas->ClipY), FVector2D(0.0, Canvas->ClipY) };
+	for (const FVector2D& Corner : Corners)
+	{
+		FVector WorldPosition;
+		FVector WorldDirection;
+		Deproject(Corner.X, Corner.Y, WorldPosition, WorldDirection);
+		if (WorldDirection.Z >= -KINDA_SMALL_NUMBER)
+		{
+			return;
+		}
+		const FVector Ground = WorldPosition - WorldDirection * (WorldPosition.Z / WorldDirection.Z);
+		ViewBounds += FVector2D(Ground.X, Ground.Y);
+	}
+
+	const int32 Cells = UMobaVisionSubsystem::FogCells;
+	const float CellSize = UMobaVisionSubsystem::FogWorldSize / Cells;
+	const int32 MinX = FMath::Clamp(FMath::FloorToInt(ViewBounds.Min.X / CellSize) - 1, 0, Cells - 1);
+	const int32 MaxX = FMath::Clamp(FMath::CeilToInt(ViewBounds.Max.X / CellSize) + 1, 0, Cells - 1);
+	const int32 MinY = FMath::Clamp(FMath::FloorToInt(ViewBounds.Min.Y / CellSize) - 1, 0, Cells - 1);
+	const int32 MaxY = FMath::Clamp(FMath::CeilToInt(ViewBounds.Max.Y / CellSize) + 1, 0, Cells - 1);
+
+	// 꼭짓점마다 투명도를 달리 줘서 안개 가장자리가 부드럽게 이어지게 한다.
+	TArray<FCanvasUVTri> Triangles;
+	const auto MakeVertex = [this, Vision, CellSize](int32 X, int32 Y, FVector2D& OutScreen, FLinearColor& OutColor)
+	{
+		const FVector Screen = Project(FVector(X * CellSize, Y * CellSize, 0.0));
+		OutScreen = FVector2D(Screen.X, Screen.Y);
+		OutColor = FLinearColor(0.0f, 0.0f, 0.02f, Vision->IsFogVertexVisible(X, Y) ? 0.0f : FogOpacity);
+		return Screen.Z > 0.0;
+	};
+
+	for (int32 Y = MinY; Y <= MaxY; ++Y)
+	{
+		for (int32 X = MinX; X <= MaxX; ++X)
+		{
+			if (Vision->IsFogVertexVisible(X, Y) && Vision->IsFogVertexVisible(X + 1, Y) && Vision->IsFogVertexVisible(X, Y + 1) && Vision->IsFogVertexVisible(X + 1, Y + 1))
+			{
+				continue;
+			}
+
+			FVector2D P00, P10, P01, P11;
+			FLinearColor C00, C10, C01, C11;
+			if (!MakeVertex(X, Y, P00, C00) || !MakeVertex(X + 1, Y, P10, C10) || !MakeVertex(X, Y + 1, P01, C01) || !MakeVertex(X + 1, Y + 1, P11, C11))
+			{
+				continue;
+			}
+
+			FCanvasUVTri& First = Triangles.AddDefaulted_GetRef();
+			First.V0_Pos = P00; First.V0_Color = C00;
+			First.V1_Pos = P10; First.V1_Color = C10;
+			First.V2_Pos = P11; First.V2_Color = C11;
+
+			FCanvasUVTri& Second = Triangles.AddDefaulted_GetRef();
+			Second.V0_Pos = P00; Second.V0_Color = C00;
+			Second.V1_Pos = P11; Second.V1_Color = C11;
+			Second.V2_Pos = P01; Second.V2_Color = C01;
+		}
+	}
+
+	if (Triangles.Num() > 0)
+	{
+		FCanvasTriangleItem Item(Triangles, GWhiteTexture);
+		Item.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Item);
+	}
+}
+
+void AMobaHUD::DrawMinimapFog()
+{
+	const UMobaVisionSubsystem* Vision = UMobaVisionSubsystem::Get(this);
+	if (!Vision || !Vision->HasFog())
+	{
+		return;
+	}
+
+	// 미니맵은 작으므로 격자를 두 칸씩 묶어 그린다.
+	const int32 Step = 2;
+	const int32 Cells = UMobaVisionSubsystem::FogCells;
+	const float CellSize = UMobaVisionSubsystem::FogWorldSize / Cells;
+
+	TArray<FCanvasUVTri> Triangles;
+	const auto MakeVertex = [this, Vision, CellSize](int32 X, int32 Y, FVector2D& OutScreen, FLinearColor& OutColor)
+	{
+		OutScreen = WorldToMinimap(FVector(X * CellSize, Y * CellSize, 0.0));
+		OutColor = FLinearColor(0.0f, 0.0f, 0.0f, Vision->IsFogVertexVisible(X, Y) ? 0.0f : 0.5f);
+	};
+
+	for (int32 Y = 0; Y < Cells; Y += Step)
+	{
+		for (int32 X = 0; X < Cells; X += Step)
+		{
+			const int32 X1 = FMath::Min(X + Step, Cells);
+			const int32 Y1 = FMath::Min(Y + Step, Cells);
+			if (Vision->IsFogVertexVisible(X, Y) && Vision->IsFogVertexVisible(X1, Y) && Vision->IsFogVertexVisible(X, Y1) && Vision->IsFogVertexVisible(X1, Y1))
+			{
+				continue;
+			}
+
+			FVector2D P00, P10, P01, P11;
+			FLinearColor C00, C10, C01, C11;
+			MakeVertex(X, Y, P00, C00);
+			MakeVertex(X1, Y, P10, C10);
+			MakeVertex(X, Y1, P01, C01);
+			MakeVertex(X1, Y1, P11, C11);
+
+			FCanvasUVTri& First = Triangles.AddDefaulted_GetRef();
+			First.V0_Pos = P00; First.V0_Color = C00;
+			First.V1_Pos = P10; First.V1_Color = C10;
+			First.V2_Pos = P11; First.V2_Color = C11;
+
+			FCanvasUVTri& Second = Triangles.AddDefaulted_GetRef();
+			Second.V0_Pos = P00; Second.V0_Color = C00;
+			Second.V1_Pos = P11; Second.V1_Color = C11;
+			Second.V2_Pos = P01; Second.V2_Color = C01;
+		}
+	}
+
+	if (Triangles.Num() > 0)
+	{
+		FCanvasTriangleItem Item(Triangles, GWhiteTexture);
+		Item.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Item);
 	}
 }
 

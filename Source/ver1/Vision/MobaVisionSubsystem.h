@@ -30,6 +30,18 @@ public:
 	void RegisterBush(AMobaBush* Bush);
 	void UnregisterBush(AMobaBush* Bush);
 
+	/** 화면에 안개를 그릴 수 있는 상태인지(이 PC의 플레이어 팀이 정해져 있는지). */
+	bool HasFog() const { return bFogActive; }
+
+	/** 안개 격자 한 변의 칸 수. 꼭짓점은 한 변에 칸 수 + 1개다. */
+	static constexpr int32 FogCells = 96;
+
+	/** 안개 격자가 덮는 월드 범위(한 변). 원점에서 +X, +Y 방향이다. */
+	static constexpr float FogWorldSize = 14870.0f;
+
+	/** 격자 꼭짓점이 아군 시야 안인지. 범위를 벗어나면 false. */
+	bool IsFogVertexVisible(int32 X, int32 Y) const;
+
 protected:
 	struct FVisionSource
 	{
@@ -48,10 +60,21 @@ protected:
 	/** 숨김 상태가 바뀐 유닛의 외형을 켜거나 끈다. */
 	void SetActorShown(AActor* Actor, bool bShown) const;
 
+	/** 시야 원과 부쉬로 안개 격자를 다시 칠한다. 벽에 가려지는 것은 고려하지 않는다. */
+	void UpdateFog(const TArray<FVisionSource>& Sources);
+
 	TArray<TWeakObjectPtr<AMobaBush>> Bushes;
 
 	/** 지금 숨겨 둔 유닛. */
 	TSet<TWeakObjectPtr<AActor>> HiddenActors;
 
 	float TimeSinceUpdate = 0.0f;
+
+	/** 꼭짓점마다 1이면 보이고 0이면 안개. (FogCells + 1)^2개. */
+	TArray<uint8> FogVisible;
+
+	/** 꼭짓점마다 들어 있는 부쉬 비트. 부쉬가 바뀌면 다시 계산한다. */
+	TArray<uint64> FogBushMasks;
+	bool bFogBushMasksDirty = true;
+	bool bFogActive = false;
 };

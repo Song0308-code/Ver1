@@ -69,6 +69,38 @@ AMobaGameMode::AMobaGameMode()
 	SuperMinion.bRanged = false;
 	SuperMinion.GoldReward = 60.0f;
 	SuperMinion.ExperienceReward = 95.0f;
+
+	// 임시 아트: Epic 마네킹을 작게 줄여 쓴다. 근접은 Manny, 원거리는 Quinn, 슈퍼 미니언은 큰 Manny.
+	const TCHAR* AnimRoot = TEXT("/Game/Characters/Mannequins/Anims/");
+	const auto AnimPath = [AnimRoot](const TCHAR* Relative, const TCHAR* Name)
+	{
+		return FSoftObjectPath(FString::Printf(TEXT("%s%s/%s.%s"), AnimRoot, Relative, Name, Name));
+	};
+
+	FMobaAnimationSet MinionAnimations;
+	MinionAnimations.Locomotion = TSoftObjectPtr<UAnimationAsset>(AnimPath(TEXT("Unarmed"), TEXT("BS_Idle_Walk_Run")));
+	MinionAnimations.AttackAnimations.Add(TSoftObjectPtr<UAnimSequenceBase>(AnimPath(TEXT("Unarmed/Attack"), TEXT("MM_Attack_01"))));
+	MinionAnimations.AttackAnimations.Add(TSoftObjectPtr<UAnimSequenceBase>(AnimPath(TEXT("Unarmed/Attack"), TEXT("MM_Attack_02"))));
+	MinionAnimations.DeathAnimation = TSoftObjectPtr<UAnimSequenceBase>(AnimPath(TEXT("Death"), TEXT("MM_Death_Back_01")));
+
+	// 작게 줄인 만큼 보폭도 짧아지므로 블렌드 스페이스에는 더 빠른 속도로 넣는다.
+	MinionAnimations.LocomotionSpeedScale = 1.4f;
+
+	const FSoftObjectPath Manny(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple"));
+	const FSoftObjectPath Quinn(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Quinn_Simple.SKM_Quinn_Simple"));
+
+	MeleeMinion.Mesh = TSoftObjectPtr<USkeletalMesh>(Manny);
+	MeleeMinion.MeshScale = 0.58f;
+	MeleeMinion.Animations = MinionAnimations;
+
+	CasterMinion.Mesh = TSoftObjectPtr<USkeletalMesh>(Quinn);
+	CasterMinion.MeshScale = 0.55f;
+	CasterMinion.Animations = MinionAnimations;
+
+	SuperMinion.Mesh = TSoftObjectPtr<USkeletalMesh>(Manny);
+	SuperMinion.MeshScale = 0.85f;
+	SuperMinion.Animations = MinionAnimations;
+	SuperMinion.Animations.LocomotionSpeedScale = 1.1f;
 }
 
 void AMobaGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

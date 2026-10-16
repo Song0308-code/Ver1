@@ -9,7 +9,10 @@
 #include "Combat/MobaCombatLibrary.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SplineComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Game/MobaGameState.h"
 #include "Engine/StaticMesh.h"
 #include "Game/MobaGameMode.h"
 #include "Game/MobaGameplayTags.h"
@@ -53,6 +56,11 @@ AMobaMinion::AMobaMinion()
 		PlaceholderMesh->SetStaticMesh(CubeMesh.Object);
 		MobaVisuals::UseColorableMaterial(PlaceholderMesh);
 	}
+
+	AnimationComponent = CreateDefaultSubobject<UMobaAnimationComponent>(TEXT("AnimationComponent"));
+
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetMesh()->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
 
 	CombatComponent = CreateDefaultSubobject<UMobaCombatComponent>(TEXT("CombatComponent"));
 	CombatComponent->ConfigureProjectileVisual(0.22f, FVector::ZeroVector);
@@ -121,6 +129,43 @@ void AMobaMinion::OnRep_Appearance()
 
 void AMobaMinion::ApplyAppearance()
 {
+	// 수치는 서버에만 있으므로, 외형은 복제된 종류를 보고 게임 모드의 기본값에서 찾는다.
+	const FMobaMinionConfig* AppearanceConfig = nullptr;
+	if (HasAuthority())
+	{
+		AppearanceConfig = &Config;
+	}
+	else if (const AGameStateBase* GameState = GetWorld()->GetGameState())
+	{
+		if (const AMobaGameMode* ModeDefaults = Cast<AMobaGameMode>(GameState->GetDefaultGameMode()))
+		{
+			AppearanceConfig = &ModeDefaults->GetMinionConfig(MinionType);
+		}
+	}
+
+	const float CapsuleHalfHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+	const float CapsuleRadius = GetCapsuleComponent()->GetUnscaledCapsuleRadius();
+	const FLinearColor DiscColor = MobaTeam::GetTeamColor(Team);
+
+	if (USkeletalMesh* MinionMesh = AppearanceConfig ? AppearanceConfig->Mesh.LoadSynchronous() : nullptr)
+	{
+		if (GetMesh()->GetSkeletalMeshAsset() != MinionMesh)
+		{
+			GetMesh()->SetSkeletalMesh(MinionMesh);
+			GetMesh()->SetRelativeLocationAndRotation(FVector(0.0, 0.0, -CapsuleHalfHeight), FRotator(0.0, -90.0, 0.0));
+			GetMesh()->SetRelativeScale3D(FVector(AppearanceConfig->MeshScale));
+			AnimationComponent->Configure(GetMesh(), AppearanceConfig->Animations);
+		}
+
+		// 상자 대신 발밑의 팀 색 원판으로 아군·적을 구분한다.
+		bUsingSkeletalMesh = true;
+		PlaceholderMesh->SetRelativeScale3D(FVector(CapsuleRadius * 1.6f / 50.0f, CapsuleRadius * 1.6f / 50.0f, 0.02f));
+		PlaceholderMesh->SetRelativeLocation(FVector(0.0, 0.0, -CapsuleHalfHeight + 2.0f));
+		PlaceholderMesh->SetCastShadow(false);
+		PlaceholderMesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(DiscColor.R, DiscColor.G, DiscColor.B));
+		return;
+	}
+
 	// 근접은 넓적한 상자, 원거리는 가늘고 긴 상자, 슈퍼 미니언은 큰 상자로 구분한다.
 	FVector Scale(0.55f, 0.55f, 0.8f);
 	if (MinionType == EMobaMinionType::Caster)
@@ -252,8 +297,17 @@ void AMobaMinion::HandleOutOfHealth(AActor* DamageInstigator)
 	StopActing();
 
 	SetActorEnableCollision(false);
-	SetActorHiddenInGame(true);
-	SetLifeSpan(0.5f);
+
+	// 메시가 있으면 쓰러지는 동작을 잠깐 보여 주고 사라진다.
+	if (bUsingSkeletalMesh)
+	{
+		SetLifeSpan(DeathLingerTime);
+	}
+	else
+	{
+		SetActorHiddenInGame(true);
+		SetLifeSpan(0.5f);
+	}
 
 	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
 	{

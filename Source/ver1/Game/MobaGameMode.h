@@ -40,6 +40,9 @@ public:
 	/** 서버에서 호출하면 모든 PC의 화면에 알림 한 줄이 뜬다. */
 	void Announce(const FString& Message, EMobaTeam Team);
 
+	/** 미니언 종류별 수치와 외형. 클라이언트는 외형을 고를 때 클래스 기본값에서 읽는다. */
+	const FMobaMinionConfig& GetMinionConfig(EMobaMinionType Type) const;
+
 	/** 챔피언이 죽었을 때 서버에서 호출된다. 전적을 기록하고 부활을 예약한다. */
 	void HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer);
 
@@ -82,7 +85,6 @@ protected:
 	/** 해당 팀이 이 라인에 내보낼 슈퍼 미니언 수. 그 라인의 적 억제기가 파괴돼 있으면 1, 적 억제기가 전부 파괴돼 있으면 2. */
 	int32 GetSuperMinionCount(EMobaTeam Team, EMobaLane Lane) const;
 
-	const FMobaMinionConfig& GetMinionConfig(EMobaMinionType Type) const;
 
 	/** 해당 팀의 살아 있는 챔피언 전원에게 버프를 건다. */
 	void ApplyBuffToTeam(EMobaTeam Team, const FGameplayTag& BuffTag, float Duration, float BonusAttackDamage, float BonusAbilityPower);

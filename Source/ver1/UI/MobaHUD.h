@@ -73,6 +73,15 @@ protected:
 	/** 팀이 보낸 위치 신호. */
 	void DrawPings();
 
+	/** 아군 시야가 닿지 않는 지면을 어둡게 덮는다. */
+	void DrawFogOfWar();
+
+	/** 미니맵 위의 안개. */
+	void DrawMinimapFog();
+
+	UPROPERTY(EditDefaultsOnly, Category = "Fog")
+	float FogOpacity = 0.55f;
+
 	void DrawRespawnCountdown();
 
 	/** 화면 위쪽의 경기 시간과 킬/데스. */

@@ -41,18 +41,30 @@ bool UMobaVisionSubsystem::IsVisibleToLocalPlayer(const AActor* Actor) const
 	return !HiddenActors.Contains(const_cast<AActor*>(Actor));
 }
 
+bool UMobaVisionSubsystem::IsFogVertexVisible(int32 X, int32 Y) const
+{
+	const int32 Count = FogCells + 1;
+	if (X < 0 || Y < 0 || X >= Count || Y >= Count || FogVisible.Num() != Count * Count)
+	{
+		return false;
+	}
+	return FogVisible[Y * Count + X] != 0;
+}
+
 void UMobaVisionSubsystem::RegisterBush(AMobaBush* Bush)
 {
 	// 비트 하나에 부쉬 하나를 대응시키므로 64개까지만 다룬다.
 	if (Bush && Bushes.Num() < 64)
 	{
 		Bushes.AddUnique(Bush);
+		bFogBushMasksDirty = true;
 	}
 }
 
 void UMobaVisionSubsystem::UnregisterBush(AMobaBush* Bush)
 {
 	Bushes.Remove(Bush);
+	bFogBushMasksDirty = true;
 }
 
 void UMobaVisionSubsystem::Tick(float DeltaTime)
@@ -127,6 +139,59 @@ void UMobaVisionSubsystem::SetActorShown(AActor* Actor, bool bShown) const
 	{
 		Root->SetVisibility(bShown, true);
 	}
+}
+
+void UMobaVisionSubsystem::UpdateFog(const TArray<FVisionSource>& Sources)
+{
+	const int32 Count = FogCells + 1;
+	const float CellSize = FogWorldSize / FogCells;
+
+	if (bFogBushMasksDirty || FogBushMasks.Num() != Count * Count)
+	{
+		FogBushMasks.SetNumUninitialized(Count * Count);
+		for (int32 Y = 0; Y < Count; ++Y)
+		{
+			for (int32 X = 0; X < Count; ++X)
+			{
+				FogBushMasks[Y * Count + X] = GetBushMask(FVector(X * CellSize, Y * CellSize, 0.0));
+			}
+		}
+		bFogBushMasksDirty = false;
+	}
+
+	FogVisible.SetNumZeroed(Count * Count);
+	FMemory::Memzero(FogVisible.GetData(), FogVisible.Num());
+
+	// 시야 원마다 그 원을 덮는 꼭짓점만 살펴본다.
+	for (const FVisionSource& Source : Sources)
+	{
+		const int32 MinX = FMath::Clamp(FMath::FloorToInt((Source.Location.X - Source.Radius) / CellSize), 0, Count - 1);
+		const int32 MaxX = FMath::Clamp(FMath::CeilToInt((Source.Location.X + Source.Radius) / CellSize), 0, Count - 1);
+		const int32 MinY = FMath::Clamp(FMath::FloorToInt((Source.Location.Y - Source.Radius) / CellSize), 0, Count - 1);
+		const int32 MaxY = FMath::Clamp(FMath::CeilToInt((Source.Location.Y + Source.Radius) / CellSize), 0, Count - 1);
+		const float RadiusSquared = FMath::Square(Source.Radius);
+
+		for (int32 Y = MinY; Y <= MaxY; ++Y)
+		{
+			for (int32 X = MinX; X <= MaxX; ++X)
+			{
+				const int32 Index = Y * Count + X;
+				if (FogVisible[Index])
+				{
+					continue;
+				}
+
+				const float DistanceSquared = FMath::Square(X * CellSize - Source.Location.X) + FMath::Square(Y * CellSize - Source.Location.Y);
+				const uint64 BushMask = FogBushMasks[Index];
+				if (DistanceSquared <= RadiusSquared && (BushMask == 0 || (BushMask & Source.BushMask) != 0))
+				{
+					FogVisible[Index] = 1;
+				}
+			}
+		}
+	}
+
+	bFogActive = true;
 }
 
 void UMobaVisionSubsystem::UpdateVision(EMobaTeam LocalTeam)
@@ -207,6 +272,12 @@ void UMobaVisionSubsystem::UpdateVision(EMobaTeam LocalTeam)
 				NewHidden.Add(Target);
 			}
 		}
+
+		UpdateFog(Sources);
+	}
+	else
+	{
+		bFogActive = false;
 	}
 
 	// 바뀐 것만 반영한다.

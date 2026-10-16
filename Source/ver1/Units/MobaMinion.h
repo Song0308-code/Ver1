@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystem/MobaAttributeSet.h"
+#include "Character/MobaAnimationComponent.h"
 #include "AbilitySystemInterface.h"
 #include "GameFramework/Character.h"
 #include "Game/MobaTypes.h"
@@ -9,6 +10,7 @@
 
 class AMobaLanePath;
 class UMobaCombatComponent;
+class USkeletalMesh;
 class UStaticMeshComponent;
 
 /** 미니언 한 종류의 수치. */
@@ -33,6 +35,16 @@ struct FMobaMinionConfig
 	/** 근처의 적 챔피언들이 나눠 받는 경험치. */
 	UPROPERTY(EditAnywhere, Category = "Minion")
 	float ExperienceReward = 60.0f;
+
+	/** 비어 있으면 임시 상자 외형을 쓴다. */
+	UPROPERTY(EditAnywhere, Category = "Appearance")
+	TSoftObjectPtr<USkeletalMesh> Mesh;
+
+	UPROPERTY(EditAnywhere, Category = "Appearance")
+	float MeshScale = 0.6f;
+
+	UPROPERTY(EditAnywhere, Category = "Appearance")
+	FMobaAnimationSet Animations;
 };
 
 /** 라인을 따라 걸으며 만나는 적을 공격하는 미니언. 서버의 AI 컨트롤러가 조종한다. */
@@ -80,6 +92,15 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UMobaCombatComponent> CombatComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UMobaAnimationComponent> AnimationComponent;
+
+	/** 메시가 있을 때 죽고 나서 사라지기까지의 시간(초). 쓰러지는 동작을 보여 준다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Appearance")
+	float DeathLingerTime = 1.3f;
+
+	bool bUsingSkeletalMesh = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
