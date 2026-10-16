@@ -59,6 +59,9 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
 
+	/** 상대 팀이 볼 수 없으면 그 팀의 PC로 보내지 않는다. */
+	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
+
 	/** 모든 PC에서 사망 태그가 붙는 순간 사라지는 이펙트를 보여 준다. */
 	void HandleDeadTagForEffects(const FGameplayTag Tag, int32 NewCount);
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

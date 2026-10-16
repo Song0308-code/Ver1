@@ -1,4 +1,5 @@
 #include "Character/MobaCharacter.h"
+#include "Vision/MobaVisionSubsystem.h"
 #include "Game/MobaEffects.h"
 #include "Game/MobaVisuals.h"
 #include "AbilitySystem/Abilities/MobaAbilityArchetypes.h"
@@ -428,10 +429,37 @@ void AMobaCharacter::ClientTeleport_Implementation(const FVector& Location, cons
 
 void AMobaCharacter::CastAbility(EMobaAbilitySlot Slot, const FVector& TargetLocation)
 {
-	if (CanAct())
+	if (!CanAct())
 	{
-		ServerCastAbility(Slot, TargetLocation);
+		return;
 	}
+
+	// 지연이 있어도 누르는 즉시 반응하도록, 조종하는 클라이언트는 시전 동작과 이펙트를 먼저 보여 준다.
+	if (!HasAuthority() && IsLocallyControlled() && CanCastLocally(Slot))
+	{
+		PredictedCastTimes[static_cast<int32>(Slot)] = GetWorld()->GetTimeSeconds();
+		PlayAbilityCastLocally(Slot);
+	}
+
+	ServerCastAbility(Slot, TargetLocation);
+}
+
+bool AMobaCharacter::CanCastLocally(EMobaAbilitySlot Slot) const
+{
+	const UMobaGameplayAbility* Ability = GetAbilityInSlot(Slot);
+	const UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	float Remaining = 0.0f;
+	float Duration = 0.0f;
+	return Ability && AbilitySystem && GetAbilityLevel(Slot) >= 1
+		&& !GetCooldownRemaining(Slot, Remaining, Duration)
+		&& AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetManaAttribute()) >= Ability->GetManaCost();
+}
+
+void AMobaCharacter::PlayAbilityCastLocally(EMobaAbilitySlot Slot)
+{
+	const FVector Feet = GetActorLocation() - FVector(0.0, 0.0, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	MobaEffects::Play(this, EMobaEffect::Cast, Feet, 1.0f, this);
+	OnAbilityCast.Broadcast(Slot);
 }
 
 void AMobaCharacter::ServerCastAbility_Implementation(EMobaAbilitySlot Slot, FVector_NetQuantize TargetLocation)
@@ -716,10 +744,16 @@ void AMobaCharacter::NotifyAbilityCast(EMobaAbilitySlot Slot)
 
 void AMobaCharacter::MulticastAbilityCast_Implementation(EMobaAbilitySlot Slot)
 {
-	const FVector Feet = GetActorLocation() - FVector(0.0, 0.0, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
-	MobaEffects::Play(this, EMobaEffect::Cast, Feet, 1.0f, this);
+	// 이미 미리 보여 준 시전이면 다시 재생하지 않는다. 오래된 예측은 버린다(서버가 거절한 경우).
+	double& PredictedTime = PredictedCastTimes[static_cast<int32>(Slot)];
+	const bool bAlreadyPlayed = PredictedTime > 0.0 && GetWorld()->GetTimeSeconds() - PredictedTime < 1.5;
+	PredictedTime = 0.0;
+	if (bAlreadyPlayed)
+	{
+		return;
+	}
 
-	OnAbilityCast.Broadcast(Slot);
+	PlayAbilityCastLocally(Slot);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -935,4 +969,9 @@ void AMobaCharacter::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim,
 	{
 		CancelRecall();
 	}
+}
+
+bool AMobaCharacter::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
+{
+	return UMobaVisionSubsystem::IsRelevantToViewer(this, RealViewer) && Super::IsNetRelevantFor(RealViewer, ViewTarget, SrcLocation);
 }

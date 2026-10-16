@@ -1,4 +1,5 @@
 #include "Units/MobaMonster.h"
+#include "Vision/MobaVisionSubsystem.h"
 #include "Game/MobaEffects.h"
 #include "Game/MobaVisuals.h"
 #include "AIController.h"
@@ -248,4 +249,9 @@ void AMobaMonster::HandleDeadTagForEffects(const FGameplayTag Tag, int32 NewCoun
 	{
 		MobaEffects::Play(this, EMobaEffect::UnitDeath, GetActorLocation(), 0.6f, this);
 	}
+}
+
+bool AMobaMonster::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
+{
+	return UMobaVisionSubsystem::IsRelevantToViewer(this, RealViewer) && Super::IsNetRelevantFor(RealViewer, ViewTarget, SrcLocation);
 }

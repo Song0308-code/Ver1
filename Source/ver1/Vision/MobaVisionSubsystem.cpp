@@ -84,6 +84,13 @@ void UMobaVisionSubsystem::Tick(float DeltaTime)
 	}
 	TimeSinceUpdate = 0.0f;
 
+	// 서버는 팀마다 볼 수 없는 유닛을 계산해 두고, 그 팀의 PC에는 그 유닛을 보내지 않는다.
+	if (World->GetNetMode() != NM_Client)
+	{
+		ComputeHiddenForTeam(EMobaTeam::Blue, ServerHidden[0], nullptr);
+		ComputeHiddenForTeam(EMobaTeam::Red, ServerHidden[1], nullptr);
+	}
+
 	// 화면이 없는 서버이거나 아직 팀이 정해지지 않았으면 아무것도 숨기지 않는다.
 	const APlayerController* LocalController = World->GetFirstPlayerController();
 	const AMobaPlayerState* LocalState = LocalController && LocalController->IsLocalController() ? LocalController->GetPlayerState<AMobaPlayerState>() : nullptr;
@@ -194,12 +201,71 @@ void UMobaVisionSubsystem::UpdateFog(const TArray<FVisionSource>& Sources)
 	bFogActive = true;
 }
 
+bool UMobaVisionSubsystem::IsHiddenFromTeam(const AActor* Actor, EMobaTeam Team) const
+{
+	const int32 Index = Team == EMobaTeam::Blue ? 0 : (Team == EMobaTeam::Red ? 1 : INDEX_NONE);
+	return Index != INDEX_NONE && ServerHidden[Index].Contains(const_cast<AActor*>(Actor));
+}
+
+bool UMobaVisionSubsystem::IsRelevantToViewer(const AActor* Actor, const AActor* Viewer)
+{
+	const APlayerController* ViewerController = Cast<APlayerController>(Viewer);
+	const AMobaPlayerState* ViewerState = ViewerController ? ViewerController->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!ViewerState)
+	{
+		return true;
+	}
+
+	const EMobaTeam ViewerTeam = ViewerState->GetTeam();
+	if (ViewerTeam == EMobaTeam::None || MobaCombat::GetTeam(Actor) == ViewerTeam)
+	{
+		return true;
+	}
+
+	const UMobaVisionSubsystem* Vision = Get(Actor);
+	return !Vision || !Vision->IsHiddenFromTeam(Actor, ViewerTeam);
+}
+
 void UMobaVisionSubsystem::UpdateVision(EMobaTeam LocalTeam)
 {
-	UWorld* World = GetWorld();
 	TSet<TWeakObjectPtr<AActor>> NewHidden;
 
 	if (LocalTeam == EMobaTeam::Blue || LocalTeam == EMobaTeam::Red)
+	{
+		TArray<FVisionSource> Sources;
+		ComputeHiddenForTeam(LocalTeam, NewHidden, &Sources);
+		UpdateFog(Sources);
+	}
+	else
+	{
+		bFogActive = false;
+	}
+
+	// 바뀐 것만 반영한다.
+	for (const TWeakObjectPtr<AActor>& Actor : HiddenActors)
+	{
+		if (Actor.IsValid() && !NewHidden.Contains(Actor))
+		{
+			SetActorShown(Actor.Get(), true);
+		}
+	}
+
+	for (const TWeakObjectPtr<AActor>& Actor : NewHidden)
+	{
+		if (!HiddenActors.Contains(Actor))
+		{
+			SetActorShown(Actor.Get(), false);
+		}
+	}
+
+	HiddenActors = MoveTemp(NewHidden);
+}
+
+void UMobaVisionSubsystem::ComputeHiddenForTeam(EMobaTeam LocalTeam, TSet<TWeakObjectPtr<AActor>>& NewHidden, TArray<FVisionSource>* OutSources) const
+{
+	UWorld* World = GetWorld();
+	NewHidden.Reset();
+
 	{
 		// 시야를 주는 아군과, 숨길 수 있는 적을 한 번에 모은다.
 		TArray<FVisionSource> Sources;
@@ -273,29 +339,9 @@ void UMobaVisionSubsystem::UpdateVision(EMobaTeam LocalTeam)
 			}
 		}
 
-		UpdateFog(Sources);
-	}
-	else
-	{
-		bFogActive = false;
-	}
-
-	// 바뀐 것만 반영한다.
-	for (const TWeakObjectPtr<AActor>& Actor : HiddenActors)
-	{
-		if (Actor.IsValid() && !NewHidden.Contains(Actor))
+		if (OutSources)
 		{
-			SetActorShown(Actor.Get(), true);
+			*OutSources = MoveTemp(Sources);
 		}
 	}
-
-	for (const TWeakObjectPtr<AActor>& Actor : NewHidden)
-	{
-		if (!HiddenActors.Contains(Actor))
-		{
-			SetActorShown(Actor.Get(), false);
-		}
-	}
-
-	HiddenActors = MoveTemp(NewHidden);
 }

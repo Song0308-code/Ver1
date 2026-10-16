@@ -33,6 +33,9 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
+
+	/** 상대 팀이 볼 수 없으면 그 팀의 PC로 보내지 않는다. */
+	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
@@ -151,6 +154,15 @@ protected:
 
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastAbilityCast(EMobaAbilitySlot Slot);
+
+	/** 조종하는 클라이언트에서, 서버에 보내기 전에 이 시전이 받아들여질 만한지 미리 본다(단계, 쿨다운, 마나). */
+	bool CanCastLocally(EMobaAbilitySlot Slot) const;
+
+	/** 시전 동작과 이펙트를 이 PC에서 재생한다. */
+	void PlayAbilityCastLocally(EMobaAbilitySlot Slot);
+
+	/** 조종하는 클라이언트가 미리 재생해 둔 시전. 서버의 알림이 오면 다시 재생하지 않는다. 칸별 재생 시각(0이면 없음). */
+	double PredictedCastTimes[4] = { 0.0, 0.0, 0.0, 0.0 };
 
 	UFUNCTION()
 	void OnRep_ChampionData();

@@ -1,4 +1,5 @@
 #include "Vision/MobaWard.h"
+#include "Vision/MobaVisionSubsystem.h"
 #include "Game/MobaVisuals.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -71,4 +72,9 @@ void AMobaWard::ApplyTeamColor()
 {
 	const FLinearColor Color = FMath::Lerp(MobaTeam::GetTeamColor(Team), FLinearColor::Green, 0.5f);
 	Mesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(Color.R, Color.G, Color.B));
+}
+
+bool AMobaWard::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
+{
+	return UMobaVisionSubsystem::IsRelevantToViewer(this, RealViewer) && Super::IsNetRelevantFor(RealViewer, ViewTarget, SrcLocation);
 }

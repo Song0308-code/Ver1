@@ -27,6 +27,15 @@ public:
 	/** 이 PC의 플레이어에게 지금 보이는 유닛인지. 아군과 건물은 항상 보인다. */
 	bool IsVisibleToLocalPlayer(const AActor* Actor) const;
 
+	/** 서버 전용. 해당 팀이 지금 이 유닛을 볼 수 없는지. 아직 계산하지 않은 유닛은 보이는 것으로 본다. */
+	bool IsHiddenFromTeam(const AActor* Actor, EMobaTeam Team) const;
+
+	/**
+	 * 서버가 이 유닛을 Viewer(플레이어 컨트롤러)의 PC로 보내야 하는지.
+	 * 상대 팀이 볼 수 없는 유닛은 보내지 않아, 클라이언트를 변조해도 안개 속 적의 위치를 알 수 없게 한다.
+	 */
+	static bool IsRelevantToViewer(const AActor* Actor, const AActor* Viewer);
+
 	void RegisterBush(AMobaBush* Bush);
 	void UnregisterBush(AMobaBush* Bush);
 
@@ -52,6 +61,9 @@ protected:
 
 	void UpdateVision(EMobaTeam LocalTeam);
 
+	/** 해당 팀이 볼 수 없는 유닛을 모은다. OutSources가 있으면 시야를 주는 아군 목록도 채운다. */
+	void ComputeHiddenForTeam(EMobaTeam Team, TSet<TWeakObjectPtr<AActor>>& OutHidden, TArray<FVisionSource>* OutSources) const;
+
 	/** 해당 위치가 들어 있는 부쉬들을 비트로 돌려준다. */
 	uint64 GetBushMask(const FVector& Location) const;
 
@@ -67,6 +79,9 @@ protected:
 
 	/** 지금 숨겨 둔 유닛. */
 	TSet<TWeakObjectPtr<AActor>> HiddenActors;
+
+	/** 서버에서 팀별로 계산한, 그 팀이 볼 수 없는 유닛. [0] 블루, [1] 레드. */
+	TSet<TWeakObjectPtr<AActor>> ServerHidden[2];
 
 	float TimeSinceUpdate = 0.0f;
 
