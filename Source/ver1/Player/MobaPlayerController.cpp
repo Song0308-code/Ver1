@@ -80,6 +80,8 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(AbilityWAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityW);
 		EnhancedInput->BindAction(AbilityEAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityE);
 		EnhancedInput->BindAction(AbilityRAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAbilityR);
+		EnhancedInput->BindAction(SummonerDAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnSummonerD);
+		EnhancedInput->BindAction(SummonerFAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnSummonerF);
 		EnhancedInput->BindAction(AttackModeAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnAttackModeStarted);
 		EnhancedInput->BindAction(ConfirmTargetAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnConfirmTarget);
 		EnhancedInput->BindAction(ReturnToMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnReturnToMenu);
@@ -108,6 +110,8 @@ void AMobaPlayerController::CreateDefaultInput()
 	AbilityWAction = NewObject<UInputAction>(this, TEXT("IA_AbilityW"));
 	AbilityEAction = NewObject<UInputAction>(this, TEXT("IA_AbilityE"));
 	AbilityRAction = NewObject<UInputAction>(this, TEXT("IA_AbilityR"));
+	SummonerDAction = NewObject<UInputAction>(this, TEXT("IA_SummonerD"));
+	SummonerFAction = NewObject<UInputAction>(this, TEXT("IA_SummonerF"));
 	AttackModeAction = NewObject<UInputAction>(this, TEXT("IA_AttackMode"));
 	ConfirmTargetAction = NewObject<UInputAction>(this, TEXT("IA_ConfirmTarget"));
 	ReturnToMenuAction = NewObject<UInputAction>(this, TEXT("IA_ReturnToMenu"));
@@ -128,6 +132,8 @@ void AMobaPlayerController::CreateDefaultInput()
 	DefaultMappingContext->MapKey(AbilityWAction, EKeys::W);
 	DefaultMappingContext->MapKey(AbilityEAction, EKeys::E);
 	DefaultMappingContext->MapKey(AbilityRAction, EKeys::R);
+	DefaultMappingContext->MapKey(SummonerDAction, EKeys::D);
+	DefaultMappingContext->MapKey(SummonerFAction, EKeys::F);
 
 	DefaultMappingContext->MapKey(AttackModeAction, EKeys::A);
 	DefaultMappingContext->MapKey(ConfirmTargetAction, EKeys::LeftMouseButton);
@@ -207,6 +213,22 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 	{
 		RequestChampion(DebugLobbyChampion);
 		DebugLobbyChampion.Reset();
+	}
+
+	if (!DebugLobbySpells.IsEmpty())
+	{
+		TArray<FString> Names;
+		DebugLobbySpells.ParseIntoArray(Names, TEXT(","));
+		const UEnum* SpellEnum = StaticEnum<EMobaSummonerSpell>();
+		for (int32 Index = 0; Index < FMath::Min(Names.Num(), 2); ++Index)
+		{
+			const int64 Value = SpellEnum->GetValueByNameString(Names[Index].TrimStartAndEnd());
+			if (Value != INDEX_NONE)
+			{
+				RequestSummonerSpell(Index, static_cast<EMobaSummonerSpell>(Value));
+			}
+		}
+		DebugLobbySpells.Reset();
 	}
 
 	if (bDebugToggleShop)
@@ -728,6 +750,14 @@ void AMobaPlayerController::ServerRequestChampion_Implementation(const FString& 
 	}
 }
 
+void AMobaPlayerController::ServerRequestSummonerSpell_Implementation(int32 Index, EMobaSummonerSpell Spell)
+{
+	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
+	{
+		GameMode->RequestSummonerSpell(this, Index, Spell);
+	}
+}
+
 void AMobaPlayerController::ServerRequestReady_Implementation(bool bReady)
 {
 	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
@@ -773,6 +803,16 @@ void AMobaPlayerController::OnAbilityE()
 void AMobaPlayerController::OnAbilityR()
 {
 	HandleAbilityKey(EMobaAbilitySlot::R);
+}
+
+void AMobaPlayerController::OnSummonerD()
+{
+	HandleAbilityKey(EMobaAbilitySlot::D);
+}
+
+void AMobaPlayerController::OnSummonerF()
+{
+	HandleAbilityKey(EMobaAbilitySlot::F);
 }
 
 void AMobaPlayerController::HandleAbilityKey(EMobaAbilitySlot Slot)

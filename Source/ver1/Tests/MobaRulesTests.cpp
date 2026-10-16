@@ -9,6 +9,7 @@
 #include "AbilitySystem/MobaDamageExecution.h"
 #include "Character/MobaChampionData.h"
 #include "Character/MobaPassive.h"
+#include "AbilitySystem/Abilities/MobaSummonerSpells.h"
 #include "Game/MobaGameMode.h"
 #include "Game/MobaItems.h"
 #include "Map/MobaJungleCamp.h"
@@ -159,6 +160,34 @@ bool FMobaJungleCampTest::RunTest(const FString& Parameters)
 
 	TestTrue(TEXT("바위게는 반격하지 않는다"), AMobaJungleCamp::GetDefinition(EMobaCampType::Scuttle).Monsters[0].bPassive);
 	TestTrue(TEXT("바론은 드래곤보다 늦게 나온다"), AMobaJungleCamp::GetDefinition(EMobaCampType::Baron).InitialSpawnTime > AMobaJungleCamp::GetDefinition(EMobaCampType::Dragon).InitialSpawnTime);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaSummonerSpellTest, "Moba.Data.SummonerSpells", MobaTestFlags)
+bool FMobaSummonerSpellTest::RunTest(const FString& Parameters)
+{
+	TSet<FString> Names;
+	for (int32 Index = 0; Index < static_cast<int32>(EMobaSummonerSpell::Count); ++Index)
+	{
+		const EMobaSummonerSpell Spell = static_cast<EMobaSummonerSpell>(Index);
+		const TSubclassOf<UMobaGameplayAbility> SpellClass = MobaSummoner::GetAbilityClass(Spell);
+		if (!TestNotNull(FString::Printf(TEXT("주문 %d 클래스"), Index), SpellClass.Get()))
+		{
+			continue;
+		}
+
+		const UMobaGameplayAbility* Ability = SpellClass->GetDefaultObject<UMobaGameplayAbility>();
+		const FString Name = Ability->GetDisplayName().ToString();
+		TestFalse(TEXT("이름"), Name.IsEmpty());
+		TestFalse(Name + TEXT(" 이름 중복"), Names.Contains(Name));
+		Names.Add(Name);
+		TestTrue(Name + TEXT(" 소환사 주문 표시"), Ability->IsSummonerSpell());
+		TestEqual(Name + TEXT(" 최대 단계 1"), Ability->GetMaxLevel(), 1);
+		TestFalse(Name + TEXT(" 스킬 포인트로 올릴 수 없음"), Ability->CanLevelUp(1, 18));
+		TestEqual(Name + TEXT(" 마나 없음"), Ability->GetManaCost(), 0.0f);
+		TestTrue(Name + TEXT(" 재사용 대기"), Ability->GetCooldownDuration() >= 60.0f);
+		TestFalse(Name + TEXT(" 설명"), Ability->GetDescription().IsEmpty());
+	}
 	return true;
 }
 

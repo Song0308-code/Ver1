@@ -20,11 +20,15 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_W, "Ability.Slot.W");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_E, "Ability.Slot.E");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_R, "Ability.Slot.R");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_D, "Ability.Slot.D");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_F, "Ability.Slot.F");
 
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Slot_Q, "Cooldown.Slot.Q");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Slot_W, "Cooldown.Slot.W");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Slot_E, "Cooldown.Slot.E");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Slot_R, "Cooldown.Slot.R");
+	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Slot_D, "Cooldown.Slot.D");
+	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Slot_F, "Cooldown.Slot.F");
 
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Damage_Physical, "Data.Damage.Physical", "방어력으로 줄어드는 물리 피해량.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Damage_Magic, "Data.Damage.Magic", "마법 저항력으로 줄어드는 마법 피해량.");

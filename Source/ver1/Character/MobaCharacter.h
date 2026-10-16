@@ -176,7 +176,7 @@ protected:
 	void PlayAbilityCastLocally(EMobaAbilitySlot Slot);
 
 	/** 조종하는 클라이언트가 미리 재생해 둔 시전. 서버의 알림이 오면 다시 재생하지 않는다. 칸별 재생 시각(0이면 없음). */
-	double PredictedCastTimes[4] = { 0.0, 0.0, 0.0, 0.0 };
+	double PredictedCastTimes[6] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
 	UFUNCTION()
 	void OnRep_ChampionData();

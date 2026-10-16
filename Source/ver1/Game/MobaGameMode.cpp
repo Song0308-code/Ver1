@@ -258,6 +258,18 @@ void AMobaGameMode::RequestChampionChange(APlayerController* Player, const FStri
 	}
 }
 
+void AMobaGameMode::RequestSummonerSpell(APlayerController* Player, int32 Index, EMobaSummonerSpell Spell)
+{
+	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	AMobaPlayerState* MobaPlayerState = Player ? Player->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!MobaGameState || MobaGameState->HasMatchStarted() || !MobaPlayerState || MobaPlayerState->IsReady() || (Index != 0 && Index != 1))
+	{
+		return;
+	}
+
+	MobaPlayerState->SetSummonerSpell(Index, Spell);
+}
+
 void AMobaGameMode::RequestReady(APlayerController* Player, bool bReady)
 {
 	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();

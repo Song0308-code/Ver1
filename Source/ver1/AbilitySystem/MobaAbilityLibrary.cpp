@@ -30,6 +30,8 @@ FGameplayTag MobaAbility::GetSlotTag(EMobaAbilitySlot Slot)
 	case EMobaAbilitySlot::Q: return MobaTags::Ability_Slot_Q;
 	case EMobaAbilitySlot::W: return MobaTags::Ability_Slot_W;
 	case EMobaAbilitySlot::E: return MobaTags::Ability_Slot_E;
+	case EMobaAbilitySlot::D: return MobaTags::Ability_Slot_D;
+	case EMobaAbilitySlot::F: return MobaTags::Ability_Slot_F;
 	default: return MobaTags::Ability_Slot_R;
 	}
 }
@@ -41,13 +43,15 @@ FGameplayTag MobaAbility::GetCooldownTag(EMobaAbilitySlot Slot)
 	case EMobaAbilitySlot::Q: return MobaTags::Cooldown_Slot_Q;
 	case EMobaAbilitySlot::W: return MobaTags::Cooldown_Slot_W;
 	case EMobaAbilitySlot::E: return MobaTags::Cooldown_Slot_E;
+	case EMobaAbilitySlot::D: return MobaTags::Cooldown_Slot_D;
+	case EMobaAbilitySlot::F: return MobaTags::Cooldown_Slot_F;
 	default: return MobaTags::Cooldown_Slot_R;
 	}
 }
 
 bool MobaAbility::FindSlotInTags(const FGameplayTagContainer& Tags, EMobaAbilitySlot& OutSlot)
 {
-	for (const EMobaAbilitySlot Slot : { EMobaAbilitySlot::Q, EMobaAbilitySlot::W, EMobaAbilitySlot::E, EMobaAbilitySlot::R })
+	for (const EMobaAbilitySlot Slot : { EMobaAbilitySlot::Q, EMobaAbilitySlot::W, EMobaAbilitySlot::E, EMobaAbilitySlot::R, EMobaAbilitySlot::D, EMobaAbilitySlot::F })
 	{
 		if (Tags.HasTagExact(GetSlotTag(Slot)))
 		{

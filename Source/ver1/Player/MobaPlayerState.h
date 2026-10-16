@@ -64,6 +64,12 @@ public:
 	/** 화면에 보여 줄 챔피언 이름. */
 	FString GetChampionDisplayName() const;
 
+	/** 소환사 주문. Index 0이 D, 1이 F. */
+	EMobaSummonerSpell GetSummonerSpell(int32 Index) const { return Index == 0 ? SummonerSpellD : SummonerSpellF; }
+
+	/** 서버 전용. 다른 칸에 같은 주문이 있으면 두 칸을 맞바꾼다. */
+	void SetSummonerSpell(int32 Index, EMobaSummonerSpell Spell);
+
 	/** 가방에 든 아이템 번호들(MobaItems::GetItems의 인덱스). */
 	const TArray<uint8>& GetItems() const { return Items; }
 
@@ -168,6 +174,12 @@ protected:
 
 	UPROPERTY(Replicated)
 	TObjectPtr<UMobaChampionData> Champion;
+
+	UPROPERTY(Replicated, VisibleAnywhere, Category = "Champion")
+	EMobaSummonerSpell SummonerSpellD = EMobaSummonerSpell::Flash;
+
+	UPROPERTY(Replicated, VisibleAnywhere, Category = "Champion")
+	EMobaSummonerSpell SummonerSpellF = EMobaSummonerSpell::Ignite;
 
 	UPROPERTY(Replicated)
 	TArray<uint8> Items;

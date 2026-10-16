@@ -98,8 +98,11 @@ protected:
 	TMap<TWeakObjectPtr<AActor>, float> LastHealth;
 	TArray<FDamageNumber> DamageNumbers;
 
+	/** 스킬 칸 묶음(QWER)의 왼쪽 끝. 화면 가운데에 두되 오른쪽의 가방이 미니맵에 닿으면 왼쪽으로 민다. */
+	float GetAbilityBarLeft() const;
+
 	/** 이번 프레임에 그린 스킬 칸의 화면 위치. */
-	FBox2D AbilityRects[4];
+	FBox2D AbilityRects[6];
 
 	/** 이번 프레임에 그린 패시브 칸의 화면 위치. */
 	FBox2D PassiveRect = FBox2D(ForceInit);
@@ -171,6 +174,15 @@ protected:
 
 	/** 이번 프레임에 그린 로비의 챔피언 버튼(에셋 이름과 위치)과 준비 버튼. */
 	TArray<TPair<FString, FBox2D>> LobbyChampionRects;
+
+	/** 이번 프레임에 그린 로비의 소환사 주문 버튼. */
+	struct FLobbySpellButton
+	{
+		int32 Index;
+		EMobaSummonerSpell Spell;
+		FBox2D Rect;
+	};
+	TArray<FLobbySpellButton> LobbySpellRects;
 	FBox2D LobbyReadyRect = FBox2D(ForceInit);
 	bool bLobbyDrawn = false;
 

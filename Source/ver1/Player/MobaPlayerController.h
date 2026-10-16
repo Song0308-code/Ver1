@@ -63,6 +63,9 @@ public:
 	/** 로비에서 준비 상태를 바꾼다. */
 	void RequestReady(bool bReady) { ServerRequestReady(bReady); }
 
+	/** 로비에서 소환사 주문을 바꾼다. Index 0이 D, 1이 F. */
+	void RequestSummonerSpell(int32 Index, EMobaSummonerSpell Spell) { ServerRequestSummonerSpell(Index, Spell); }
+
 protected:
 	/** 입력 에셋을 만들기 전까지 쓰는 기본 키 배치를 코드로 구성한다. */
 	void CreateDefaultInput();
@@ -77,6 +80,8 @@ protected:
 	void OnAbilityW();
 	void OnAbilityE();
 	void OnAbilityR();
+	void OnSummonerD();
+	void OnSummonerF();
 	void OnAttackModeStarted();
 	void OnConfirmTarget();
 	void OnReturnToMenu();
@@ -98,6 +103,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerRequestReady(bool bReady);
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestSummonerSpell(int32 Index, EMobaSummonerSpell Spell);
 
 	UFUNCTION(Server, Reliable)
 	void ServerRequestSurrender();
@@ -204,6 +212,12 @@ protected:
 	TObjectPtr<UInputAction> AbilityRAction;
 
 	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> SummonerDAction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> SummonerFAction;
+
+	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> AttackModeAction;
 
 	UPROPERTY(Transient)
@@ -281,6 +295,10 @@ protected:
 	/** 에디터 자동 검증용. 비어 있지 않으면 다음 틱에 로비에서 이 챔피언으로 바꾼다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	FString DebugLobbyChampion;
+
+	/** 에디터 자동 검증용. 비어 있지 않으면 다음 틱에 로비에서 소환사 주문을 바꾼다. 예: "Smite,Flash"(D, F 순서). */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	FString DebugLobbySpells;
 
 	/** 에디터 자동 검증용. 켜면 다음 틱에 로비 준비 상태를 뒤집는다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")

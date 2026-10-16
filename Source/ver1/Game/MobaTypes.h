@@ -29,7 +29,22 @@ enum class EMobaAbilitySlot : uint8
 	Q,
 	W,
 	E,
-	R
+	R,
+	/** 소환사 주문 두 칸. */
+	D,
+	F
+};
+
+/** 로비에서 고르는 소환사 주문. */
+UENUM(BlueprintType)
+enum class EMobaSummonerSpell : uint8
+{
+	Flash,
+	Heal,
+	Ignite,
+	Ghost,
+	Smite,
+	Count UMETA(Hidden)
 };
 
 UENUM(BlueprintType)

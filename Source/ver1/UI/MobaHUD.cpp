@@ -18,6 +18,7 @@
 #include "Game/MobaGameplayTags.h"
 #include "Character/MobaChampionData.h"
 #include "Character/MobaPassive.h"
+#include "AbilitySystem/Abilities/MobaSummonerSpells.h"
 #include "Game/MobaItems.h"
 #include "Map/MobaJungleCamp.h"
 #include "Map/MobaLanePath.h"
@@ -533,8 +534,8 @@ void AMobaHUD::DrawAbilityTooltip(const AMobaCharacter* Character)
 		return;
 	}
 
-	const EMobaAbilitySlot Slots[] = { EMobaAbilitySlot::Q, EMobaAbilitySlot::W, EMobaAbilitySlot::E, EMobaAbilitySlot::R };
-	for (int32 Index = 0; Index < 4; ++Index)
+	const EMobaAbilitySlot Slots[] = { EMobaAbilitySlot::Q, EMobaAbilitySlot::W, EMobaAbilitySlot::E, EMobaAbilitySlot::R, EMobaAbilitySlot::D, EMobaAbilitySlot::F };
+	for (int32 Index = 0; Index < 6; ++Index)
 	{
 		if (!AbilityRects[Index].bIsValid || !AbilityRects[Index].IsInsideOrOn(FVector2D(MouseX, MouseY)))
 		{
@@ -549,9 +550,18 @@ void AMobaHUD::DrawAbilityTooltip(const AMobaCharacter* Character)
 
 		UFont* Font = GEngine->GetSmallFont();
 		TArray<FString> Lines;
-		Lines.Add(FString::Printf(TEXT("%s  (%d / %d)"), *Ability->GetDisplayName().ToString(), Character->GetAbilityLevel(Slots[Index]), Ability->GetMaxLevel()));
+		if (Ability->IsSummonerSpell())
+		{
+			Lines.Add(FString::Printf(TEXT("%s  (소환사 주문)"), *Ability->GetDisplayName().ToString()));
+		}
+		else
+		{
+			Lines.Add(FString::Printf(TEXT("%s  (%d / %d)"), *Ability->GetDisplayName().ToString(), Character->GetAbilityLevel(Slots[Index]), Ability->GetMaxLevel()));
+		}
 		Lines.Add(Ability->GetDescription().ToString());
-		FString Costs = FString::Printf(TEXT("마나 %d    재사용 대기 %.0f초"), FMath::RoundToInt(Ability->GetManaCost()), Ability->GetCooldownDuration());
+		FString Costs = Ability->IsSummonerSpell()
+			? FString::Printf(TEXT("재사용 대기 %.0f초"), Ability->GetCooldownDuration())
+			: FString::Printf(TEXT("마나 %d    재사용 대기 %.0f초"), FMath::RoundToInt(Ability->GetManaCost()), Ability->GetCooldownDuration());
 		if (Ability->GetCastRange() > 0.0f)
 		{
 			Costs += FString::Printf(TEXT("    사거리 %d"), FMath::RoundToInt(Ability->GetCastRange()));
@@ -803,6 +813,27 @@ FString AMobaHUD::GetHostAddressHint()
 		: FString::Printf(TEXT("상대에게 알려 줄 주소: %s (UDP 7777)"), *LocalAddress);
 }
 
+namespace
+{
+	/** R 칸 오른쪽에 놓는 D·F 칸 두 개가 차지하는 폭. 와드 칸과 가방은 그만큼 오른쪽으로 밀린다. */
+	float GetSummonerAreaWidth(float AbilityBoxSize)
+	{
+		return (AbilityBoxSize * 0.7f + 6.0f) * 2.0f;
+	}
+}
+
+float AMobaHUD::GetAbilityBarLeft() const
+{
+	const float Gap = 8.0f;
+	const float TotalWidth = AbilityBoxSize * 4.0f + Gap * 3.0f;
+	const float Centered = (Canvas->ClipX - TotalWidth) * 0.5f;
+
+	// 오른쪽에 붙는 D·F 칸, 와드 칸, 가방(3칸)이 미니맵에 닿으면 묶음 전체를 왼쪽으로 민다. 왼쪽 패시브 칸 자리는 남긴다.
+	const float RightExtent = TotalWidth + Gap * 2.0f + GetSummonerAreaWidth(AbilityBoxSize) + AbilityBoxSize * 0.7f + 14.0f + 78.0f * 3.0f;
+	const float MinimapLeft = Canvas->ClipX - MinimapSize - MinimapMargin;
+	return FMath::Max(FMath::Min(Centered, MinimapLeft - 12.0f - RightExtent), 70.0f);
+}
+
 void AMobaHUD::DrawLobby()
 {
 	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
@@ -814,12 +845,14 @@ void AMobaHUD::DrawLobby()
 
 	bLobbyDrawn = true;
 	LobbyChampionRects.Reset();
+	LobbySpellRects.Reset();
 
 	UFont* Font = GEngine->GetSmallFont();
 	const float CenterX = Canvas->ClipX * 0.5f;
 	const float Width = 640.0f;
 	const float Left = CenterX - Width * 0.5f;
-	float Top = Canvas->ClipY * 0.12f;
+	// 낮은 창(에디터 PIE 등)에서는 위쪽 여백을 줄여 준비 버튼이 화면 안에 들어오게 한다.
+	float Top = Canvas->ClipY < 720.0f ? 16.0f : Canvas->ClipY * 0.12f;
 
 	DrawRect(FLinearColor(0.01f, 0.015f, 0.03f, 0.92f), 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY);
 	DrawCenteredText(TEXT("챔피언 선택"), FLinearColor(0.85f, 0.9f, 1.0f), CenterX, Top, GEngine->GetLargeFont(), 2.0f);
@@ -849,6 +882,7 @@ void AMobaHUD::DrawLobby()
 		DrawRect(MobaTeam::GetTeamColor(Player->GetTeam()), Left, Top, 6.0f, 36.0f);
 		DrawText(FString::Printf(TEXT("%s 팀%s"), *MobaTeam::GetTeamDisplayName(Player->GetTeam()), bIsLocal ? TEXT(" (나)") : TEXT("")), FLinearColor::White, Left + 18.0f, Top + 9.0f, Font, 1.2f);
 		DrawText(Player->GetChampionDisplayName(), FLinearColor(1.0f, 0.9f, 0.6f), Left + 220.0f, Top + 9.0f, Font, 1.2f);
+		DrawText(FString::Printf(TEXT("%s / %s"), *MobaSummoner::GetDisplayName(Player->GetSummonerSpell(0)).ToString(), *MobaSummoner::GetDisplayName(Player->GetSummonerSpell(1)).ToString()), FLinearColor(0.8f, 0.7f, 1.0f), Left + 350.0f, Top + 9.0f, Font, 1.1f);
 		DrawText(Player->IsReady() ? TEXT("준비 완료") : TEXT("고르는 중"), Player->IsReady() ? FLinearColor(0.4f, 1.0f, 0.5f) : FLinearColor(0.7f, 0.7f, 0.7f), Left + Width - 120.0f, Top + 9.0f, Font, 1.2f);
 		Top += 42.0f;
 	}
@@ -875,7 +909,33 @@ void AMobaHUD::DrawLobby()
 		DrawCenteredText(Name, LocalState->IsReady() && !bSelected ? FLinearColor(0.45f, 0.45f, 0.45f) : FLinearColor::White, ButtonLeft + ButtonWidth * 0.5f, Top + 14.0f, Font, 1.4f);
 		LobbyChampionRects.Add({ Roster[Index].GetAssetName(), FBox2D(FVector2D(ButtonLeft, Top), FVector2D(ButtonLeft + ButtonWidth, Top + 48.0f)) });
 	}
-	Top += 70.0f;
+	Top += 62.0f;
+
+	// 소환사 주문 D·F 고르기. 다른 칸에 있는 주문을 고르면 두 칸이 바뀐다.
+	DrawText(TEXT("소환사 주문"), FLinearColor(0.7f, 0.75f, 0.85f), Left, Top, Font, 1.1f);
+	Top += 22.0f;
+
+	const int32 SpellCount = static_cast<int32>(EMobaSummonerSpell::Count);
+	const float KeyWidth = 34.0f;
+	const float SpellGap = 6.0f;
+	const float SpellWidth = (Width - KeyWidth - SpellGap * (SpellCount - 1)) / SpellCount;
+	const TCHAR* SpellKeys[] = { TEXT("D"), TEXT("F") };
+	for (int32 SlotIndex = 0; SlotIndex < 2; ++SlotIndex)
+	{
+		DrawText(SpellKeys[SlotIndex], FLinearColor::White, Left + 8.0f, Top + 7.0f, Font, 1.3f);
+		for (int32 SpellIndex = 0; SpellIndex < SpellCount; ++SpellIndex)
+		{
+			const EMobaSummonerSpell Spell = static_cast<EMobaSummonerSpell>(SpellIndex);
+			const float ButtonLeft = Left + KeyWidth + (SpellWidth + SpellGap) * SpellIndex;
+			const bool bSelected = LocalState->GetSummonerSpell(SlotIndex) == Spell;
+
+			DrawRect(bSelected ? FLinearColor(0.4f, 0.28f, 0.55f) : FLinearColor(0.12f, 0.13f, 0.17f), ButtonLeft, Top, SpellWidth, 30.0f);
+			DrawCenteredText(MobaSummoner::GetDisplayName(Spell).ToString(), LocalState->IsReady() && !bSelected ? FLinearColor(0.45f, 0.45f, 0.45f) : FLinearColor::White, ButtonLeft + SpellWidth * 0.5f, Top + 7.0f, Font, 1.1f);
+			LobbySpellRects.Add({ SlotIndex, Spell, FBox2D(FVector2D(ButtonLeft, Top), FVector2D(ButtonLeft + SpellWidth, Top + 30.0f)) });
+		}
+		Top += 34.0f;
+	}
+	Top += 10.0f;
 
 	// 준비 버튼과 카운트다운.
 	const float ReadyWidth = 260.0f;
@@ -1026,7 +1086,7 @@ void AMobaHUD::DrawInventory(const AMobaCharacter* Character)
 	// 와드 칸 오른쪽에 3칸씩 두 줄로 놓는다.
 	const float SlotWidth = 74.0f;
 	const float SlotHeight = 27.0f;
-	const float Left = (Canvas->ClipX - TotalWidth) * 0.5f + TotalWidth + Gap * 2.0f + AbilityBoxSize * 0.7f + 14.0f;
+	const float Left = GetAbilityBarLeft() + TotalWidth + Gap * 2.0f + GetSummonerAreaWidth(AbilityBoxSize) + AbilityBoxSize * 0.7f + 14.0f;
 	const TArray<uint8>& Items = PlayerState->GetItems();
 
 	for (int32 Index = 0; Index < MobaItems::MaxInventorySlots; ++Index)
@@ -1164,7 +1224,7 @@ void AMobaHUD::DrawGameMenu()
 	// 조작 안내.
 	const TCHAR* Help[] = {
 		TEXT("우클릭 이동·공격   A+좌클릭 공격 이동"),
-		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기"),
+		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기   D·F 소환사 주문"),
 		TEXT("4 와드   B 귀환   P 상점   Tab 점수판"),
 		TEXT("Y 카메라 고정   Space 내 챔피언 보기"),
 		TEXT("Alt+좌클릭 핑   미니맵 좌클릭 카메라 이동"),
@@ -1226,6 +1286,14 @@ bool AMobaHUD::HandleClick(const FVector2D& ScreenPosition)
 					if (Button.Value.IsInsideOrOn(ScreenPosition))
 					{
 						MobaController->RequestChampion(Button.Key);
+						break;
+					}
+				}
+				for (const FLobbySpellButton& Button : LobbySpellRects)
+				{
+					if (Button.Rect.IsInsideOrOn(ScreenPosition))
+					{
+						MobaController->RequestSummonerSpell(Button.Index, Button.Spell);
 						break;
 					}
 				}
@@ -1418,12 +1486,12 @@ void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
 	UFont* Font = GEngine->GetSmallFont();
 	const float Gap = 8.0f;
 	const float TotalWidth = AbilityBoxSize * 4.0f + Gap * 3.0f;
-	const float Left = (Canvas->ClipX - TotalWidth) * 0.5f;
+	const float Left = GetAbilityBarLeft();
 	const float BoxTop = Canvas->ClipY - AbilityBoxSize - 16.0f * 2.0f - 28.0f;
 
 	// 스킬 칸 오른쪽에 와드 칸을 둔다.
 	const float WardSize = AbilityBoxSize * 0.7f;
-	const float WardLeft = Left + TotalWidth + Gap * 2.0f;
+	const float WardLeft = Left + TotalWidth + Gap * 2.0f + GetSummonerAreaWidth(AbilityBoxSize);
 	const float WardTop = BoxTop + AbilityBoxSize - WardSize;
 	const float WardCooldown = Character->GetWardCooldownRemaining();
 
@@ -1494,7 +1562,7 @@ void AMobaHUD::DrawStatusBar(const AMobaCharacter* Character)
 	const TCHAR* SlotKeys[] = { TEXT("Q"), TEXT("W"), TEXT("E"), TEXT("R") };
 	const float Gap = 8.0f;
 	const float TotalWidth = AbilityBoxSize * 4.0f + Gap * 3.0f;
-	const float Left = (Canvas->ClipX - TotalWidth) * 0.5f;
+	const float Left = GetAbilityBarLeft();
 	const float BarHeight = 16.0f;
 	const float BoxTop = Canvas->ClipY - AbilityBoxSize - BarHeight * 2.0f - 28.0f;
 
@@ -1579,6 +1647,38 @@ void AMobaHUD::DrawStatusBar(const AMobaCharacter* Character)
 			DrawRect(FLinearColor(0.9f, 0.75f, 0.1f), BoxLeft, BoxTop - 20.0f, AbilityBoxSize, 16.0f);
 			DrawCenteredText(FString::Printf(TEXT("Ctrl+%s"), SlotKeys[Index]), FLinearColor::Black, BoxLeft + AbilityBoxSize * 0.5f, BoxTop - 20.0f, Font, 1.0f);
 		}
+	}
+
+	// R 칸 오른쪽의 소환사 주문 D·F 칸.
+	const EMobaAbilitySlot SpellSlots[] = { EMobaAbilitySlot::D, EMobaAbilitySlot::F };
+	const TCHAR* SpellKeys[] = { TEXT("D"), TEXT("F") };
+	const float SpellSize = AbilityBoxSize * 0.7f;
+	for (int32 Index = 0; Index < 2; ++Index)
+	{
+		const UMobaGameplayAbility* Spell = Character->GetAbilityInSlot(SpellSlots[Index]);
+		const float SpellLeft = Left + TotalWidth + Gap * 2.0f + (SpellSize + 6.0f) * Index;
+		const float SpellTop = BoxTop + AbilityBoxSize - SpellSize;
+		AbilityRects[4 + Index] = FBox2D(FVector2D(SpellLeft, SpellTop), FVector2D(SpellLeft + SpellSize, SpellTop + SpellSize));
+
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), SpellLeft - 2.0f, SpellTop - 2.0f, SpellSize + 4.0f, SpellSize + 4.0f);
+		if (!Spell)
+		{
+			continue;
+		}
+
+		DrawRect(FLinearColor(0.35f, 0.25f, 0.45f), SpellLeft, SpellTop, SpellSize, SpellSize);
+		float Remaining = 0.0f;
+		float Duration = 0.0f;
+		if (Character->GetCooldownRemaining(SpellSlots[Index], Remaining, Duration) && Duration > 0.0f)
+		{
+			DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.75f), SpellLeft, SpellTop, SpellSize, SpellSize * FMath::Clamp(Remaining / Duration, 0.0f, 1.0f));
+			DrawCenteredText(FString::FromInt(FMath::CeilToInt(Remaining)), FLinearColor::White, SpellLeft + SpellSize * 0.5f, SpellTop + SpellSize * 0.4f, Font, 1.2f);
+		}
+		else
+		{
+			DrawCenteredText(Spell->GetDisplayName().ToString(), FLinearColor::White, SpellLeft + SpellSize * 0.5f, SpellTop + SpellSize * 0.5f, Font, 0.9f);
+		}
+		DrawText(SpellKeys[Index], FLinearColor::White, SpellLeft + 3.0f, SpellTop + 1.0f, Font, 1.1f);
 	}
 
 	// 체력·마나 수치 바.

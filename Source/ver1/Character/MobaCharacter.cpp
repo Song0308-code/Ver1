@@ -10,6 +10,7 @@
 #include "Character/MobaAnimationComponent.h"
 #include "Character/MobaChampionData.h"
 #include "Character/MobaPassive.h"
+#include "AbilitySystem/Abilities/MobaSummonerSpells.h"
 #include "Materials/MaterialInterface.h"
 #include "Combat/MobaCombatComponent.h"
 #include "Combat/MobaCombatEvents.h"
@@ -315,6 +316,18 @@ void AMobaCharacter::GrantChampionKit(AMobaPlayerState* MobaPlayerState)
 			// 스킬은 0단계로 받고, 스킬 포인트로 찍어야 쓸 수 있다.
 			FGameplayAbilitySpec Spec(Entry.Value, 0);
 			Spec.GetDynamicSpecSourceTags().AddTag(MobaAbility::GetSlotTag(Entry.Key));
+			AbilitySystem->GiveAbility(Spec);
+		}
+	}
+
+	// 소환사 주문은 로비에서 고른 것을 처음부터 쓸 수 있는 상태(1단계)로 준다.
+	const EMobaAbilitySlot SpellSlots[] = { EMobaAbilitySlot::D, EMobaAbilitySlot::F };
+	for (int32 Index = 0; Index < 2; ++Index)
+	{
+		if (const TSubclassOf<UMobaGameplayAbility> SpellClass = MobaSummoner::GetAbilityClass(MobaPlayerState->GetSummonerSpell(Index)))
+		{
+			FGameplayAbilitySpec Spec(SpellClass, 1);
+			Spec.GetDynamicSpecSourceTags().AddTag(MobaAbility::GetSlotTag(SpellSlots[Index]));
 			AbilitySystem->GiveAbility(Spec);
 		}
 	}
@@ -768,7 +781,8 @@ void AMobaCharacter::NotifyAbilityCast(EMobaAbilitySlot Slot)
 	CancelRecall();
 	MulticastAbilityCast(Slot);
 
-	if (PassiveInstance)
+	// 소환사 주문은 패시브의 "스킬을 쓰면" 효과를 일으키지 않는다.
+	if (PassiveInstance && Slot != EMobaAbilitySlot::D && Slot != EMobaAbilitySlot::F)
 	{
 		PassiveInstance->OnAbilityCast(Slot);
 	}

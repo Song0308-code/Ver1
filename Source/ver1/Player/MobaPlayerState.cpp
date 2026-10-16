@@ -30,6 +30,8 @@ void AMobaPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMobaPlayerState, RespawnServerTime);
 	DOREPLIFETIME(AMobaPlayerState, NextWardServerTime);
 	DOREPLIFETIME(AMobaPlayerState, Champion);
+	DOREPLIFETIME(AMobaPlayerState, SummonerSpellD);
+	DOREPLIFETIME(AMobaPlayerState, SummonerSpellF);
 	DOREPLIFETIME(AMobaPlayerState, Items);
 	DOREPLIFETIME(AMobaPlayerState, MinionKills);
 	DOREPLIFETIME(AMobaPlayerState, DamageToChampions);
@@ -134,4 +136,20 @@ bool AMobaPlayerState::ConsumeSkillPoint()
 
 	--SkillPoints;
 	return true;
+}
+
+void AMobaPlayerState::SetSummonerSpell(int32 Index, EMobaSummonerSpell Spell)
+{
+	if (Spell >= EMobaSummonerSpell::Count)
+	{
+		return;
+	}
+
+	EMobaSummonerSpell& Mine = Index == 0 ? SummonerSpellD : SummonerSpellF;
+	EMobaSummonerSpell& Other = Index == 0 ? SummonerSpellF : SummonerSpellD;
+	if (Other == Spell)
+	{
+		Other = Mine;
+	}
+	Mine = Spell;
 }

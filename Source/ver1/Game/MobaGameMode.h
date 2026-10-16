@@ -44,6 +44,9 @@ public:
 	/** 서버 전용. 로비에서 챔피언을 바꾼다. 경기가 시작된 뒤에는 무시한다. */
 	void RequestChampionChange(APlayerController* Player, const FString& AssetName);
 
+	/** 서버 전용. 로비에서 소환사 주문을 바꾼다. Index 0이 D, 1이 F. */
+	void RequestSummonerSpell(APlayerController* Player, int32 Index, EMobaSummonerSpell Spell);
+
 	/** 서버 전용. 로비에서 준비 상태를 바꾼다. */
 	void RequestReady(APlayerController* Player, bool bReady);
 
