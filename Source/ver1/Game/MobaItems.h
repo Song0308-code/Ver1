@@ -2,12 +2,20 @@
 
 #include "CoreMinimal.h"
 
-/** 상점에서 파는 아이템 하나. 사면 수치가 그대로 더해지고, 팔면 다시 빠진다. */
+/**
+ * 상점에서 파는 아이템 하나. 사면 수치가 그대로 더해지고, 팔면 다시 빠진다.
+ * 재료(Components)가 있는 아이템은 가진 재료만큼 싸게 살 수 있고, 사면 그 재료가 가방에서 사라진다.
+ */
 struct FMobaItemDefinition
 {
 	const TCHAR* Name = TEXT("");
 	const TCHAR* Description = TEXT("");
+
+	/** 재료까지 포함한 총 가격. 팔 때도 이 값을 기준으로 돌려준다. */
 	int32 Cost = 0;
+
+	/** 재료 아이템 번호. 같은 재료가 두 번 들어갈 수 있다. 재료는 항상 자기보다 앞 번호다. */
+	TArray<int32> Components;
 
 	float AttackDamage = 0.0f;
 	float AbilityPower = 0.0f;
@@ -20,8 +28,19 @@ struct FMobaItemDefinition
 	/** 기본 공격 속도에 곱해 더하는 비율. 0.12면 12%. */
 	float AttackSpeedFraction = 0.0f;
 
-	/** true면 한 개만 가질 수 있다. */
-	bool bUnique = false;
+	/** 같은 묶음 이름의 아이템은 하나만 가질 수 있다(예: 장화 계열). 비어 있으면 제한 없음. */
+	const TCHAR* UniqueGroup = TEXT("");
+
+	bool IsBasic() const { return Components.Num() == 0; }
+};
+
+/** 아이템 하나를 살 때 실제로 내는 값과 재료로 쓰여 사라질 가방 칸. */
+struct FMobaPurchasePlan
+{
+	int32 Cost = 0;
+
+	/** 가방 칸 번호. 큰 번호부터 들어 있어 이 순서대로 지우면 된다. */
+	TArray<int32> ConsumedSlots;
 };
 
 namespace MobaItems
@@ -37,4 +56,17 @@ namespace MobaItems
 
 	/** 번호가 범위를 벗어나면 nullptr. */
 	VER1_API const FMobaItemDefinition* GetItem(int32 ItemIndex);
+
+	/**
+	 * 가방(Owned)을 가진 상태에서 ItemIndex를 살 때의 값과 쓰일 재료를 계산한다.
+	 * 재료를 가지고 있으면 그 재료의 총 가격만큼, 없으면 그 재료의 재료를 가지고 있는지 다시 찾아 깎는다.
+	 * 골드·칸 수·하나만 가질 수 있는지는 확인하지 않는다(CanPurchase 참고).
+	 */
+	VER1_API FMobaPurchasePlan PlanPurchase(int32 ItemIndex, const TArray<uint8>& Owned);
+
+	/** 칸 수와 하나만 가질 수 있는 묶음 규칙상 살 수 있는지. 골드는 보지 않는다. */
+	VER1_API bool CanPurchase(int32 ItemIndex, const TArray<uint8>& Owned, const FMobaPurchasePlan& Plan);
+
+	/** "긴 검 + 붉은 수정"처럼 재료 이름을 이은 문자열. 재료가 없으면 빈 문자열. */
+	VER1_API FString DescribeComponents(int32 ItemIndex);
 }

@@ -812,14 +812,25 @@ bool AMobaCharacter::IsInFountain() const
 
 bool AMobaCharacter::CanBuyItem(int32 ItemIndex) const
 {
-	const FMobaItemDefinition* Item = MobaItems::GetItem(ItemIndex);
 	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
-	if (!Item || !MobaPlayerState || !CanShop() || MobaPlayerState->GetGold() < Item->Cost || MobaPlayerState->GetItems().Num() >= MobaItems::MaxInventorySlots)
+	if (!MobaItems::GetItem(ItemIndex) || !MobaPlayerState || !CanShop())
 	{
 		return false;
 	}
 
-	return !Item->bUnique || !MobaPlayerState->GetItems().Contains(static_cast<uint8>(ItemIndex));
+	const FMobaPurchasePlan Plan = MobaItems::PlanPurchase(ItemIndex, MobaPlayerState->GetItems());
+	return MobaPlayerState->GetGold() >= Plan.Cost && MobaItems::CanPurchase(ItemIndex, MobaPlayerState->GetItems(), Plan);
+}
+
+int32 AMobaCharacter::GetItemPurchaseCost(int32 ItemIndex) const
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	const FMobaItemDefinition* Item = MobaItems::GetItem(ItemIndex);
+	if (!Item)
+	{
+		return 0;
+	}
+	return MobaPlayerState ? MobaItems::PlanPurchase(ItemIndex, MobaPlayerState->GetItems()).Cost : Item->Cost;
 }
 
 void AMobaCharacter::BuyItem(int32 ItemIndex)
@@ -834,13 +845,44 @@ void AMobaCharacter::ServerBuyItem_Implementation(int32 ItemIndex)
 {
 	const FMobaItemDefinition* Item = MobaItems::GetItem(ItemIndex);
 	AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
-	if (!Item || !MobaPlayerState || !CanBuyItem(ItemIndex) || !MobaPlayerState->SpendGold(Item->Cost))
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!Item || !MobaPlayerState || !AbilitySystem || !CanBuyItem(ItemIndex))
 	{
 		return;
 	}
 
+	const FMobaPurchasePlan Plan = MobaItems::PlanPurchase(ItemIndex, MobaPlayerState->GetItems());
+	if (!MobaPlayerState->SpendGold(Plan.Cost))
+	{
+		return;
+	}
+
+	// 재료를 빼고 완성품을 더하면 현재 체력·마나가 재료 몫까지 다시 채워지므로, 최대치가 늘어난 만큼만 채우도록 기억해 둔다.
+	const float OldHealth = AbilitySystem->GetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute());
+	const float OldMaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
+	const float OldMana = AbilitySystem->GetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute());
+	const float OldMaxMana = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxManaAttribute());
+
+	for (const int32 Slot : Plan.ConsumedSlots)
+	{
+		const FMobaItemDefinition* Component = MobaItems::GetItem(MobaPlayerState->GetItems()[Slot]);
+		MobaPlayerState->RemoveItemAt(Slot);
+		if (Component)
+		{
+			ApplyItemStats(*Component, -1.0f);
+		}
+	}
+
 	MobaPlayerState->AddItem(static_cast<uint8>(ItemIndex));
 	ApplyItemStats(*Item, 1.0f);
+
+	if (Plan.ConsumedSlots.Num() > 0 && !IsDead())
+	{
+		const float NewMaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
+		const float NewMaxMana = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxManaAttribute());
+		AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute(), FMath::Clamp(OldHealth + FMath::Max(NewMaxHealth - OldMaxHealth, 0.0f), 1.0f, NewMaxHealth));
+		AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute(), FMath::Clamp(OldMana + FMath::Max(NewMaxMana - OldMaxMana, 0.0f), 0.0f, NewMaxMana));
+	}
 }
 
 void AMobaCharacter::SellItem(int32 Slot)

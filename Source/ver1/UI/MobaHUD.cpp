@@ -1120,37 +1120,69 @@ void AMobaHUD::DrawShop(const AMobaCharacter* Character)
 	UFont* Font = GEngine->GetSmallFont();
 	const TArray<FMobaItemDefinition>& Items = MobaItems::GetItems();
 
+	// 왼쪽 열은 기본 아이템, 오른쪽 열은 재료가 있는 완성 아이템. ShopItemRects는 아이템 번호 순서를 유지한다.
 	const float Left = 20.0f;
-	const float Top = 110.0f;
-	const float Width = 360.0f;
-	const float RowHeight = 30.0f;
-	const float HeaderHeight = 54.0f;
-	const float Height = HeaderHeight + RowHeight * Items.Num() + 30.0f;
+	const float Top = 70.0f;
+	const float BasicWidth = 330.0f;
+	const float AdvancedWidth = 420.0f;
+	const float Width = BasicWidth + AdvancedWidth + 18.0f;
+	const float BasicRowHeight = 30.0f;
+	const float AdvancedRowHeight = 40.0f;
+	const float HeaderHeight = 74.0f;
+
+	int32 BasicCount = 0;
+	int32 AdvancedCount = 0;
+	for (const FMobaItemDefinition& Item : Items)
+	{
+		(Item.IsBasic() ? BasicCount : AdvancedCount) += 1;
+	}
+	const float Height = HeaderHeight + FMath::Max(BasicRowHeight * BasicCount, AdvancedRowHeight * AdvancedCount) + 30.0f;
 
 	ShopPanelRect = FBox2D(FVector2D(Left, Top), FVector2D(Left + Width, Top + Height));
 	bShopDrawn = true;
 
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.85f), Left, Top, Width, Height);
 	DrawText(TEXT("상점  [P]"), FLinearColor::White, Left + 10.0f, Top + 8.0f, Font, 1.4f);
-	DrawText(FString::Printf(TEXT("%d G"), FMath::FloorToInt(PlayerState->GetGold())), FLinearColor(1.0f, 0.85f, 0.3f), Left + Width - 80.0f, Top + 8.0f, Font, 1.4f);
+	DrawText(FString::Printf(TEXT("%d G"), FMath::FloorToInt(PlayerState->GetGold())), FLinearColor(1.0f, 0.85f, 0.3f), Left + Width - 90.0f, Top + 8.0f, Font, 1.4f);
 
 	const bool bCanShop = Character->CanShop();
-	DrawText(bCanShop ? TEXT("눌러서 구매. 가방의 아이템을 누르면 70%에 판매.") : TEXT("우물 안에 있거나 죽어 있을 때만 살 수 있습니다."),
+	DrawText(bCanShop ? TEXT("눌러서 구매. 가진 재료만큼 싸집니다. 가방의 아이템을 누르면 70%에 판매.") : TEXT("우물 안에 있거나 죽어 있을 때만 살 수 있습니다."),
 		bCanShop ? FLinearColor(0.7f, 0.9f, 0.7f) : FLinearColor(1.0f, 0.55f, 0.4f), Left + 10.0f, Top + 32.0f, Font, 1.0f);
+	DrawText(TEXT("기본"), FLinearColor(0.75f, 0.8f, 0.9f), Left + 10.0f, Top + 52.0f, Font, 1.1f);
+	DrawText(TEXT("완성 (재료 포함 가격)"), FLinearColor(0.75f, 0.8f, 0.9f), Left + BasicWidth + 18.0f, Top + 52.0f, Font, 1.1f);
 
+	int32 BasicRow = 0;
+	int32 AdvancedRow = 0;
 	for (int32 Index = 0; Index < Items.Num(); ++Index)
 	{
 		const FMobaItemDefinition& Item = Items[Index];
-		const float RowTop = Top + HeaderHeight + RowHeight * Index;
-		ShopItemRects.Add(FBox2D(FVector2D(Left + 6.0f, RowTop), FVector2D(Left + Width - 6.0f, RowTop + RowHeight - 3.0f)));
+		const bool bBasic = Item.IsBasic();
+		const float ColumnLeft = bBasic ? Left + 6.0f : Left + BasicWidth + 12.0f;
+		const float ColumnWidth = bBasic ? BasicWidth - 6.0f : AdvancedWidth;
+		const float RowHeight = bBasic ? BasicRowHeight : AdvancedRowHeight;
+		const float RowTop = Top + HeaderHeight + RowHeight * (bBasic ? BasicRow++ : AdvancedRow++);
+		ShopItemRects.Add(FBox2D(FVector2D(ColumnLeft, RowTop), FVector2D(ColumnLeft + ColumnWidth, RowTop + RowHeight - 3.0f)));
 
 		const bool bCanBuy = Character->CanBuyItem(Index);
-		DrawRect(bCanBuy ? FLinearColor(0.12f, 0.2f, 0.14f) : FLinearColor(0.1f, 0.1f, 0.1f), Left + 6.0f, RowTop, Width - 12.0f, RowHeight - 3.0f);
+		const int32 Cost = Character->GetItemPurchaseCost(Index);
+		DrawRect(bCanBuy ? FLinearColor(0.12f, 0.2f, 0.14f) : FLinearColor(0.1f, 0.1f, 0.1f), ColumnLeft, RowTop, ColumnWidth, RowHeight - 3.0f);
 
 		const FLinearColor TextColor = bCanBuy ? FLinearColor::White : FLinearColor(0.5f, 0.5f, 0.5f);
-		DrawText(Item.Name, TextColor, Left + 14.0f, RowTop + 6.0f, Font, 1.1f);
-		DrawText(Item.Description, TextColor, Left + 120.0f, RowTop + 6.0f, Font, 1.0f);
-		DrawText(FString::FromInt(Item.Cost), bCanBuy ? FLinearColor(1.0f, 0.85f, 0.3f) : FLinearColor(0.5f, 0.45f, 0.3f), Left + Width - 60.0f, RowTop + 6.0f, Font, 1.1f);
+		const FLinearColor CostColor = bCanBuy ? FLinearColor(1.0f, 0.85f, 0.3f) : FLinearColor(0.5f, 0.45f, 0.3f);
+		DrawText(Item.Name, TextColor, ColumnLeft + 8.0f, RowTop + 6.0f, Font, 1.1f);
+		DrawText(Item.Description, TextColor, ColumnLeft + (bBasic ? 100.0f : 130.0f), RowTop + 6.0f, Font, 1.0f);
+
+		// 재료가 있어 싸졌으면 원래 가격을 작게 함께 적는다.
+		DrawText(FString::FromInt(Cost), CostColor, ColumnLeft + ColumnWidth - 52.0f, RowTop + 6.0f, Font, 1.1f);
+		if (!bBasic)
+		{
+			const FString Recipe = FString::Printf(TEXT("재료: %s"), *MobaItems::DescribeComponents(Index));
+			DrawText(Recipe, FLinearColor(0.6f, 0.65f, 0.75f), ColumnLeft + 8.0f, RowTop + 22.0f, Font, 0.9f);
+			if (Cost != Item.Cost)
+			{
+				DrawText(FString::Printf(TEXT("(%d)"), Item.Cost), FLinearColor(0.55f, 0.55f, 0.55f), ColumnLeft + ColumnWidth - 52.0f, RowTop + 22.0f, Font, 0.9f);
+			}
+		}
 	}
 
 	DrawText(FString::Printf(TEXT("가방 %d / %d"), PlayerState->GetItems().Num(), MobaItems::MaxInventorySlots), FLinearColor(0.8f, 0.8f, 0.8f), Left + 10.0f, Top + Height - 24.0f, Font, 1.0f);

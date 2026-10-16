@@ -182,6 +182,15 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		DebugGrantExperience = 0.0f;
 	}
 
+	if (HasAuthority() && DebugGrantGold > 0.0f)
+	{
+		for (TActorIterator<AMobaPlayerState> It(GetWorld()); It; ++It)
+		{
+			It->AddGold(DebugGrantGold);
+		}
+		DebugGrantGold = 0.0f;
+	}
+
 	if (bDebugIssueMove)
 	{
 		bDebugIssueMove = false;

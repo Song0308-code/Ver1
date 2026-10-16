@@ -181,7 +181,7 @@ protected:
 	UPROPERTY(Replicated, VisibleAnywhere, Category = "Champion")
 	EMobaSummonerSpell SummonerSpellF = EMobaSummonerSpell::Ignite;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")
 	TArray<uint8> Items;
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")

@@ -292,6 +292,10 @@ protected:
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	float DebugGrantExperience = 0.0f;
 
+	/** 에디터 자동 검증용. 0보다 크면 다음 틱에 모든 플레이어에게 그만큼 골드를 준다(호스트 컨트롤러에서만 동작). */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	float DebugGrantGold = 0.0f;
+
 	/** 에디터 자동 검증용. 비어 있지 않으면 다음 틱에 로비에서 이 챔피언으로 바꾼다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	FString DebugLobbyChampion;

@@ -110,6 +110,9 @@ public:
 
 	bool CanBuyItem(int32 ItemIndex) const;
 
+	/** 지금 가방 기준으로 이 아이템을 사는 데 드는 골드(가진 재료만큼 깎인 값). */
+	int32 GetItemPurchaseCost(int32 ItemIndex) const;
+
 	/** 조종하는 클라이언트 또는 서버에서 호출한다. */
 	void BuyItem(int32 ItemIndex);
 

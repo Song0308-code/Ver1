@@ -122,19 +122,97 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 {
 	const TArray<FMobaItemDefinition>& Items = MobaItems::GetItems();
 	TestTrue(TEXT("아이템이 있다"), Items.Num() > 0);
-	TestTrue(TEXT("상점 화면에 다 들어간다"), Items.Num() <= 12);
 	TestNull(TEXT("범위 밖 번호"), MobaItems::GetItem(Items.Num()));
 
-	int32 UniqueCount = 0;
-	for (const FMobaItemDefinition& Item : Items)
+	int32 BasicCount = 0;
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
 	{
+		const FMobaItemDefinition& Item = Items[Index];
 		TestTrue(FString::Printf(TEXT("%s 가격"), Item.Name), Item.Cost > 0);
 		const bool bHasStat = Item.AttackDamage > 0.0f || Item.AbilityPower > 0.0f || Item.MaxHealth > 0.0f || Item.MaxMana > 0.0f
 			|| Item.Armor > 0.0f || Item.MagicResist > 0.0f || Item.MoveSpeed > 0.0f || Item.AttackSpeedFraction > 0.0f;
 		TestTrue(FString::Printf(TEXT("%s 능력치"), Item.Name), bHasStat);
-		UniqueCount += Item.bUnique ? 1 : 0;
+		BasicCount += Item.IsBasic() ? 1 : 0;
+
+		// 재료는 자기보다 앞 번호이고(순환 없음), 완성품 가격은 재료 가격의 합보다 비싸다.
+		int32 ComponentCost = 0;
+		for (const int32 Component : Item.Components)
+		{
+			TestTrue(FString::Printf(TEXT("%s 재료 번호"), Item.Name), Component >= 0 && Component < Index);
+			if (const FMobaItemDefinition* ComponentItem = MobaItems::GetItem(Component))
+			{
+				ComponentCost += ComponentItem->Cost;
+			}
+		}
+		TestTrue(FString::Printf(TEXT("%s 조합 가격"), Item.Name), Item.IsBasic() || Item.Cost > ComponentCost);
 	}
-	TestEqual(TEXT("하나만 가질 수 있는 아이템(장화)"), UniqueCount, 1);
+	TestTrue(TEXT("상점 왼쪽 열에 다 들어간다"), BasicCount <= 12);
+	TestTrue(TEXT("상점 오른쪽 열에 다 들어간다"), Items.Num() - BasicCount <= 10);
+	return true;
+}
+
+namespace
+{
+	int32 FindItem(const TCHAR* Name)
+	{
+		const TArray<FMobaItemDefinition>& Items = MobaItems::GetItems();
+		for (int32 Index = 0; Index < Items.Num(); ++Index)
+		{
+			if (FCString::Strcmp(Items[Index].Name, Name) == 0)
+			{
+				return Index;
+			}
+		}
+		return INDEX_NONE;
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaItemRecipeTest, "Moba.Rules.ItemRecipes", MobaTestFlags)
+bool FMobaItemRecipeTest::RunTest(const FString& Parameters)
+{
+	const uint8 LongSword = static_cast<uint8>(FindItem(TEXT("긴 검")));
+	const uint8 Ruby = static_cast<uint8>(FindItem(TEXT("붉은 수정")));
+	const uint8 Cloth = static_cast<uint8>(FindItem(TEXT("천 갑옷")));
+	const uint8 Dagger = static_cast<uint8>(FindItem(TEXT("단검")));
+	const uint8 Boots = static_cast<uint8>(FindItem(TEXT("장화")));
+	const uint8 BigSword = static_cast<uint8>(FindItem(TEXT("대검")));
+	const int32 BattleAxe = FindItem(TEXT("전투 도끼"));
+	const int32 Berserker = FindItem(TEXT("광전사의 군화"));
+	const int32 DoomBlade = FindItem(TEXT("파멸의 대검"));
+	const int32 Bulwark = FindItem(TEXT("수호 군주의 갑주"));
+
+	// 재료 없음: 총 가격.
+	FMobaPurchasePlan Plan = MobaItems::PlanPurchase(BattleAxe, {});
+	TestEqual(TEXT("재료 없이 전투 도끼"), Plan.Cost, 1100);
+	TestEqual(TEXT("쓰이는 재료 없음"), Plan.ConsumedSlots.Num(), 0);
+
+	// 재료 둘을 가지면 조합 비용만. 쓰이는 칸은 큰 번호부터.
+	Plan = MobaItems::PlanPurchase(BattleAxe, { Dagger, LongSword, Ruby });
+	TestEqual(TEXT("긴 검·붉은 수정을 가진 전투 도끼"), Plan.Cost, 1100 - 350 - 400);
+	TestEqual(TEXT("두 칸이 쓰인다"), Plan.ConsumedSlots, TArray<int32>({ 2, 1 }));
+
+	// 같은 재료가 두 번 필요하면 두 개 다 쓴다.
+	Plan = MobaItems::PlanPurchase(DoomBlade, { LongSword, BigSword, LongSword });
+	TestEqual(TEXT("파멸의 대검"), Plan.Cost, 3000 - 1300 - 350 - 350);
+	TestEqual(TEXT("세 칸"), Plan.ConsumedSlots.Num(), 3);
+	Plan = MobaItems::PlanPurchase(DoomBlade, { LongSword });
+	TestEqual(TEXT("긴 검 하나만"), Plan.Cost, 3000 - 350);
+
+	// 중간 재료가 없으면 그 재료의 재료로 깎는다.
+	Plan = MobaItems::PlanPurchase(Bulwark, { Cloth, Ruby });
+	TestEqual(TEXT("수호 군주의 갑주: 천 갑옷·붉은 수정"), Plan.Cost, 2900 - 300 - 400);
+
+	// 칸 수: 가득 찬 가방도 재료가 빠지면 살 수 있다.
+	const TArray<uint8> Full = { LongSword, Ruby, Cloth, Cloth, Cloth, Cloth };
+	TestTrue(TEXT("가득 차도 재료가 빠지면 가능"), MobaItems::CanPurchase(BattleAxe, Full, MobaItems::PlanPurchase(BattleAxe, Full)));
+	const TArray<uint8> FullNoParts = { Cloth, Cloth, Cloth, Cloth, Cloth, Cloth };
+	TestFalse(TEXT("가득 차고 재료가 없으면 불가"), MobaItems::CanPurchase(BattleAxe, FullNoParts, MobaItems::PlanPurchase(BattleAxe, FullNoParts)));
+
+	// 장화 계열은 하나만. 장화를 재료로 쓰는 업그레이드는 된다.
+	TestFalse(TEXT("장화 두 켤레 불가"), MobaItems::CanPurchase(Boots, { Boots }, MobaItems::PlanPurchase(Boots, { Boots })));
+	TestTrue(TEXT("장화 → 광전사의 군화"), MobaItems::CanPurchase(Berserker, { Boots }, MobaItems::PlanPurchase(Berserker, { Boots })));
+	const TArray<uint8> HasBerserker = { static_cast<uint8>(Berserker) };
+	TestFalse(TEXT("군화가 있으면 장화 불가"), MobaItems::CanPurchase(Boots, HasBerserker, MobaItems::PlanPurchase(Boots, HasBerserker)));
 	return true;
 }
 
