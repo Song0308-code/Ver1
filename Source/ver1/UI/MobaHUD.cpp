@@ -869,22 +869,23 @@ void AMobaHUD::DrawLobby()
 	const float CenterX = Canvas->ClipX * 0.5f;
 	const float Width = 640.0f;
 	const float Left = CenterX - Width * 0.5f;
-	// 낮은 창(에디터 PIE 등)에서는 위쪽 여백을 줄여 준비 버튼이 화면 안에 들어오게 한다.
-	float Top = Canvas->ClipY < 720.0f ? 16.0f : Canvas->ClipY * 0.12f;
+	// 낮은 창(에디터 PIE 등)에서는 여백과 버튼 높이를 줄여 준비 버튼이 화면 안에 들어오게 한다.
+	const bool bCompact = Canvas->ClipY < 720.0f;
+	float Top = bCompact ? 16.0f : Canvas->ClipY * 0.12f;
 
 	DrawRect(FLinearColor(0.01f, 0.015f, 0.03f, 0.92f), 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY);
 	DrawCenteredText(TEXT("챔피언 선택"), FLinearColor(0.85f, 0.9f, 1.0f), CenterX, Top, GEngine->GetLargeFont(), 2.0f);
-	Top += 54.0f;
+	Top += bCompact ? 44.0f : 54.0f;
 
 	const int32 Joined = GameState->PlayerArray.Num();
 	DrawCenteredText(FString::Printf(TEXT("플레이어 %d / %d"), Joined, GameState->GetRequiredPlayers()), FLinearColor(0.75f, 0.75f, 0.8f), CenterX, Top, Font, 1.3f);
-	Top += 26.0f;
+	Top += bCompact ? 22.0f : 26.0f;
 
 	if (GetNetMode() == NM_ListenServer && Joined < GameState->GetRequiredPlayers())
 	{
 		DrawCenteredText(GetHostAddressHint(), FLinearColor(1.0f, 0.85f, 0.4f), CenterX, Top, Font, 1.2f);
 	}
-	Top += 34.0f;
+	Top += bCompact ? 26.0f : 34.0f;
 
 	// 참가자 목록.
 	for (const APlayerState* PlayerState : GameState->PlayerArray)
@@ -896,19 +897,24 @@ void AMobaHUD::DrawLobby()
 		}
 
 		const bool bIsLocal = Player == LocalState;
-		DrawRect(FLinearColor(0.05f, 0.06f, 0.09f, 1.0f), Left, Top, Width, 36.0f);
-		DrawRect(MobaTeam::GetTeamColor(Player->GetTeam()), Left, Top, 6.0f, 36.0f);
-		DrawText(FString::Printf(TEXT("%s 팀%s"), *MobaTeam::GetTeamDisplayName(Player->GetTeam()), bIsLocal ? TEXT(" (나)") : TEXT("")), FLinearColor::White, Left + 18.0f, Top + 9.0f, Font, 1.2f);
-		DrawText(Player->GetChampionDisplayName(), FLinearColor(1.0f, 0.9f, 0.6f), Left + 220.0f, Top + 9.0f, Font, 1.2f);
-		DrawText(FString::Printf(TEXT("%s / %s"), *MobaSummoner::GetDisplayName(Player->GetSummonerSpell(0)).ToString(), *MobaSummoner::GetDisplayName(Player->GetSummonerSpell(1)).ToString()), FLinearColor(0.8f, 0.7f, 1.0f), Left + 350.0f, Top + 9.0f, Font, 1.1f);
-		DrawText(Player->IsReady() ? TEXT("준비 완료") : TEXT("고르는 중"), Player->IsReady() ? FLinearColor(0.4f, 1.0f, 0.5f) : FLinearColor(0.7f, 0.7f, 0.7f), Left + Width - 120.0f, Top + 9.0f, Font, 1.2f);
-		Top += 42.0f;
+		// 셋 이상이면 줄을 낮춰 화면에 다 들어가게 한다.
+		const float RowHeight = GameState->PlayerArray.Num() > 2 ? 28.0f : 36.0f;
+		const float TextTop = Top + (RowHeight - 18.0f) * 0.5f;
+		DrawRect(FLinearColor(0.05f, 0.06f, 0.09f, 1.0f), Left, Top, Width, RowHeight);
+		DrawRect(MobaTeam::GetTeamColor(Player->GetTeam()), Left, Top, 6.0f, RowHeight);
+		DrawText(FString::Printf(TEXT("%s 팀%s"), *MobaTeam::GetTeamDisplayName(Player->GetTeam()), bIsLocal ? TEXT(" (나)") : TEXT("")), FLinearColor::White, Left + 18.0f, TextTop, Font, 1.2f);
+		DrawText(Player->GetChampionDisplayName(), FLinearColor(1.0f, 0.9f, 0.6f), Left + 220.0f, TextTop, Font, 1.2f);
+		DrawText(FString::Printf(TEXT("%s / %s"), *MobaSummoner::GetDisplayName(Player->GetSummonerSpell(0)).ToString(), *MobaSummoner::GetDisplayName(Player->GetSummonerSpell(1)).ToString()), FLinearColor(0.8f, 0.7f, 1.0f), Left + 350.0f, TextTop, Font, 1.1f);
+		DrawText(Player->IsReady() ? TEXT("준비 완료") : TEXT("고르는 중"), Player->IsReady() ? FLinearColor(0.4f, 1.0f, 0.5f) : FLinearColor(0.7f, 0.7f, 0.7f), Left + Width - 120.0f, TextTop, Font, 1.2f);
+		Top += RowHeight + 6.0f;
 	}
 	Top += 18.0f;
 
 	// 내 챔피언 고르기. 준비를 누르면 바꿀 수 없다.
 	DrawText(TEXT("내 챔피언"), FLinearColor(0.7f, 0.75f, 0.85f), Left, Top, Font, 1.1f);
-	Top += 24.0f;
+	Top += bCompact ? 20.0f : 24.0f;
+
+	const float ChampionButtonHeight = bCompact ? 40.0f : 48.0f;
 
 	const AMobaGameMode* ModeDefaults = Cast<AMobaGameMode>(GameState->GetDefaultGameMode());
 	const TArray<FSoftObjectPath> Roster = ModeDefaults ? ModeDefaults->GetChampionRoster() : TArray<FSoftObjectPath>();
@@ -923,16 +929,17 @@ void AMobaHUD::DrawLobby()
 		const float ButtonLeft = Left + (ButtonWidth + ButtonGap) * Index;
 		const bool bSelected = Champion && Champion == Selected;
 
-		DrawRect(bSelected ? FLinearColor(0.2f, 0.35f, 0.6f) : FLinearColor(0.12f, 0.13f, 0.17f), ButtonLeft, Top, ButtonWidth, 48.0f);
-		DrawCenteredText(Name, LocalState->IsReady() && !bSelected ? FLinearColor(0.45f, 0.45f, 0.45f) : FLinearColor::White, ButtonLeft + ButtonWidth * 0.5f, Top + 14.0f, Font, 1.4f);
-		LobbyChampionRects.Add({ Roster[Index].GetAssetName(), FBox2D(FVector2D(ButtonLeft, Top), FVector2D(ButtonLeft + ButtonWidth, Top + 48.0f)) });
+		DrawRect(bSelected ? FLinearColor(0.2f, 0.35f, 0.6f) : FLinearColor(0.12f, 0.13f, 0.17f), ButtonLeft, Top, ButtonWidth, ChampionButtonHeight);
+		DrawCenteredText(Name, LocalState->IsReady() && !bSelected ? FLinearColor(0.45f, 0.45f, 0.45f) : FLinearColor::White, ButtonLeft + ButtonWidth * 0.5f, Top + ChampionButtonHeight * 0.5f - 10.0f, Font, 1.4f);
+		LobbyChampionRects.Add({ Roster[Index].GetAssetName(), FBox2D(FVector2D(ButtonLeft, Top), FVector2D(ButtonLeft + ButtonWidth, Top + ChampionButtonHeight)) });
 	}
-	Top += 62.0f;
+	Top += ChampionButtonHeight + 14.0f;
 
 	// 소환사 주문 D·F 고르기. 다른 칸에 있는 주문을 고르면 두 칸이 바뀐다.
 	DrawText(TEXT("소환사 주문"), FLinearColor(0.7f, 0.75f, 0.85f), Left, Top, Font, 1.1f);
-	Top += 22.0f;
+	Top += bCompact ? 20.0f : 22.0f;
 
+	const float SpellButtonHeight = bCompact ? 26.0f : 30.0f;
 	const int32 SpellCount = static_cast<int32>(EMobaSummonerSpell::Count);
 	const float KeyWidth = 34.0f;
 	const float SpellGap = 6.0f;
@@ -940,28 +947,29 @@ void AMobaHUD::DrawLobby()
 	const TCHAR* SpellKeys[] = { TEXT("D"), TEXT("F") };
 	for (int32 SlotIndex = 0; SlotIndex < 2; ++SlotIndex)
 	{
-		DrawText(SpellKeys[SlotIndex], FLinearColor::White, Left + 8.0f, Top + 7.0f, Font, 1.3f);
+		DrawText(SpellKeys[SlotIndex], FLinearColor::White, Left + 8.0f, Top + SpellButtonHeight * 0.5f - 9.0f, Font, 1.3f);
 		for (int32 SpellIndex = 0; SpellIndex < SpellCount; ++SpellIndex)
 		{
 			const EMobaSummonerSpell Spell = static_cast<EMobaSummonerSpell>(SpellIndex);
 			const float ButtonLeft = Left + KeyWidth + (SpellWidth + SpellGap) * SpellIndex;
 			const bool bSelected = LocalState->GetSummonerSpell(SlotIndex) == Spell;
 
-			DrawRect(bSelected ? FLinearColor(0.4f, 0.28f, 0.55f) : FLinearColor(0.12f, 0.13f, 0.17f), ButtonLeft, Top, SpellWidth, 30.0f);
-			DrawCenteredText(MobaSummoner::GetDisplayName(Spell).ToString(), LocalState->IsReady() && !bSelected ? FLinearColor(0.45f, 0.45f, 0.45f) : FLinearColor::White, ButtonLeft + SpellWidth * 0.5f, Top + 7.0f, Font, 1.1f);
-			LobbySpellRects.Add({ SlotIndex, Spell, FBox2D(FVector2D(ButtonLeft, Top), FVector2D(ButtonLeft + SpellWidth, Top + 30.0f)) });
+			DrawRect(bSelected ? FLinearColor(0.4f, 0.28f, 0.55f) : FLinearColor(0.12f, 0.13f, 0.17f), ButtonLeft, Top, SpellWidth, SpellButtonHeight);
+			DrawCenteredText(MobaSummoner::GetDisplayName(Spell).ToString(), LocalState->IsReady() && !bSelected ? FLinearColor(0.45f, 0.45f, 0.45f) : FLinearColor::White, ButtonLeft + SpellWidth * 0.5f, Top + SpellButtonHeight * 0.5f - 8.0f, Font, 1.1f);
+			LobbySpellRects.Add({ SlotIndex, Spell, FBox2D(FVector2D(ButtonLeft, Top), FVector2D(ButtonLeft + SpellWidth, Top + SpellButtonHeight)) });
 		}
-		Top += 34.0f;
+		Top += SpellButtonHeight + 4.0f;
 	}
 	Top += 10.0f;
 
 	// 준비 버튼과 카운트다운.
 	const float ReadyWidth = 260.0f;
 	const float ReadyLeft = CenterX - ReadyWidth * 0.5f;
-	LobbyReadyRect = FBox2D(FVector2D(ReadyLeft, Top), FVector2D(ReadyLeft + ReadyWidth, Top + 52.0f));
-	DrawRect(LocalState->IsReady() ? FLinearColor(0.25f, 0.25f, 0.28f) : FLinearColor(0.15f, 0.55f, 0.25f), ReadyLeft, Top, ReadyWidth, 52.0f);
-	DrawCenteredText(LocalState->IsReady() ? TEXT("준비 취소") : TEXT("준비"), FLinearColor::White, CenterX, Top + 14.0f, Font, 1.6f);
-	Top += 76.0f;
+	const float ReadyHeight = bCompact ? 40.0f : 52.0f;
+	LobbyReadyRect = FBox2D(FVector2D(ReadyLeft, Top), FVector2D(ReadyLeft + ReadyWidth, Top + ReadyHeight));
+	DrawRect(LocalState->IsReady() ? FLinearColor(0.25f, 0.25f, 0.28f) : FLinearColor(0.15f, 0.55f, 0.25f), ReadyLeft, Top, ReadyWidth, ReadyHeight);
+	DrawCenteredText(LocalState->IsReady() ? TEXT("준비 취소") : TEXT("준비"), FLinearColor::White, CenterX, Top + ReadyHeight * 0.5f - 12.0f, Font, 1.6f);
+	Top += ReadyHeight + (bCompact ? 8.0f : 24.0f);
 
 	const float Countdown = GameState->GetCountdownRemaining();
 	if (Countdown > 0.0f)

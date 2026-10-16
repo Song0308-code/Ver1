@@ -113,12 +113,14 @@ void AMobaGameMode::InitGame(const FString& MapName, const FString& Options, FSt
 	// 메뉴에서 방을 만들면 상대를 기다리며 챔피언을 고르는 로비를 거친다. 에디터에서 바로 실행하거나 혼자 연습하면 거치지 않는다.
 	bUseLobby = UGameplayStatics::HasOption(Options, TEXT("Players")) && RequiredPlayers >= 2;
 
-	// 실행 인자 -MobaForceLobby를 주면 에디터에서도 2인 로비를 거친다(로비 시험용).
+	// 실행 인자 -MobaForceLobby를 주면 에디터에서도 2인 로비를 거친다(로비 시험용). -MobaLobbyPlayers=4처럼 인원을 정할 수 있다.
 #if !UE_BUILD_SHIPPING
 	if (FParse::Param(FCommandLine::Get(), TEXT("MobaForceLobby")))
 	{
-		RequiredPlayers = FMath::Min(2, MaxPlayers);
-		bUseLobby = RequiredPlayers >= 2;
+		int32 LobbyPlayers = 2;
+		FParse::Value(FCommandLine::Get(), TEXT("MobaLobbyPlayers="), LobbyPlayers);
+		RequiredPlayers = FMath::Clamp(LobbyPlayers, 2, MaxPlayers);
+		bUseLobby = true;
 	}
 #endif
 
@@ -154,7 +156,7 @@ void AMobaGameMode::PreLogin(const FString& Options, const FString& Address, con
 	{
 		ErrorMessage = TEXT("이미 시작된 경기입니다.");
 	}
-	else if (GetNumPlayers() >= MaxPlayers)
+	else if (GetNumPlayers() >= (bUseLobby ? RequiredPlayers : MaxPlayers))
 	{
 		ErrorMessage = TEXT("방이 가득 찼습니다.");
 	}
@@ -819,6 +821,46 @@ EMobaTeam AMobaGameMode::PickTeamForNewPlayer() const
 	return RedCount < BlueCount ? EMobaTeam::Red : EMobaTeam::Blue;
 }
 
+APawn* AMobaGameMode::SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform)
+{
+	FTransform Transform = SpawnTransform;
+	Transform.AddToTranslation(GetTeamSlotOffset(GetTeamSlotIndex(NewPlayer)));
+	return Super::SpawnDefaultPawnAtTransform_Implementation(NewPlayer, Transform);
+}
+
+FVector AMobaGameMode::GetTeamSlotOffset(int32 SlotIndex)
+{
+	if (SlotIndex <= 0)
+	{
+		return FVector::ZeroVector;
+	}
+
+	// 시작 지점을 둘러싸는 원 위에 차례로 놓는다.
+	const float Angle = FMath::DegreesToRadians(45.0f + 90.0f * (SlotIndex - 1));
+	return FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.0f) * 180.0f;
+}
+
+int32 AMobaGameMode::GetTeamSlotIndex(const AController* Player) const
+{
+	const AMobaPlayerState* Mine = Player ? Player->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!Mine || !GameState)
+	{
+		return 0;
+	}
+
+	int32 Index = 0;
+	for (const APlayerState* PlayerState : GameState->PlayerArray)
+	{
+		if (PlayerState == Mine)
+		{
+			return Index;
+		}
+		const AMobaPlayerState* Other = Cast<AMobaPlayerState>(PlayerState);
+		Index += Other && Other->GetTeam() == Mine->GetTeam() ? 1 : 0;
+	}
+	return 0;
+}
+
 UMobaChampionData* AMobaGameMode::PickChampionForNewPlayer(const FString& Options, const AMobaPlayerState* NewPlayerState) const
 {
 	if (ChampionRoster.Num() == 0)
@@ -1109,7 +1151,7 @@ void AMobaGameMode::RespawnChampion(AMobaCharacter* Champion)
 	}
 
 	const AActor* StartSpot = ChoosePlayerStart(Champion->GetController());
-	const FVector Location = StartSpot ? StartSpot->GetActorLocation() : Champion->GetActorLocation();
+	const FVector Location = StartSpot ? StartSpot->GetActorLocation() + GetTeamSlotOffset(GetTeamSlotIndex(Champion->GetController())) : Champion->GetActorLocation();
 	const FRotator Rotation = StartSpot ? StartSpot->GetActorRotation() : Champion->GetActorRotation();
 
 	if (AMobaPlayerState* PlayerState = Champion->GetPlayerState<AMobaPlayerState>())

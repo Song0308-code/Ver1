@@ -31,6 +31,10 @@ public:
 	/** 바꾸면 저장한다. 다른 칸에 같은 주문이 있으면 두 칸을 맞바꾼다. */
 	void SetSelectedSpell(int32 Index, EMobaSummonerSpell Spell);
 
+	/** 방을 만들 때의 인원(2면 1대1, 4면 2대2). 바꾸면 저장한다. */
+	int32 GetHostPlayers() const { return HostPlayers; }
+	void SetHostPlayers(int32 Players);
+
 	/** 접속 주소 뒤에 붙일 "?Champion=..?Spells=.." 옵션. */
 	FString MakeLoadoutOptions() const;
 
@@ -45,6 +49,7 @@ protected:
 	FString SelectedChampion;
 	EMobaSummonerSpell SelectedSpellD = EMobaSummonerSpell::Flash;
 	EMobaSummonerSpell SelectedSpellF = EMobaSummonerSpell::Ignite;
+	int32 HostPlayers = 2;
 
 	FDelegateHandle NetworkFailureHandle;
 	FDelegateHandle TravelFailureHandle;

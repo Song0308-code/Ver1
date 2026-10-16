@@ -78,7 +78,44 @@ void SMobaMainMenu::Construct(const FArguments& InArgs)
 				.AutoHeight()
 				.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 				[
-					MakeButton(FText::FromString(TEXT("방 만들기")), &SMobaMainMenu::OnHostClicked)
+					SNew(SHorizontalBox)
+
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					.Padding(0.0f, 0.0f, 6.0f, 0.0f)
+					[
+						MakeButton(FText::FromString(TEXT("방 만들기")), &SMobaMainMenu::OnHostClicked)
+					]
+
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(110.0f)
+						[
+							SNew(SButton)
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
+							.ToolTipText(FText::FromString(TEXT("방을 만들 때의 인원. 누르면 1대1과 2대2가 바뀝니다.")))
+							.OnClicked_Lambda([this]()
+							{
+								if (AMobaMenuPlayerController* MenuController = OwnerController.Get())
+								{
+									MenuController->ToggleHostPlayers();
+								}
+								return FReply::Handled();
+							})
+							[
+								SNew(STextBlock)
+								.Font(FCoreStyle::GetDefaultFontStyle("Regular", 15))
+								.Text_Lambda([this]()
+								{
+									const AMobaMenuPlayerController* MenuController = OwnerController.Get();
+									return FText::FromString(MenuController && MenuController->GetHostPlayers() >= 4 ? TEXT("2대2") : TEXT("1대1"));
+								})
+							]
+						]
+					]
 				]
 
 				+ SVerticalBox::Slot()

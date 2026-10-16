@@ -52,6 +52,12 @@ public:
 	/** 그 칸의 주문을 다음 주문으로 바꾼다(다른 칸의 주문은 건너뛴다). */
 	void CycleSpell(int32 Index);
 
+	/** 방을 만들 때의 인원(2 또는 4). */
+	int32 GetHostPlayers() const;
+
+	/** 1대1과 2대2를 바꾼다. */
+	void ToggleHostPlayers();
+
 protected:
 	/** 접속 주소 뒤에 붙일 챔피언·소환사 주문 옵션("?Champion=..?Spells=.."). */
 	FString MakeChampionOption() const;
@@ -59,10 +65,6 @@ protected:
 	/** 경기를 진행하는 맵. */
 	UPROPERTY(EditDefaultsOnly, Category = "Menu")
 	FString GameMap = TEXT("/Game/Maps/L_SummonersRift");
-
-	/** 방을 만들었을 때 경기를 시작하는 데 필요한 인원. */
-	UPROPERTY(EditDefaultsOnly, Category = "Menu")
-	int32 HostRequiredPlayers = 2;
 
 	TSharedPtr<SMobaMainMenu> MenuWidget;
 };

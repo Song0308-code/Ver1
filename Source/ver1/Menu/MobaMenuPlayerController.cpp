@@ -75,7 +75,7 @@ void AMobaMenuPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason
 
 void AMobaMenuPlayerController::HostGame()
 {
-	UGameplayStatics::OpenLevel(this, FName(*GameMap), true, FString::Printf(TEXT("listen?Players=%d%s"), HostRequiredPlayers, *MakeChampionOption()));
+	UGameplayStatics::OpenLevel(this, FName(*GameMap), true, FString::Printf(TEXT("listen?Players=%d%s"), GetHostPlayers(), *MakeChampionOption()));
 }
 
 void AMobaMenuPlayerController::StartPractice()
@@ -140,6 +140,20 @@ EMobaSummonerSpell AMobaMenuPlayerController::GetSelectedSpell(int32 Index) cons
 {
 	const UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>();
 	return MobaGameInstance ? MobaGameInstance->GetSelectedSpell(Index) : (Index == 0 ? EMobaSummonerSpell::Flash : EMobaSummonerSpell::Ignite);
+}
+
+int32 AMobaMenuPlayerController::GetHostPlayers() const
+{
+	const UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>();
+	return MobaGameInstance ? MobaGameInstance->GetHostPlayers() : 2;
+}
+
+void AMobaMenuPlayerController::ToggleHostPlayers()
+{
+	if (UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>())
+	{
+		MobaGameInstance->SetHostPlayers(MobaGameInstance->GetHostPlayers() >= 4 ? 2 : 4);
+	}
 }
 
 void AMobaMenuPlayerController::CycleSpell(int32 Index)

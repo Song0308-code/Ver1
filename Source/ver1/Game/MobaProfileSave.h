@@ -22,4 +22,8 @@ public:
 
 	UPROPERTY()
 	EMobaSummonerSpell SpellF = EMobaSummonerSpell::Ignite;
+
+	/** 방을 만들 때의 인원. 2(1대1) 또는 4(2대2). */
+	UPROPERTY()
+	int32 HostPlayers = 2;
 };

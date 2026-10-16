@@ -30,6 +30,13 @@ public:
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
 	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
+	virtual APawn* SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform) override;
+
+	/**
+	 * 같은 팀에서 몇 번째 플레이어인지에 따라 시작 지점에서 비켜 설 거리. 팀마다 시작 지점이 하나뿐이어도
+	 * 2대2 이상에서 챔피언이 겹쳐 생성·부활하지 않게 한다. 첫 번째 플레이어는 0.
+	 */
+	static FVector GetTeamSlotOffset(int32 SlotIndex);
 	virtual void StartPlay() override;
 
 	/** 고를 수 있는 챔피언이 하나도 없을 때 쓰는 챔피언. 지정하지 않았으면 nullptr. */
@@ -217,9 +224,12 @@ protected:
 
 	FTimerHandle CountdownTimer;
 
-	/** 이 인원이 차면 더 받지 않는다. */
+	/** 로비 없이(에디터·연습) 받을 수 있는 최대 인원. 로비가 있으면 방을 만들 때 정한 인원(RequiredPlayers)까지만 받는다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Match")
-	int32 MaxPlayers = 2;
+	int32 MaxPlayers = 4;
+
+	/** 같은 팀에서 Player가 몇 번째인지(들어온 순서). */
+	int32 GetTeamSlotIndex(const AController* Player) const;
 
 	/** 블루·레드 버프의 지속 시간(초). */
 	UPROPERTY(EditDefaultsOnly, Category = "Jungle")

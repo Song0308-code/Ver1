@@ -168,6 +168,24 @@ namespace
 	}
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaTeamSlotTest, "Moba.Rules.TeamSlots", MobaTestFlags)
+bool FMobaTeamSlotTest::RunTest(const FString& Parameters)
+{
+	TestTrue(TEXT("첫 번째는 시작 지점 그대로"), AMobaGameMode::GetTeamSlotOffset(0).IsZero());
+
+	// 다섯 명까지 서로 겹치지 않고(캡슐 지름보다 멀리) 시작 지점에서 너무 멀지 않다.
+	for (int32 A = 0; A < 5; ++A)
+	{
+		TestTrue(FString::Printf(TEXT("%d번 거리"), A), AMobaGameMode::GetTeamSlotOffset(A).Size2D() <= 250.0f);
+		TestEqual(FString::Printf(TEXT("%d번 높이"), A), AMobaGameMode::GetTeamSlotOffset(A).Z, 0.0);
+		for (int32 B = A + 1; B < 5; ++B)
+		{
+			TestTrue(FString::Printf(TEXT("%d번과 %d번 간격"), A, B), FVector::Dist2D(AMobaGameMode::GetTeamSlotOffset(A), AMobaGameMode::GetTeamSlotOffset(B)) >= 120.0f);
+		}
+	}
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaTowerPlateTest, "Moba.Rules.TowerPlates", MobaTestFlags)
 bool FMobaTowerPlateTest::RunTest(const FString& Parameters)
 {

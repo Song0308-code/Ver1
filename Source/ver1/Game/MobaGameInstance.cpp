@@ -67,6 +67,16 @@ void UMobaGameInstance::SetSelectedSpell(int32 Index, EMobaSummonerSpell Spell)
 	SaveProfile();
 }
 
+void UMobaGameInstance::SetHostPlayers(int32 Players)
+{
+	Players = Players >= 4 ? 4 : 2;
+	if (HostPlayers != Players)
+	{
+		HostPlayers = Players;
+		SaveProfile();
+	}
+}
+
 FString UMobaGameInstance::MakeLoadoutOptions() const
 {
 	FString Options;
@@ -87,6 +97,7 @@ void UMobaGameInstance::LoadProfile()
 	}
 
 	SelectedChampion = Profile->ChampionAssetName;
+	HostPlayers = Profile->HostPlayers >= 4 ? 4 : 2;
 	if (Profile->SpellD < EMobaSummonerSpell::Count && Profile->SpellF < EMobaSummonerSpell::Count && Profile->SpellD != Profile->SpellF)
 	{
 		SelectedSpellD = Profile->SpellD;
@@ -106,6 +117,7 @@ void UMobaGameInstance::SaveProfile() const
 	Profile->ChampionAssetName = SelectedChampion;
 	Profile->SpellD = SelectedSpellD;
 	Profile->SpellF = SelectedSpellF;
+	Profile->HostPlayers = HostPlayers;
 	UGameplayStatics::SaveGameToSlot(Profile, UMobaProfileSave::SlotName, 0);
 }
 
