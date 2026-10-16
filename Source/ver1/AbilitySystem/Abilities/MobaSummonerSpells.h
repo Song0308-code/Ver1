@@ -58,6 +58,28 @@ protected:
 	float HasteDuration = 1.0f;
 };
 
+/** 방어막: 잠시 동안 피해를 흡수하는 보호막을 얻는다. */
+UCLASS()
+class VER1_API UMobaSummoner_Barrier : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaSummoner_Barrier();
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Skill")
+	float BaseShield = 95.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Skill")
+	float ShieldPerChampionLevel = 15.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Skill")
+	float ShieldDuration = 2.5f;
+};
+
 /**
  * 대상을 고르는 소환사 주문의 기반. 커서 근처(TargetPickRadius)의 알맞은 적 하나를 고르고,
  * 사거리 안에 보이는 대상이 없으면 아무것도 소모하지 않고 취소된다.

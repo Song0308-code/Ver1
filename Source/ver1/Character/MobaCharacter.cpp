@@ -561,6 +561,8 @@ void AMobaCharacter::HandleLevelUp(int32 NewLevel)
 
 void AMobaCharacter::TickRegen()
 {
+	UpdateShields();
+
 	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
 	if (!AbilitySystem || IsDead() || MobaCombat::IsMatchOver(this))
 	{
@@ -1069,6 +1071,72 @@ void AMobaCharacter::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim,
 bool AMobaCharacter::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
 {
 	return UMobaVisionSubsystem::IsRelevantToViewer(this, RealViewer) && Super::IsNetRelevantFor(RealViewer, ViewTarget, SrcLocation);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 보호막
+
+void AMobaCharacter::AddShield(float Amount, float Duration)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!HasAuthority() || !AbilitySystem || IsDead() || Amount <= 0.0f || Duration <= 0.0f)
+	{
+		return;
+	}
+
+	UpdateShields();
+	Shields.Add({ Amount, GetWorld()->GetTimeSeconds() + Duration });
+
+	float Total = 0.0f;
+	for (const FShieldEntry& Entry : Shields)
+	{
+		Total += Entry.Amount;
+	}
+	AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetShieldAttribute(), Total);
+}
+
+void AMobaCharacter::UpdateShields()
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!HasAuthority() || !AbilitySystem)
+	{
+		return;
+	}
+
+	// 죽으면 모두 사라진다.
+	if (IsDead())
+	{
+		Shields.Reset();
+	}
+
+	// 피해로 줄어든 만큼을 먼저 사라질 보호막부터 깎는다.
+	float Listed = 0.0f;
+	for (const FShieldEntry& Entry : Shields)
+	{
+		Listed += Entry.Amount;
+	}
+	float Absorbed = FMath::Max(Listed - AbilitySystem->GetNumericAttributeBase(UMobaAttributeSet::GetShieldAttribute()), 0.0f);
+
+	Shields.Sort([](const FShieldEntry& A, const FShieldEntry& B) { return A.ExpireTime < B.ExpireTime; });
+	for (FShieldEntry& Entry : Shields)
+	{
+		const float Taken = FMath::Min(Entry.Amount, Absorbed);
+		Entry.Amount -= Taken;
+		Absorbed -= Taken;
+	}
+
+	const double Now = GetWorld()->GetTimeSeconds();
+	Shields.RemoveAll([Now](const FShieldEntry& Entry) { return Entry.Amount <= 0.01f || Entry.ExpireTime <= Now; });
+
+	float Total = 0.0f;
+	for (const FShieldEntry& Entry : Shields)
+	{
+		Total += Entry.Amount;
+	}
+	if (!FMath::IsNearlyEqual(Total, AbilitySystem->GetNumericAttributeBase(UMobaAttributeSet::GetShieldAttribute())))
+	{
+		AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetShieldAttribute(), Total);
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

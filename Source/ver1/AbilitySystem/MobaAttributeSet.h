@@ -139,6 +139,11 @@ public:
 	FGameplayAttributeData AttackRange;
 	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, AttackRange)
 
+	/** 피해를 체력보다 먼저 흡수하는 보호막. 챔피언이 시간에 따라 줄이고 없앤다(AMobaCharacter::AddShield). */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Shield, Category = "Attributes")
+	FGameplayAttributeData Shield;
+	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, Shield)
+
 	/** 기본 공격으로 준 피해 중 체력으로 돌려받는 비율. 0.1이면 10%. */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_LifeSteal, Category = "Attributes")
 	FGameplayAttributeData LifeSteal;
@@ -190,6 +195,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_LifeSteal(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	void OnRep_Shield(const FGameplayAttributeData& OldValue);
 
 	UFUNCTION()
 	void OnRep_AbilityHaste(const FGameplayAttributeData& OldValue);

@@ -44,6 +44,7 @@ enum class EMobaSummonerSpell : uint8
 	Ignite,
 	Ghost,
 	Smite,
+	Barrier,
 	Count UMETA(Hidden)
 };
 

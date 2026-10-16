@@ -29,6 +29,7 @@ TSubclassOf<UMobaGameplayAbility> MobaSummoner::GetAbilityClass(EMobaSummonerSpe
 	case EMobaSummonerSpell::Ignite: return UMobaSummoner_Ignite::StaticClass();
 	case EMobaSummonerSpell::Ghost: return UMobaSummoner_Ghost::StaticClass();
 	case EMobaSummonerSpell::Smite: return UMobaSummoner_Smite::StaticClass();
+	case EMobaSummonerSpell::Barrier: return UMobaSummoner_Barrier::StaticClass();
 	default: return nullptr;
 	}
 }
@@ -87,6 +88,22 @@ void UMobaSummoner_Heal::ExecuteCast(AMobaCharacter* Caster, const FVector& Targ
 		MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatModSpec(AbilitySystem, Caster, HasteDuration, MoveSpeedMultiplier, 1.0f, MobaTags::State_Hasted), Caster);
 	}
 
+	FinishCast();
+}
+
+UMobaSummoner_Barrier::UMobaSummoner_Barrier()
+{
+	DisplayName = NSLOCTEXT("Moba", "BarrierName", "방어막");
+	Description = NSLOCTEXT("Moba", "BarrierDesc", "2.5초 동안 피해를 95(+챔피언 레벨당 15)만큼 흡수하는 보호막을 얻습니다.");
+	TargetingMode = EMobaTargetingMode::None;
+	bSummonerSpell = true;
+	ManaCost = 0.0f;
+	CooldownDuration = 180.0f;
+}
+
+void UMobaSummoner_Barrier::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	Caster->AddShield(BaseShield + ShieldPerChampionLevel * GetChampionLevel(Caster), ShieldDuration);
 	FinishCast();
 }
 

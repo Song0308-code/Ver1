@@ -177,12 +177,21 @@ void AMobaHUD::DrawUnitBar(const UAbilitySystemComponent* AbilitySystem, const F
 		return;
 	}
 
-	const float HealthFraction = FMath::Clamp(AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetHealthAttribute()) / MaxHealth, 0.0f, 1.0f);
+	// 보호막은 체력 뒤에 흰색으로 잇는다. 체력+보호막이 최대 체력을 넘으면 그 합을 막대 전체로 본다.
+	const float Health = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetHealthAttribute());
+	const float Shield = FMath::Max(AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetShieldAttribute()), 0.0f);
+	const float BarTotal = FMath::Max(MaxHealth, Health + Shield);
+	const float HealthFraction = FMath::Clamp(Health / BarTotal, 0.0f, 1.0f);
+	const float ShieldFraction = FMath::Clamp(Shield / BarTotal, 0.0f, 1.0f - HealthFraction);
 	const float Left = ScreenLocation.X - Size.X * 0.5f;
 	const float Top = ScreenLocation.Y - Size.Y;
 
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), Left - 1.0f, Top - 1.0f, Size.X + 2.0f, Size.Y + 2.0f);
 	DrawRect(FillColor, Left, Top, Size.X * HealthFraction, Size.Y);
+	if (ShieldFraction > 0.0f)
+	{
+		DrawRect(FLinearColor(0.92f, 0.92f, 0.92f), Left + Size.X * HealthFraction, Top, Size.X * ShieldFraction, Size.Y);
+	}
 
 	if (bShowMana)
 	{
@@ -1770,12 +1779,22 @@ void AMobaHUD::DrawStatusBar(const AMobaCharacter* Character)
 
 	// 체력·마나 수치 바.
 	const float BarsTop = BoxTop + AbilityBoxSize + 8.0f;
-	const float HealthFraction = MaxHealth > 0.0f ? FMath::Clamp(Health / MaxHealth, 0.0f, 1.0f) : 0.0f;
+	const float Shield = FMath::Max(AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetShieldAttribute()), 0.0f);
+	const float BarTotal = FMath::Max(MaxHealth, Health + Shield);
+	const float HealthFraction = BarTotal > 0.0f ? FMath::Clamp(Health / BarTotal, 0.0f, 1.0f) : 0.0f;
+	const float ShieldFraction = BarTotal > 0.0f ? FMath::Clamp(Shield / BarTotal, 0.0f, 1.0f - HealthFraction) : 0.0f;
 	const float ManaFraction = MaxMana > 0.0f ? FMath::Clamp(Mana / MaxMana, 0.0f, 1.0f) : 0.0f;
 
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), Left - 2.0f, BarsTop - 2.0f, TotalWidth + 4.0f, BarHeight * 2.0f + 6.0f);
 	DrawRect(FLinearColor(0.15f, 0.7f, 0.2f), Left, BarsTop, TotalWidth * HealthFraction, BarHeight);
+	if (ShieldFraction > 0.0f)
+	{
+		DrawRect(FLinearColor(0.92f, 0.92f, 0.92f), Left + TotalWidth * HealthFraction, BarsTop, TotalWidth * ShieldFraction, BarHeight);
+	}
 	DrawRect(FLinearColor(0.2f, 0.45f, 1.0f), Left, BarsTop + BarHeight + 2.0f, TotalWidth * ManaFraction, BarHeight);
-	DrawText(FString::Printf(TEXT("%d / %d"), FMath::CeilToInt(Health), FMath::RoundToInt(MaxHealth)), FLinearColor::White, Left + 6.0f, BarsTop + 1.0f, Font, 1.0f);
+	const FString HealthText = Shield > 0.0f
+		? FString::Printf(TEXT("%d / %d  (+%d)"), FMath::CeilToInt(Health), FMath::RoundToInt(MaxHealth), FMath::CeilToInt(Shield))
+		: FString::Printf(TEXT("%d / %d"), FMath::CeilToInt(Health), FMath::RoundToInt(MaxHealth));
+	DrawText(HealthText, FLinearColor::White, Left + 6.0f, BarsTop + 1.0f, Font, 1.0f);
 	DrawText(FString::Printf(TEXT("%d / %d"), FMath::FloorToInt(Mana), FMath::RoundToInt(MaxMana)), FLinearColor::White, Left + 6.0f, BarsTop + BarHeight + 3.0f, Font, 1.0f);
 }

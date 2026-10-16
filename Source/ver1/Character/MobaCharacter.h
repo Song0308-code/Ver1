@@ -84,6 +84,9 @@ public:
 
 	float GetWardPlaceRange() const { return WardPlaceRange; }
 
+	/** 서버 전용. Duration초 동안 Amount만큼 피해를 먼저 흡수하는 보호막을 더한다. 여러 개면 먼저 사라질 것부터 깎인다. */
+	void AddShield(float Amount, float Duration);
+
 	/** 서버 전용. 기본 공격을 쏘기 직전에 패시브가 더할 피해를 받는다. 패시브가 없으면 0. */
 	FMobaAttackBonus ApplyPassiveOnBasicAttack(AActor* Target);
 
@@ -218,6 +221,17 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UMobaAnimationComponent> AnimationComponent;
+
+	/** 서버 전용. 남아 있는 보호막들. 합이 능력치 Shield와 같도록 UpdateShields가 맞춘다. */
+	struct FShieldEntry
+	{
+		float Amount = 0.0f;
+		double ExpireTime = 0.0;
+	};
+	TArray<FShieldEntry> Shields;
+
+	/** 받은 피해만큼 줄어든 Shield 능력치를 목록에 반영하고, 시간이 지난 보호막을 없앤다. */
+	void UpdateShields();
 
 	/** 서버에서만 만드는 패시브 인스턴스. */
 	UPROPERTY(Transient)

@@ -20,6 +20,7 @@ void UMobaAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, MoveSpeed, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, AttackRange, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, LifeSteal, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, Shield, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, AbilityHaste, COND_None, REPNOTIFY_Always);
 }
 
@@ -37,6 +38,7 @@ void UMobaAttributeSet::InitFromBaseStats(const FMobaBaseStats& Stats)
 	InitMoveSpeed(Stats.MoveSpeed);
 	InitAttackRange(Stats.AttackRange);
 	InitLifeSteal(0.0f);
+	InitShield(0.0f);
 	InitAbilityHaste(0.0f);
 
 	OnMoveSpeedChanged.Broadcast(GetMoveSpeed());
@@ -81,8 +83,15 @@ void UMobaAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 
 		if (Damage > 0.0f && GetHealth() > 0.0f)
 		{
+			// 보호막이 먼저 받는다. 처치 기여·생명력 흡수 등은 흡수된 몫까지 포함한 전체 피해로 본다.
+			const float Absorbed = FMath::Min(FMath::Max(GetShield(), 0.0f), Damage);
+			if (Absorbed > 0.0f)
+			{
+				SetShield(GetShield() - Absorbed);
+			}
+
 			// 방어력 계산의 부동소수 오차로 체력이 0에 못 미치는 극소량 남는 것을 막는다.
-			float NewHealth = FMath::Clamp(GetHealth() - Damage, 0.0f, GetMaxHealth());
+			float NewHealth = FMath::Clamp(GetHealth() - (Damage - Absorbed), 0.0f, GetMaxHealth());
 			if (NewHealth < 0.01f)
 			{
 				NewHealth = 0.0f;
@@ -190,4 +199,9 @@ void UMobaAttributeSet::OnRep_LifeSteal(const FGameplayAttributeData& OldValue)
 void UMobaAttributeSet::OnRep_AbilityHaste(const FGameplayAttributeData& OldValue)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UMobaAttributeSet, AbilityHaste, OldValue);
+}
+
+void UMobaAttributeSet::OnRep_Shield(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMobaAttributeSet, Shield, OldValue);
 }
