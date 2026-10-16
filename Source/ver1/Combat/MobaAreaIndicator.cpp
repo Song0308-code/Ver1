@@ -1,4 +1,5 @@
 #include "Combat/MobaAreaIndicator.h"
+#include "Game/MobaEffects.h"
 #include "Game/MobaVisuals.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -58,4 +59,15 @@ void AMobaAreaIndicator::ApplyRadiusToMesh()
 	// 엔진 기본 원기둥은 지름 100, 높이 100이다. 바닥에 얇게 깐다.
 	Mesh->SetWorldScale3D(FVector(Radius / 50.0f, Radius / 50.0f, 0.05f));
 	Mesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(1.0, 0.25, 0.05));
+}
+
+void AMobaAreaIndicator::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 표시가 사라지는 순간이 폭발하는 순간이다.
+	if (EndPlayReason == EEndPlayReason::Destroyed)
+	{
+		MobaEffects::Play(this, EMobaEffect::AreaBlast, GetActorLocation(), Radius / 300.0f);
+	}
+
+	Super::EndPlay(EndPlayReason);
 }

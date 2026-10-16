@@ -1,4 +1,5 @@
 #include "Character/MobaCharacter.h"
+#include "Game/MobaEffects.h"
 #include "Game/MobaVisuals.h"
 #include "AbilitySystem/Abilities/MobaAbilityArchetypes.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
@@ -332,6 +333,11 @@ void AMobaCharacter::HandleOutOfHealth(AActor* DamageInstigator)
 
 void AMobaCharacter::HandleDeadTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
+	if (NewCount > 0)
+	{
+		MobaEffects::Play(this, EMobaEffect::UnitDeath, GetActorLocation(), 1.0f, this);
+	}
+
 	ApplyDeadState(NewCount > 0);
 }
 
@@ -625,7 +631,10 @@ void AMobaCharacter::ServerLevelUpAbility_Implementation(EMobaAbilitySlot Slot)
 		if (Spec.GetDynamicSpecSourceTags().HasTagExact(SlotTag) && MobaPlayerState->ConsumeSkillPoint())
 		{
 			++Spec.Level;
-			AbilitySystem->MarkAbilitySpecDirty(Spec);
+
+			// 서버 전용 스킬은 추가·삭제가 아니면 엔진이 복제 대상으로 표시하지 않는다.
+			// 그러면 조종하는 클라이언트의 스킬 단계가 0에 머무르므로 추가로 표시해 강제로 보낸다.
+			AbilitySystem->MarkAbilitySpecDirty(Spec, true);
 			return;
 		}
 	}
@@ -707,6 +716,9 @@ void AMobaCharacter::NotifyAbilityCast(EMobaAbilitySlot Slot)
 
 void AMobaCharacter::MulticastAbilityCast_Implementation(EMobaAbilitySlot Slot)
 {
+	const FVector Feet = GetActorLocation() - FVector(0.0, 0.0, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	MobaEffects::Play(this, EMobaEffect::Cast, Feet, 1.0f, this);
+
 	OnAbilityCast.Broadcast(Slot);
 }
 

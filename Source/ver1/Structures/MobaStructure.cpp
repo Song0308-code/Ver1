@@ -1,4 +1,5 @@
 #include "Structures/MobaStructure.h"
+#include "Game/MobaEffects.h"
 #include "Game/MobaVisuals.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
 #include "AbilitySystemComponent.h"
@@ -88,6 +89,7 @@ void AMobaStructure::BeginPlay()
 	Super::BeginPlay();
 
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	AbilitySystemComponent->RegisterGameplayTagEvent(MobaTags::State_Dead, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaStructure::HandleDeadTagForEffects);
 	ApplyTeamColor();
 
 	if (HasAuthority())
@@ -397,4 +399,12 @@ AMobaNexus::AMobaNexus()
 	Stats.MaxHealth = 5500.0f;
 	Stats.Armor = 20.0f;
 	Stats.MagicResist = 20.0f;
+}
+
+void AMobaStructure::HandleDeadTagForEffects(const FGameplayTag Tag, int32 NewCount)
+{
+	if (NewCount > 0)
+	{
+		MobaEffects::Play(this, EMobaEffect::StructureDeath, GetActorLocation() + FVector(0.0, 0.0, 100.0));
+	}
 }

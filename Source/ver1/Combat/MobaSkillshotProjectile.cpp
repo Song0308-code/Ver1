@@ -1,4 +1,5 @@
 #include "Combat/MobaSkillshotProjectile.h"
+#include "Game/MobaEffects.h"
 #include "Game/MobaVisuals.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
 #include "Combat/MobaCombatLibrary.h"
@@ -123,4 +124,15 @@ void AMobaSkillshotProjectile::Tick(float DeltaSeconds)
 			SetActorTickEnabled(false);
 		}
 	}
+}
+
+void AMobaSkillshotProjectile::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 사거리 끝까지 날아가 사라진 것이 아니라면 무언가에 맞은 것이다.
+	if (EndPlayReason == EEndPlayReason::Destroyed && MaxRange > 0.0f && DistanceTravelled < MaxRange - 1.0f)
+	{
+		MobaEffects::Play(this, EMobaEffect::Hit, GetActorLocation(), Radius / 25.0f);
+	}
+
+	Super::EndPlay(EndPlayReason);
 }

@@ -1,4 +1,5 @@
 #include "Units/MobaMinion.h"
+#include "Game/MobaEffects.h"
 #include "Game/MobaVisuals.h"
 #include "AIController.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
@@ -93,6 +94,7 @@ void AMobaMinion::BeginPlay()
 	Super::BeginPlay();
 
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	AbilitySystemComponent->RegisterGameplayTagEvent(MobaTags::State_Dead, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaMinion::HandleDeadTagForEffects);
 	ApplyAppearance();
 
 	if (HasAuthority())
@@ -312,5 +314,13 @@ void AMobaMinion::HandleOutOfHealth(AActor* DamageInstigator)
 	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
 	{
 		GameMode->HandleMinionKilled(this, DamageInstigator);
+	}
+}
+
+void AMobaMinion::HandleDeadTagForEffects(const FGameplayTag Tag, int32 NewCount)
+{
+	if (NewCount > 0)
+	{
+		MobaEffects::Play(this, EMobaEffect::UnitDeath, GetActorLocation(), 0.6f, this);
 	}
 }

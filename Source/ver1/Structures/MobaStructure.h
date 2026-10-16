@@ -26,6 +26,9 @@ public:
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void BeginPlay() override;
 
+	/** 모든 PC에서 사망 태그가 붙는 순간 사라지는 이펙트를 보여 준다. */
+	void HandleDeadTagForEffects(const FGameplayTag Tag, int32 NewCount);
+
 	virtual EMobaTeam GetTeam() const override { return Team; }
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override { return AbilitySystemComponent; }
 

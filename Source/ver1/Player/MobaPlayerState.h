@@ -99,6 +99,12 @@ protected:
 	UFUNCTION()
 	void OnRep_Team();
 
+	UFUNCTION()
+	void OnRep_ChampionLevel(int32 OldLevel);
+
+	/** 이 PC에서 챔피언 발밑에 레벨업 이펙트를 보여 준다. */
+	void PlayLevelUpEffect() const;
+
 	/** 챔피언이 죽었다 살아나도 유지되도록 능력 시스템은 PlayerState가 가진다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
@@ -130,7 +136,7 @@ protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	int32 MinionKills = 0;
 
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Progression")
+	UPROPERTY(ReplicatedUsing = OnRep_ChampionLevel, VisibleAnywhere, BlueprintReadOnly, Category = "Progression")
 	int32 ChampionLevel = 1;
 
 	/** 현재 레벨에서 쌓은 경험치. 레벨이 오르면 필요량만큼 빠진다. */

@@ -1,4 +1,5 @@
 #include "Player/MobaPlayerState.h"
+#include "Game/MobaEffects.h"
 #include "AbilitySystem/MobaAttributeSet.h"
 #include "AbilitySystemComponent.h"
 #include "Character/MobaChampionData.h"
@@ -50,6 +51,22 @@ void AMobaPlayerState::SetTeam(EMobaTeam NewTeam)
 	OnRep_Team();
 }
 
+void AMobaPlayerState::OnRep_ChampionLevel(int32 OldLevel)
+{
+	if (ChampionLevel > OldLevel)
+	{
+		PlayLevelUpEffect();
+	}
+}
+
+void AMobaPlayerState::PlayLevelUpEffect() const
+{
+	if (const APawn* ChampionPawn = GetPawn())
+	{
+		MobaEffects::Play(this, EMobaEffect::LevelUp, ChampionPawn->GetActorLocation() - FVector(0.0, 0.0, 80.0), 1.0f, ChampionPawn);
+	}
+}
+
 void AMobaPlayerState::OnRep_Team()
 {
 	OnTeamChanged.Broadcast(Team);
@@ -94,6 +111,7 @@ void AMobaPlayerState::AddExperience(float Amount)
 		++ChampionLevel;
 		++SkillPoints;
 		OnLevelUp.Broadcast(ChampionLevel);
+		PlayLevelUpEffect();
 	}
 
 	if (ChampionLevel >= MaxChampionLevel)

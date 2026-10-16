@@ -17,6 +17,7 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/** 서버 전용. 반지름을 정하고 Duration초 뒤에 사라지게 한다. */
 	void Show(float InRadius, float Duration);

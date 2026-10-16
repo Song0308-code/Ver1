@@ -1,4 +1,5 @@
 #include "Units/MobaMonster.h"
+#include "Game/MobaEffects.h"
 #include "Game/MobaVisuals.h"
 #include "AIController.h"
 #include "AbilitySystemComponent.h"
@@ -90,6 +91,7 @@ void AMobaMonster::BeginPlay()
 	Super::BeginPlay();
 
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	AbilitySystemComponent->RegisterGameplayTagEvent(MobaTags::State_Dead, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaMonster::HandleDeadTagForEffects);
 	ApplyAppearance();
 
 	if (HasAuthority())
@@ -237,5 +239,13 @@ void AMobaMonster::HandleOutOfHealth(AActor* DamageInstigator)
 	if (Camp)
 	{
 		Camp->HandleMonsterKilled(this, DamageInstigator);
+	}
+}
+
+void AMobaMonster::HandleDeadTagForEffects(const FGameplayTag Tag, int32 NewCount)
+{
+	if (NewCount > 0)
+	{
+		MobaEffects::Play(this, EMobaEffect::UnitDeath, GetActorLocation(), 0.6f, this);
 	}
 }

@@ -1,4 +1,5 @@
 #include "Combat/MobaProjectile.h"
+#include "Game/MobaEffects.h"
 #include "Game/MobaVisuals.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
 #include "Combat/MobaCombatLibrary.h"
@@ -91,6 +92,8 @@ void AMobaProjectile::Tick(float DeltaSeconds)
 
 	if (Distance <= Step + HitRadius)
 	{
+		PlayImpact();
+
 		if (HasAuthority())
 		{
 			for (const FGameplayEffectSpecHandle& ExtraSpec : ExtraEffectSpecs)
@@ -109,4 +112,24 @@ void AMobaProjectile::Tick(float DeltaSeconds)
 	}
 
 	SetActorLocation(GetActorLocation() + ToTarget / Distance * Step);
+}
+
+void AMobaProjectile::PlayImpact()
+{
+	if (!bImpactPlayed && IsValid(Target))
+	{
+		bImpactPlayed = true;
+		MobaEffects::Play(this, EMobaEffect::Hit, MobaCombat::GetAimLocation(Target), VisualScale / 0.4f, Target);
+	}
+}
+
+void AMobaProjectile::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 클라이언트에서는 날아가는 도중에 서버가 먼저 지울 수 있다. 대상 근처까지 왔다면 명중으로 보여 준다.
+	if (EndPlayReason == EEndPlayReason::Destroyed && IsValid(Target) && FVector::Dist(GetActorLocation(), MobaCombat::GetAimLocation(Target)) < 400.0f)
+	{
+		PlayImpact();
+	}
+
+	Super::EndPlay(EndPlayReason);
 }

@@ -60,6 +60,9 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
+
+	/** 모든 PC에서 사망 태그가 붙는 순간 사라지는 이펙트를 보여 준다. */
+	void HandleDeadTagForEffects(const FGameplayTag Tag, int32 NewCount);
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	virtual EMobaTeam GetTeam() const override { return EMobaTeam::Neutral; }

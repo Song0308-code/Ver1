@@ -23,6 +23,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/** 서버 전용. 생성 직후 호출한다. */
 	void Launch(AActor* InSource, const FVector& InDirection, float InSpeed, float InMaxRange, float InRadius, const TArray<FGameplayEffectSpecHandle>& InHitEffects);

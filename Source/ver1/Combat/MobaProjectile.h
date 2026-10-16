@@ -20,6 +20,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/** 서버 전용. 생성 직후 호출한다. */
 	void InitHoming(AActor* InTarget, const FGameplayEffectSpecHandle& InEffectSpec, float InSpeed, float InVisualScale, EMobaTeam InSourceTeam);
@@ -52,6 +53,11 @@ protected:
 	/** 대상의 조준점에서 이 거리 안에 들어오면 명중으로 본다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Projectile")
 	float HitRadius = 30.0f;
+
+	/** 이 PC에서 명중 이펙트를 이미 보여 줬는지. */
+	bool bImpactPlayed = false;
+
+	void PlayImpact();
 
 	/** 도착 시 대상에게 적용할 이펙트. 서버에만 있다. */
 	FGameplayEffectSpecHandle EffectSpec;

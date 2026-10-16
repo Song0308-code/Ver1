@@ -12,7 +12,7 @@ public class ver1 : ModuleRules
 
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "GameplayAbilities", "GameplayTags", "GameplayTasks", "AIModule", "NavigationSystem" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "Sockets", "RenderCore" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "Sockets", "RenderCore", "Niagara", "DeveloperSettings" });
 		
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
