@@ -49,6 +49,9 @@ public:
 	/** 상대가 나가서 끝난 경기인지. */
 	bool WasEndedByForfeit() const { return bEndedByForfeit; }
 
+	/** 진 팀이 항복해서 끝난 경기인지. */
+	bool WasEndedBySurrender() const { return bEndedBySurrender; }
+
 	/** 경기 시작부터 흐른 시간(초). 시작 전에는 0, 끝난 뒤에는 멈춘다. */
 	float GetMatchTimeSeconds() const;
 
@@ -66,7 +69,7 @@ public:
 	void StartMatch();
 
 	/** 서버 전용. */
-	void SetMatchResult(EMobaTeam InWinningTeam, bool bForfeit);
+	void SetMatchResult(EMobaTeam InWinningTeam, bool bForfeit, bool bSurrender = false);
 
 protected:
 	UPROPERTY(Replicated)
@@ -86,6 +89,9 @@ protected:
 
 	UPROPERTY(Replicated)
 	bool bEndedByForfeit = false;
+
+	UPROPERTY(Replicated)
+	bool bEndedBySurrender = false;
 
 	UPROPERTY(Replicated)
 	bool bUsesLobby = false;

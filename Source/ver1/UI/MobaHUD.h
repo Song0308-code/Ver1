@@ -76,6 +76,9 @@ protected:
 	/** 경기 전 챔피언 선택 화면. 챔피언 버튼과 준비 버튼을 누를 수 있다. */
 	void DrawLobby();
 
+	/** F10 게임 메뉴(항복, 메뉴로 나가기, 계속하기). */
+	void DrawGameMenu();
+
 	/** 호스트에게 보여 줄, 상대에게 알려 줄 주소 안내. */
 	FString GetHostAddressHint();
 
@@ -145,6 +148,13 @@ protected:
 	TArray<TPair<FString, FBox2D>> LobbyChampionRects;
 	FBox2D LobbyReadyRect = FBox2D(ForceInit);
 	bool bLobbyDrawn = false;
+
+	/** 이번 프레임에 그린 게임 메뉴 버튼. */
+	FBox2D GameMenuSurrenderRect = FBox2D(ForceInit);
+	FBox2D GameMenuLeaveRect = FBox2D(ForceInit);
+	FBox2D GameMenuResumeRect = FBox2D(ForceInit);
+	bool bGameMenuDrawn = false;
+	bool bSurrenderAllowed = false;
 
 	/** 이번 프레임에 그린 상점 창과 그 안의 줄, 가방 칸의 화면 위치. 클릭 판정에 쓴다. */
 	FBox2D ShopPanelRect = FBox2D(ForceInit);

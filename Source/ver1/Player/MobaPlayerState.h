@@ -32,8 +32,23 @@ public:
 	void SetTeam(EMobaTeam NewTeam);
 
 	/** 서버 전용. */
-	void AddKill() { ++Kills; }
-	void AddDeath() { ++Deaths; }
+	void AddKill() { ++Kills; ++KillStreak; DeathStreak = 0; }
+	void AddDeath() { ++Deaths; ++DeathStreak; KillStreak = 0; }
+	void AddAssist() { ++Assists; }
+
+	/** 죽지 않고 이어 온 처치 수. */
+	int32 GetKillStreak() const { return KillStreak; }
+
+	/** 처치 없이 이어 온 죽음 수. */
+	int32 GetDeathStreak() const { return DeathStreak; }
+
+	int32 GetAssists() const { return Assists; }
+
+	/** 항복에 동의했는지. */
+	bool HasVotedSurrender() const { return bVotedSurrender; }
+
+	/** 서버 전용. */
+	void SetVotedSurrender(bool bInVoted) { bVotedSurrender = bInVoted; }
 	void SetRespawnServerTime(float NewTime) { RespawnServerTime = NewTime; }
 
 	/** 서버 전용. */
@@ -132,6 +147,18 @@ protected:
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	int32 Deaths = 0;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 Assists = 0;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 KillStreak = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 DeathStreak = 0;
+
+	UPROPERTY(Replicated)
+	bool bVotedSurrender = false;
 
 	UPROPERTY(Replicated)
 	float RespawnServerTime = 0.0f;

@@ -41,6 +41,14 @@ public:
 	bool GetCursorGroundLocation(FVector& OutLocation) const;
 
 	bool IsShopOpen() const { return bShopOpen; }
+	bool IsGameMenuOpen() const { return bGameMenuOpen; }
+	void CloseGameMenu() { bGameMenuOpen = false; }
+
+	/** 항복에 동의한다. */
+	void RequestSurrender() { ServerRequestSurrender(); }
+
+	/** 경기를 그만두고 메뉴로 돌아간다. 경기 중이면 상대의 승리로 끝난다. */
+	void LeaveMatch();
 	bool IsScoreboardShown() const { return bScoreboardHeld; }
 
 	/** 최근에 받은 핑. 오래된 것부터 들어 있다. */
@@ -72,6 +80,7 @@ protected:
 	void OnPlaceWard();
 	void OnRecall();
 	void OnToggleShop();
+	void OnToggleGameMenu();
 	void OnScoreboardStarted();
 	void OnScoreboardCompleted();
 
@@ -86,6 +95,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerRequestReady(bool bReady);
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestSurrender();
 
 	UFUNCTION(Client, Reliable)
 	void ClientShowPing(FVector_NetQuantize Location);
@@ -209,6 +221,9 @@ protected:
 	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> ScoreboardAction;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> GameMenuAction;
+
 #if WITH_EDITORONLY_DATA
 	/** 에디터 자동 검증용. bDebugIssueMove를 켜면 다음 틱에 DebugMoveGoal로 이동 명령을 내린다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
@@ -268,6 +283,10 @@ protected:
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugToggleReady = false;
 
+	/** 에디터 자동 검증용. 켜면 다음 틱에 항복에 동의한다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugSurrender = false;
+
 	/** 에디터 자동 검증용. 켜면 다음 틱에 귀환을 시작한다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugRecall = false;
@@ -279,6 +298,7 @@ protected:
 	bool bAttackTargeting = false;
 
 	bool bShopOpen = false;
+	bool bGameMenuOpen = false;
 	bool bScoreboardHeld = false;
 
 	TArray<FMobaPing> Pings;

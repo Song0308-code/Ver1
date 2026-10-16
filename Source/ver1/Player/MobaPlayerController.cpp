@@ -86,6 +86,7 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(PlaceWardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnPlaceWard);
 		EnhancedInput->BindAction(RecallAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnRecall);
 		EnhancedInput->BindAction(ShopAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnToggleShop);
+		EnhancedInput->BindAction(GameMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnToggleGameMenu);
 		EnhancedInput->BindAction(ScoreboardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnScoreboardStarted);
 		EnhancedInput->BindAction(ScoreboardAction, ETriggerEvent::Completed, this, &AMobaPlayerController::OnScoreboardCompleted);
 	}
@@ -114,6 +115,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	RecallAction = NewObject<UInputAction>(this, TEXT("IA_Recall"));
 	ShopAction = NewObject<UInputAction>(this, TEXT("IA_Shop"));
 	ScoreboardAction = NewObject<UInputAction>(this, TEXT("IA_Scoreboard"));
+	GameMenuAction = NewObject<UInputAction>(this, TEXT("IA_GameMenu"));
 
 	DefaultMappingContext = NewObject<UInputMappingContext>(this, TEXT("IMC_Default"));
 	DefaultMappingContext->MapKey(MoveCommandAction, EKeys::RightMouseButton);
@@ -134,6 +136,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	DefaultMappingContext->MapKey(RecallAction, EKeys::B);
 	DefaultMappingContext->MapKey(ShopAction, EKeys::P);
 	DefaultMappingContext->MapKey(ScoreboardAction, EKeys::Tab);
+	DefaultMappingContext->MapKey(GameMenuAction, EKeys::F10);
 }
 
 void AMobaPlayerController::OnReturnToMenu()
@@ -204,6 +207,12 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 	{
 		RequestChampion(DebugLobbyChampion);
 		DebugLobbyChampion.Reset();
+	}
+
+	if (bDebugSurrender)
+	{
+		bDebugSurrender = false;
+		RequestSurrender();
 	}
 
 	if (bDebugToggleReady)
@@ -593,6 +602,28 @@ void AMobaPlayerController::OnRecall()
 void AMobaPlayerController::OnToggleShop()
 {
 	bShopOpen = !bShopOpen;
+}
+
+void AMobaPlayerController::OnToggleGameMenu()
+{
+	bGameMenuOpen = !bGameMenuOpen;
+}
+
+void AMobaPlayerController::LeaveMatch()
+{
+	bGameMenuOpen = false;
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		GameInstance->ReturnToMainMenu();
+	}
+}
+
+void AMobaPlayerController::ServerRequestSurrender_Implementation()
+{
+	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
+	{
+		GameMode->RequestSurrender(this);
+	}
 }
 
 void AMobaPlayerController::OnScoreboardStarted()

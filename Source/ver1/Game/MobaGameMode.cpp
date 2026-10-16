@@ -218,11 +218,18 @@ void AMobaGameMode::StartPlay()
 void AMobaGameMode::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, float Damage)
 {
 	const AMobaCharacter* Attacker = Cast<AMobaCharacter>(DamageInstigator);
-	if (Attacker && Victim && Victim->IsA<AMobaCharacter>() && Attacker != Victim)
+	const AMobaCharacter* VictimChampion = Cast<AMobaCharacter>(Victim);
+	if (Attacker && VictimChampion && Attacker != VictimChampion)
 	{
-		if (AMobaPlayerState* AttackerState = Attacker->GetPlayerState<AMobaPlayerState>())
+		AMobaPlayerState* AttackerState = Attacker->GetPlayerState<AMobaPlayerState>();
+		AMobaPlayerState* VictimState = VictimChampion->GetPlayerState<AMobaPlayerState>();
+		if (AttackerState)
 		{
 			AttackerState->AddDamageToChampions(Damage);
+		}
+		if (AttackerState && VictimState)
+		{
+			RecentChampionDamage.FindOrAdd(VictimState).Add(AttackerState, GetWorld()->GetTimeSeconds());
 		}
 	}
 }
@@ -456,7 +463,17 @@ void AMobaGameMode::SpawnMinion(AMobaLanePath* LanePath, EMobaTeam Team, EMobaMi
 	const FTransform SpawnTransform(Forward.Rotation(), Location);
 	if (AMobaMinion* Minion = GetWorld()->SpawnActorDeferred<AMobaMinion>(MinionClass, SpawnTransform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn))
 	{
-		Minion->InitMinion(Team, Type, LanePath, GetMinionConfig(Type));
+		// 시간이 지날수록 새로 나오는 미니언이 강해지고 보상도 늘어난다.
+		FMobaMinionConfig Config = GetMinionConfig(Type);
+		const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+		const int32 Upgrades = MobaGameState && MinionUpgradeInterval > 0.0f
+			? FMath::Min(FMath::FloorToInt(MobaGameState->GetMatchTimeSeconds() / MinionUpgradeInterval), MaxMinionUpgrades)
+			: 0;
+		Config.Stats.MaxHealth *= 1.0f + MinionHealthPerUpgrade * Upgrades;
+		Config.Stats.AttackDamage *= 1.0f + MinionDamagePerUpgrade * Upgrades;
+		Config.GoldReward *= 1.0f + MinionGoldPerUpgrade * Upgrades;
+
+		Minion->InitMinion(Team, Type, LanePath, Config);
 		Minion->FinishSpawning(SpawnTransform);
 	}
 }
@@ -635,7 +652,7 @@ void AMobaGameMode::HandleStructureDestroyed(AMobaStructure* Structure, AActor* 
 	}
 }
 
-void AMobaGameMode::EndMatch(EMobaTeam WinningTeam, bool bForfeit)
+void AMobaGameMode::EndMatch(EMobaTeam WinningTeam, bool bForfeit, bool bSurrender)
 {
 	AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
 	if (!MobaGameState || MobaGameState->IsMatchOver())
@@ -643,7 +660,7 @@ void AMobaGameMode::EndMatch(EMobaTeam WinningTeam, bool bForfeit)
 		return;
 	}
 
-	MobaGameState->SetMatchResult(WinningTeam, bForfeit);
+	MobaGameState->SetMatchResult(WinningTeam, bForfeit, bSurrender);
 
 	UE_LOG(LogTemp, Log, TEXT("경기 종료. 승리 팀: %s%s"), *MobaTeam::GetTeamTag(WinningTeam).ToString(), bForfeit ? TEXT(" (상대 이탈)") : TEXT(""));
 
@@ -825,27 +842,127 @@ void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)
 		return;
 	}
 
-	if (AMobaPlayerState* VictimState = Victim->GetPlayerState<AMobaPlayerState>())
+	AMobaPlayerState* VictimState = Victim->GetPlayerState<AMobaPlayerState>();
+	const APawn* KillerPawn = Cast<APawn>(Killer);
+	AMobaPlayerState* KillerState = KillerPawn ? KillerPawn->GetPlayerState<AMobaPlayerState>() : nullptr;
+
+	// 현상금은 처치당한 쪽의 연속 기록으로 정하므로 기록을 고치기 전에 계산한다.
+	const float Bounty = GetKillBounty(VictimState);
+	const float RespawnTime = GetRespawnTime(VictimState ? VictimState->GetChampionLevel() : 1);
+
+	if (VictimState)
 	{
 		VictimState->AddDeath();
-		VictimState->SetRespawnServerTime(GameState ? GameState->GetServerWorldTimeSeconds() + RespawnDelay : 0.0f);
+		VictimState->SetRespawnServerTime(GameState ? GameState->GetServerWorldTimeSeconds() + RespawnTime : 0.0f);
 	}
 
-	const APawn* KillerPawn = Cast<APawn>(Killer);
-	if (AMobaPlayerState* KillerState = KillerPawn ? KillerPawn->GetPlayerState<AMobaPlayerState>() : nullptr)
+	if (KillerState)
 	{
 		KillerState->AddKill();
-		KillerState->AddGold(ChampionKillGold);
+		KillerState->AddGold(Bounty);
 		KillerState->AddExperience(ChampionKillExperience);
 	}
 
-	Announce(FString::Printf(TEXT("%s → %s 처치"), *DescribeUnit(Killer), *DescribeUnit(Victim)), MobaCombat::GetTeam(Killer));
+	// 최근에 함께 피해를 준 아군에게 어시스트를 준다. 1대1에서는 생기지 않지만 인원을 늘리면 쓰인다.
+	if (VictimState)
+	{
+		TArray<AMobaPlayerState*> Assisters;
+		if (const TMap<TWeakObjectPtr<AMobaPlayerState>, double>* Attackers = RecentChampionDamage.Find(VictimState))
+		{
+			const double Now = GetWorld()->GetTimeSeconds();
+			for (const TPair<TWeakObjectPtr<AMobaPlayerState>, double>& Entry : *Attackers)
+			{
+				AMobaPlayerState* Attacker = Entry.Key.Get();
+				if (Attacker && Attacker != KillerState && Now - Entry.Value <= AssistWindow && Attacker->GetTeam() != VictimState->GetTeam())
+				{
+					Assisters.Add(Attacker);
+				}
+			}
+		}
+
+		for (AMobaPlayerState* Assister : Assisters)
+		{
+			Assister->AddAssist();
+			Assister->AddGold(Bounty * AssistGoldFraction / Assisters.Num());
+		}
+		RecentChampionDamage.Remove(VictimState);
+	}
+
+	const bool bSpecialBounty = !FMath::IsNearlyEqual(Bounty, ChampionKillGold);
+	Announce(FString::Printf(TEXT("%s → %s 처치%s"), *DescribeUnit(Killer), *DescribeUnit(Victim),
+		bSpecialBounty ? *FString::Printf(TEXT(" (현상금 %dG)"), FMath::RoundToInt(Bounty)) : TEXT("")), MobaCombat::GetTeam(Killer));
+
+	if (KillerState && KillerState->GetKillStreak() >= 3)
+	{
+		Announce(FString::Printf(TEXT("%s %d연속 처치!"), *DescribeUnit(KillerPawn), KillerState->GetKillStreak()), KillerState->GetTeam());
+	}
 
 	FTimerHandle TimerHandle;
 	GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(Victim, [this, Victim]()
 	{
 		RespawnChampion(Victim);
-	}), RespawnDelay, false);
+	}), RespawnTime, false);
+}
+
+float AMobaGameMode::GetRespawnTime(int32 ChampionLevel) const
+{
+	return FMath::Min(RespawnDelay + RespawnDelayPerLevel * FMath::Max(ChampionLevel - 1, 0), MaxRespawnDelay);
+}
+
+float AMobaGameMode::GetKillBounty(const AMobaPlayerState* VictimState) const
+{
+	if (!VictimState)
+	{
+		return ChampionKillGold;
+	}
+
+	if (VictimState->GetKillStreak() >= 2)
+	{
+		return FMath::Min(ChampionKillGold + KillStreakBountyStep * (VictimState->GetKillStreak() - 1), MaxKillBounty);
+	}
+
+	if (VictimState->GetDeathStreak() >= 2)
+	{
+		return FMath::Max(ChampionKillGold - DeathStreakBountyStep * (VictimState->GetDeathStreak() - 1), MinKillBounty);
+	}
+
+	return ChampionKillGold;
+}
+
+void AMobaGameMode::RequestSurrender(APlayerController* Player)
+{
+	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	AMobaPlayerState* VoterState = Player ? Player->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!MobaGameState || !VoterState || !MobaGameState->HasMatchStarted() || MobaGameState->IsMatchOver()
+		|| MobaGameState->GetMatchTimeSeconds() < SurrenderMinTime || VoterState->HasVotedSurrender())
+	{
+		return;
+	}
+
+	VoterState->SetVotedSurrender(true);
+
+	int32 TeamSize = 0;
+	int32 Votes = 0;
+	for (const APlayerState* PlayerState : MobaGameState->PlayerArray)
+	{
+		const AMobaPlayerState* Member = Cast<AMobaPlayerState>(PlayerState);
+		if (Member && Member->GetTeam() == VoterState->GetTeam())
+		{
+			++TeamSize;
+			Votes += Member->HasVotedSurrender() ? 1 : 0;
+		}
+	}
+
+	const FString TeamName = MobaTeam::GetTeamDisplayName(VoterState->GetTeam());
+	if (Votes >= TeamSize)
+	{
+		Announce(FString::Printf(TEXT("%s 팀이 항복했습니다"), *TeamName), VoterState->GetTeam());
+		EndMatch(VoterState->GetTeam() == EMobaTeam::Blue ? EMobaTeam::Red : EMobaTeam::Blue, false, true);
+	}
+	else
+	{
+		Announce(FString::Printf(TEXT("%s 팀 항복 투표 %d / %d"), *TeamName, Votes, TeamSize), VoterState->GetTeam());
+	}
 }
 
 void AMobaGameMode::RespawnChampion(AMobaCharacter* Champion)

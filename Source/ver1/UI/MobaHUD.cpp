@@ -81,6 +81,7 @@ void AMobaHUD::DrawHUD()
 	}
 
 	DrawScoreboard();
+	DrawGameMenu();
 
 	DrawMatchResult();
 }
@@ -743,7 +744,7 @@ void AMobaHUD::DrawMatchResult()
 	DrawCenteredText(bWon ? TEXT("승리") : TEXT("패배"), bWon ? FLinearColor(0.3f, 0.7f, 1.0f) : FLinearColor(1.0f, 0.3f, 0.25f), Canvas->ClipX * 0.5f, Canvas->ClipY * 0.12f, GEngine->GetLargeFont(), 4.0f);
 
 	const int32 TotalSeconds = FMath::FloorToInt(GameState->GetMatchTimeSeconds());
-	const FString Detail = FString::Printf(TEXT("경기 시간 %02d:%02d%s    Enter: 메뉴로 돌아가기"), TotalSeconds / 60, TotalSeconds % 60, GameState->WasEndedByForfeit() ? TEXT("    상대가 게임을 떠났습니다.") : TEXT(""));
+	const FString Detail = FString::Printf(TEXT("경기 시간 %02d:%02d%s    Enter: 메뉴로 돌아가기"), TotalSeconds / 60, TotalSeconds % 60, GameState->WasEndedByForfeit() ? TEXT("    상대가 게임을 떠났습니다.") : (GameState->WasEndedBySurrender() ? (bWon ? TEXT("    상대가 항복했습니다.") : TEXT("    항복했습니다.")) : TEXT("")));
 	DrawCenteredText(Detail, FLinearColor::White, Canvas->ClipX * 0.5f, Canvas->ClipY * 0.24f, GEngine->GetSmallFont(), 1.3f);
 
 	DrawPlayerTable(Canvas->ClipY * 0.34f);
@@ -927,11 +928,88 @@ void AMobaHUD::DrawShop(const AMobaCharacter* Character)
 
 bool AMobaHUD::IsOverPanel(const FVector2D& ScreenPosition) const
 {
-	return bLobbyDrawn || (bShopDrawn && ShopPanelRect.IsInsideOrOn(ScreenPosition));
+	return bLobbyDrawn || bGameMenuDrawn || (bShopDrawn && ShopPanelRect.IsInsideOrOn(ScreenPosition));
+}
+
+void AMobaHUD::DrawGameMenu()
+{
+	bGameMenuDrawn = false;
+
+	const AMobaPlayerController* MobaController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
+	const AMobaPlayerState* LocalState = MobaController ? MobaController->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!MobaController || !MobaController->IsGameMenuOpen() || !GameState || !LocalState || bLobbyDrawn)
+	{
+		return;
+	}
+
+	bGameMenuDrawn = true;
+	UFont* Font = GEngine->GetSmallFont();
+	const float Width = 320.0f;
+	const float ButtonHeight = 46.0f;
+	const float Left = (Canvas->ClipX - Width) * 0.5f;
+	float Top = Canvas->ClipY * 0.28f;
+
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.5f), 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY);
+	DrawRect(FLinearColor(0.03f, 0.04f, 0.07f, 0.95f), Left - 20.0f, Top - 20.0f, Width + 40.0f, ButtonHeight * 3.0f + 120.0f);
+	DrawCenteredText(TEXT("게임 메뉴  [F10]"), FLinearColor::White, Canvas->ClipX * 0.5f, Top, Font, 1.4f);
+	Top += 40.0f;
+
+	// 항복은 경기가 진행 중이고 정해진 시간이 지난 뒤, 아직 동의하지 않았을 때만 누를 수 있다.
+	const AMobaGameMode* ModeDefaults = Cast<AMobaGameMode>(GameState->GetDefaultGameMode());
+	const float MinTime = ModeDefaults ? ModeDefaults->GetSurrenderMinTime() : 180.0f;
+	const bool bTimeOk = GameState->GetMatchTimeSeconds() >= MinTime;
+	bSurrenderAllowed = GameState->HasMatchStarted() && !GameState->IsMatchOver() && bTimeOk && !LocalState->HasVotedSurrender();
+
+	FString SurrenderLabel = TEXT("항복");
+	if (LocalState->HasVotedSurrender())
+	{
+		SurrenderLabel = TEXT("항복에 동의함");
+	}
+	else if (!bTimeOk)
+	{
+		const int32 Remaining = FMath::CeilToInt(MinTime - GameState->GetMatchTimeSeconds());
+		SurrenderLabel = FString::Printf(TEXT("항복 (%d:%02d 후 가능)"), Remaining / 60, Remaining % 60);
+	}
+
+	const auto DrawButton = [this, Font, Left, Width, ButtonHeight](float ButtonTop, const FString& Label, bool bEnabled, const FLinearColor& Color) -> FBox2D
+	{
+		DrawRect(bEnabled ? Color : FLinearColor(0.12f, 0.12f, 0.12f), Left, ButtonTop, Width, ButtonHeight);
+		DrawCenteredText(Label, bEnabled ? FLinearColor::White : FLinearColor(0.5f, 0.5f, 0.5f), Left + Width * 0.5f, ButtonTop + 13.0f, Font, 1.3f);
+		return FBox2D(FVector2D(Left, ButtonTop), FVector2D(Left + Width, ButtonTop + ButtonHeight));
+	};
+
+	GameMenuSurrenderRect = DrawButton(Top, SurrenderLabel, bSurrenderAllowed, FLinearColor(0.55f, 0.2f, 0.15f));
+	Top += ButtonHeight + 12.0f;
+	GameMenuLeaveRect = DrawButton(Top, GameState->IsMatchOver() ? TEXT("메뉴로 나가기") : TEXT("메뉴로 나가기 (패배 처리)"), true, FLinearColor(0.25f, 0.25f, 0.3f));
+	Top += ButtonHeight + 12.0f;
+	GameMenuResumeRect = DrawButton(Top, TEXT("계속하기"), true, FLinearColor(0.15f, 0.4f, 0.25f));
 }
 
 bool AMobaHUD::HandleClick(const FVector2D& ScreenPosition)
 {
+	// 게임 메뉴가 열려 있으면 메뉴 버튼만 받는다.
+	if (bGameMenuDrawn)
+	{
+		if (AMobaPlayerController* MobaController = Cast<AMobaPlayerController>(GetOwningPlayerController()))
+		{
+			if (bSurrenderAllowed && GameMenuSurrenderRect.IsInsideOrOn(ScreenPosition))
+			{
+				MobaController->RequestSurrender();
+				MobaController->CloseGameMenu();
+			}
+			else if (GameMenuLeaveRect.IsInsideOrOn(ScreenPosition))
+			{
+				MobaController->LeaveMatch();
+			}
+			else if (GameMenuResumeRect.IsInsideOrOn(ScreenPosition))
+			{
+				MobaController->CloseGameMenu();
+			}
+		}
+		return true;
+	}
+
 	// 로비 화면은 화면 전체를 덮으므로 모든 클릭을 받는다.
 	if (bLobbyDrawn)
 	{
@@ -1030,12 +1108,12 @@ void AMobaHUD::DrawPlayerTable(float Top)
 
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.85f), Left, Top, Width, Height);
 
-	float Columns[] = { 14.0f, 90.0f, 230.0f, 290.0f, 370.0f, 430.0f, 530.0f };
+	float Columns[] = { 14.0f, 90.0f, 225.0f, 285.0f, 405.0f, 465.0f, 565.0f };
 	for (float& Column : Columns)
 	{
 		Column *= ColumnScale;
 	}
-	const TCHAR* Headers[] = { TEXT("팀"), TEXT("챔피언"), TEXT("레벨"), TEXT("K / D"), TEXT("CS"), TEXT("피해량"), TEXT("아이템") };
+	const TCHAR* Headers[] = { TEXT("팀"), TEXT("챔피언"), TEXT("레벨"), TEXT("K / D / A"), TEXT("CS"), TEXT("피해량"), TEXT("아이템") };
 	for (int32 Index = 0; Index < 7; ++Index)
 	{
 		DrawText(Headers[Index], FLinearColor(0.7f, 0.7f, 0.7f), Left + Columns[Index], Top + 12.0f, Font, 1.1f);
@@ -1060,7 +1138,7 @@ void AMobaHUD::DrawPlayerTable(float Top)
 		DrawText(MobaTeam::GetTeamDisplayName(Player->GetTeam()), Color, Left + Columns[0], RowTop, Font, 1.2f);
 		DrawText(Player->GetChampionDisplayName(), Color, Left + Columns[1], RowTop, Font, 1.2f);
 		DrawText(FString::FromInt(Player->GetChampionLevel()), FLinearColor::White, Left + Columns[2], RowTop, Font, 1.2f);
-		DrawText(FString::Printf(TEXT("%d / %d"), Player->GetKills(), Player->GetDeaths()), FLinearColor::White, Left + Columns[3], RowTop, Font, 1.2f);
+		DrawText(FString::Printf(TEXT("%d / %d / %d"), Player->GetKills(), Player->GetDeaths(), Player->GetAssists()), FLinearColor::White, Left + Columns[3], RowTop, Font, 1.2f);
 		DrawText(FString::FromInt(Player->GetMinionKills()), FLinearColor::White, Left + Columns[4], RowTop, Font, 1.2f);
 		DrawText(FString::FromInt(FMath::RoundToInt(Player->GetDamageToChampions())), FLinearColor::White, Left + Columns[5], RowTop, Font, 1.2f);
 		DrawText(ItemNames, FLinearColor(1.0f, 0.9f, 0.6f), Left + Columns[6], RowTop + 2.0f, Font, 1.0f);

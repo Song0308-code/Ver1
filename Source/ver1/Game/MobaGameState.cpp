@@ -12,6 +12,7 @@ void AMobaGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AMobaGameState, MatchEndServerTime);
 	DOREPLIFETIME(AMobaGameState, WinningTeam);
 	DOREPLIFETIME(AMobaGameState, bEndedByForfeit);
+	DOREPLIFETIME(AMobaGameState, bEndedBySurrender);
 	DOREPLIFETIME(AMobaGameState, bUsesLobby);
 	DOREPLIFETIME(AMobaGameState, RequiredPlayers);
 	DOREPLIFETIME(AMobaGameState, CountdownEndServerTime);
@@ -37,8 +38,9 @@ void AMobaGameState::StartMatch()
 	}
 }
 
-void AMobaGameState::SetMatchResult(EMobaTeam InWinningTeam, bool bForfeit)
+void AMobaGameState::SetMatchResult(EMobaTeam InWinningTeam, bool bForfeit, bool bSurrender)
 {
+	bEndedBySurrender = bSurrender;
 	if (HasAuthority())
 	{
 		bMatchOver = true;

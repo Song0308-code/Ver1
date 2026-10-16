@@ -65,8 +65,17 @@ public:
 	/** 건물이 파괴됐을 때. 골드를 주고, 넥서스였다면 경기를 끝낸다. */
 	void HandleStructureDestroyed(AMobaStructure* Structure, AActor* Killer);
 
-	/** 경기를 끝내고 모든 유닛을 멈춘다. bForfeit는 상대가 나가서 끝난 경우. */
-	void EndMatch(EMobaTeam WinningTeam, bool bForfeit = false);
+	/** 경기를 끝내고 모든 유닛을 멈춘다. bForfeit는 상대가 나가서, bSurrender는 진 팀이 항복해서 끝난 경우. */
+	void EndMatch(EMobaTeam WinningTeam, bool bForfeit = false, bool bSurrender = false);
+
+	/** 서버 전용. 항복에 동의한다. 팀 전원이 동의하면 그 팀의 패배로 끝난다. 경기 시작 후 SurrenderMinTime이 지나야 한다. */
+	void RequestSurrender(APlayerController* Player);
+
+	/** 항복할 수 있게 되는 경기 시간(초). */
+	float GetSurrenderMinTime() const { return SurrenderMinTime; }
+
+	/** 해당 레벨 챔피언의 부활 대기 시간(초). */
+	float GetRespawnTime(int32 ChampionLevel) const;
 
 protected:
 	/** 필요한 인원이 모였으면(로비를 쓰면 모두 준비되면) 경기를 시작한다. 미니언 웨이브와 골드 지급이 이때부터 돈다. */
@@ -80,8 +89,14 @@ protected:
 	/** 로비에서 모두 준비됐는지. */
 	bool AreAllPlayersReady() const;
 
-	/** 챔피언끼리 준 피해를 결과 화면용으로 모은다. */
+	/** 챔피언끼리 준 피해를 결과 화면용으로 모은다. 어시스트 판정용으로 누가 언제 때렸는지도 적어 둔다. */
 	void HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, float Damage);
+
+	/** 이 챔피언을 처치했을 때 주는 골드. 연속 처치 중이면 늘고, 계속 죽고 있으면 준다. */
+	float GetKillBounty(const AMobaPlayerState* VictimState) const;
+
+	/** 챔피언마다 최근에 피해를 준 상대 챔피언과 그 시각. */
+	TMap<TWeakObjectPtr<AMobaPlayerState>, TMap<TWeakObjectPtr<AMobaPlayerState>, double>> RecentChampionDamage;
 
 	/** 인원이 더 적은 팀을 고른다. 같으면 블루. */
 	EMobaTeam PickTeamForNewPlayer() const;
@@ -222,7 +237,57 @@ protected:
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Champion")
 	TSoftObjectPtr<UMobaChampionData> DefaultChampion;
 
-	/** 사망 후 부활까지 걸리는 시간(초). */
+	/** 1레벨에서 사망 후 부활까지 걸리는 시간(초). */
 	UPROPERTY(EditAnywhere, Category = "Respawn")
 	float RespawnDelay = 5.0f;
+
+	/** 레벨이 하나 오를 때마다 늘어나는 부활 시간(초). */
+	UPROPERTY(EditAnywhere, Category = "Respawn")
+	float RespawnDelayPerLevel = 2.5f;
+
+	UPROPERTY(EditAnywhere, Category = "Respawn")
+	float MaxRespawnDelay = 50.0f;
+
+	/** 연속 처치 한 번마다 현상금에 더해지는 골드. 2연속부터 붙는다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float KillStreakBountyStep = 150.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float MaxKillBounty = 1000.0f;
+
+	/** 연속으로 죽을 때마다 현상금에서 빠지는 골드. 2연속부터 줄어든다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float DeathStreakBountyStep = 50.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float MinKillBounty = 100.0f;
+
+	/** 처치 직전 이 시간(초) 안에 피해를 준 아군은 어시스트를 받는다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float AssistWindow = 10.0f;
+
+	/** 어시스트한 아군들이 나눠 받는 골드(현상금 대비 비율). */
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float AssistGoldFraction = 0.5f;
+
+	/** 이 간격(초)마다 새로 나오는 미니언이 강해진다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Minions")
+	float MinionUpgradeInterval = 90.0f;
+
+	/** 강화 한 번마다 체력·공격력·보상 골드가 늘어나는 비율. */
+	UPROPERTY(EditDefaultsOnly, Category = "Minions")
+	float MinionHealthPerUpgrade = 0.05f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Minions")
+	float MinionDamagePerUpgrade = 0.04f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Minions")
+	float MinionGoldPerUpgrade = 0.02f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Minions")
+	int32 MaxMinionUpgrades = 20;
+
+	/** 항복할 수 있게 되는 경기 시간(초). */
+	UPROPERTY(EditAnywhere, Category = "Match")
+	float SurrenderMinTime = 180.0f;
 };
