@@ -39,6 +39,24 @@ void AMobaMenuPlayerController::BeginPlay()
 	InputMode.SetWidgetToFocus(MenuWidget);
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	SetInputMode(InputMode);
+
+	// 실행 인자 -MobaHost는 바로 방을 만들고, -MobaJoin=주소는 바로 접속한다(바로가기용).
+	// 배포용 빌드는 명령줄의 맵·주소를 무시하므로 이 방법으로 시작한다. 메뉴로 돌아왔을 때 반복하지 않도록 한 번만 한다.
+	static bool bAutoActionDone = false;
+	if (!bAutoActionDone)
+	{
+		bAutoActionDone = true;
+
+		FString JoinAddress;
+		if (FParse::Param(FCommandLine::Get(), TEXT("MobaHost")))
+		{
+			HostGame();
+		}
+		else if (FParse::Value(FCommandLine::Get(), TEXT("MobaJoin="), JoinAddress))
+		{
+			JoinGame(JoinAddress);
+		}
+	}
 }
 
 void AMobaMenuPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)

@@ -77,6 +77,12 @@ public:
 	/** 해당 레벨 챔피언의 부활 대기 시간(초). */
 	float GetRespawnTime(int32 ChampionLevel) const;
 
+	/** 처치당한 챔피언의 연속 처치·연속 죽음 기록으로 정하는 처치 골드. */
+	float CalculateKillBounty(int32 VictimKillStreak, int32 VictimDeathStreak) const;
+
+	/** 해당 경기 시간에 새로 나오는 미니언이 받은 강화 횟수. */
+	int32 GetMinionUpgradeCount(float MatchTimeSeconds) const;
+
 protected:
 	/** 필요한 인원이 모였으면(로비를 쓰면 모두 준비되면) 경기를 시작한다. 미니언 웨이브와 골드 지급이 이때부터 돈다. */
 	void TryStartMatch();

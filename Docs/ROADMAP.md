@@ -165,6 +165,16 @@ UE 5.8 + unreal-mcp로 만드는 LoL 스타일 MOBA 프로토타입의 작업 �
 
 완료 기준: 서로 다른 PC 두 대에서 접속해 한 판을 끝낸다.
 
+자동화 테스트와 배포용 빌드
+
+- **자동화 테스트**: `Source/ver1/Tests/MobaRulesTests.cpp`에 8개(`Moba.Rules.*`, `Moba.Data.*`). 피해 감소 공식, 처치 현상금, 레벨별 부활 시간, 미니언 성장, 경험치 곡선, 궁극기 배우는 레벨, 아이템 목록, 정글 캠프 구성을 확인한다. 수치를 바꾸면 테스트의 기대값도 같이 바꿔야 한다.
+- **실행**: 에디터를 닫고 `Tools/RunTests.bat`. 에디터 안에서는 도구 → 세션 프론트엔드 → 자동화에서 "Moba"로 찾는다.
+- **패키징**: `Tools/Package.bat`(로그가 있는 Development, `Saved/Packaged`) 또는 `Tools/Package.bat Shipping`(배포용, `Saved/PackagedShipping`). 친구에게 줄 때는 Shipping을 쓴다. 디버그용 훅과 `-MobaForceLobby`는 Shipping에서 빠진다.
+- **Shipping의 차이**: 엔진이 배포용 빌드에서는 명령줄의 맵·접속 주소를 무시하므로 항상 메인 메뉴에서 시작하고, 로그 파일도 남기지 않는다.
+- **바로 시작 인자**: `-MobaHost`는 메뉴가 뜨자마자 방을 만들고, `-MobaJoin=주소`는 바로 접속한다(Development·Shipping 모두). 바탕화면 바로가기의 대상 뒤에 붙여 쓰면 된다.
+- **확인한 것**: 테스트 8개 통과. Development 클라이언트 → Shipping 호스트(`-MobaHost`), Shipping 클라이언트(`-MobaJoin`) → Development 호스트 모두 접속 성공.
+- **고친 것**: 미니언 사망 애니메이션이 코드에서 경로로만 참조돼 패키지에 빠져 있었다. `Characters/Mannequins/Anims/Death` 폴더를 항상 쿠킹하도록 했다.
+
 UI 편의
 
 - **피해량 숫자**: 챔피언·몬스터·건물이 피해를 받으면 그만큼의 숫자가 머리 위로 1초 동안 떠오른다. 내 챔피언이 받은 피해는 빨간색. 체력이 줄어든 양을 보고 그리므로 각 PC에서 따로 계산하며, 시야 밖의 유닛은 보이지 않는다. 미니언은 숫자가 너무 많아져서 뺐다.

@@ -114,11 +114,13 @@ void AMobaGameMode::InitGame(const FString& MapName, const FString& Options, FSt
 	bUseLobby = UGameplayStatics::HasOption(Options, TEXT("Players")) && RequiredPlayers >= 2;
 
 	// 실행 인자 -MobaForceLobby를 주면 에디터에서도 2인 로비를 거친다(로비 시험용).
+#if !UE_BUILD_SHIPPING
 	if (FParse::Param(FCommandLine::Get(), TEXT("MobaForceLobby")))
 	{
 		RequiredPlayers = FMath::Min(2, MaxPlayers);
 		bUseLobby = RequiredPlayers >= 2;
 	}
+#endif
 
 	UE_LOG(LogTemp, Log, TEXT("방 설정: 필요 인원 %d, 로비 %s"), RequiredPlayers, bUseLobby ? TEXT("사용") : TEXT("사용 안 함"));
 }
@@ -466,9 +468,7 @@ void AMobaGameMode::SpawnMinion(AMobaLanePath* LanePath, EMobaTeam Team, EMobaMi
 		// 시간이 지날수록 새로 나오는 미니언이 강해지고 보상도 늘어난다.
 		FMobaMinionConfig Config = GetMinionConfig(Type);
 		const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
-		const int32 Upgrades = MobaGameState && MinionUpgradeInterval > 0.0f
-			? FMath::Min(FMath::FloorToInt(MobaGameState->GetMatchTimeSeconds() / MinionUpgradeInterval), MaxMinionUpgrades)
-			: 0;
+		const int32 Upgrades = MobaGameState ? GetMinionUpgradeCount(MobaGameState->GetMatchTimeSeconds()) : 0;
 		Config.Stats.MaxHealth *= 1.0f + MinionHealthPerUpgrade * Upgrades;
 		Config.Stats.AttackDamage *= 1.0f + MinionDamagePerUpgrade * Upgrades;
 		Config.GoldReward *= 1.0f + MinionGoldPerUpgrade * Upgrades;
@@ -911,22 +911,31 @@ float AMobaGameMode::GetRespawnTime(int32 ChampionLevel) const
 
 float AMobaGameMode::GetKillBounty(const AMobaPlayerState* VictimState) const
 {
-	if (!VictimState)
+	return VictimState ? CalculateKillBounty(VictimState->GetKillStreak(), VictimState->GetDeathStreak()) : ChampionKillGold;
+}
+
+float AMobaGameMode::CalculateKillBounty(int32 VictimKillStreak, int32 VictimDeathStreak) const
+{
+	if (VictimKillStreak >= 2)
 	{
-		return ChampionKillGold;
+		return FMath::Min(ChampionKillGold + KillStreakBountyStep * (VictimKillStreak - 1), MaxKillBounty);
 	}
 
-	if (VictimState->GetKillStreak() >= 2)
+	if (VictimDeathStreak >= 2)
 	{
-		return FMath::Min(ChampionKillGold + KillStreakBountyStep * (VictimState->GetKillStreak() - 1), MaxKillBounty);
-	}
-
-	if (VictimState->GetDeathStreak() >= 2)
-	{
-		return FMath::Max(ChampionKillGold - DeathStreakBountyStep * (VictimState->GetDeathStreak() - 1), MinKillBounty);
+		return FMath::Max(ChampionKillGold - DeathStreakBountyStep * (VictimDeathStreak - 1), MinKillBounty);
 	}
 
 	return ChampionKillGold;
+}
+
+int32 AMobaGameMode::GetMinionUpgradeCount(float MatchTimeSeconds) const
+{
+	if (MinionUpgradeInterval <= 0.0f || MatchTimeSeconds <= 0.0f)
+	{
+		return 0;
+	}
+	return FMath::Min(FMath::FloorToInt(MatchTimeSeconds / MinionUpgradeInterval), MaxMinionUpgrades);
 }
 
 void AMobaGameMode::RequestSurrender(APlayerController* Player)
