@@ -8,6 +8,9 @@ namespace MobaTags
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Stunned);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Slowed);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Hasted);
+
+	/** 기본 공격 피해 스펙에 붙는다. 생명력 흡수처럼 기본 공격에만 걸리는 효과가 본다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Damage_BasicAttack);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Invulnerable);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Recalling);
 

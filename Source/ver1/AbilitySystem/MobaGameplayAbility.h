@@ -42,6 +42,12 @@ public:
 	/** 현재 CurrentLevel단계인 이 스킬을 챔피언 레벨 ChampionLevel에서 한 단계 올릴 수 있는지. */
 	bool CanLevelUp(int32 CurrentLevel, int32 ChampionLevel) const;
 
+	/** 이 스킬을 AbilitySystem이 쓸 때의 실제 재사용 대기 시간(스킬 가속, 블루 버프 반영). */
+	float GetEffectiveCooldown(const UAbilitySystemComponent* AbilitySystem) const;
+
+	/** 스킬 가속 수치를 재사용 대기 배율로 바꾼다. 100 / (100 + 가속). */
+	static float GetHasteMultiplier(float AbilityHaste) { return 100.0f / (100.0f + FMath::Max(AbilityHaste, 0.0f)); }
+
 	/** 조준 표시에 쓰는 크기. 방향 스킬은 폭의 절반, 위치 스킬은 범위 반지름. */
 	virtual float GetIndicatorRadius() const { return 0.0f; }
 

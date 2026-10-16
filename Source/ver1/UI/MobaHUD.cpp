@@ -67,6 +67,7 @@ void AMobaHUD::DrawHUD()
 		DrawStatusBar(LocalCharacter);
 		DrawBuffsAndWard(LocalCharacter);
 		DrawInventory(LocalCharacter);
+		DrawStatsPanel(LocalCharacter);
 		DrawRecall(LocalCharacter);
 	}
 
@@ -561,7 +562,7 @@ void AMobaHUD::DrawAbilityTooltip(const AMobaCharacter* Character)
 		Lines.Add(Ability->GetDescription().ToString());
 		FString Costs = Ability->IsSummonerSpell()
 			? FString::Printf(TEXT("재사용 대기 %.0f초"), Ability->GetCooldownDuration())
-			: FString::Printf(TEXT("마나 %d    재사용 대기 %.0f초"), FMath::RoundToInt(Ability->GetManaCost()), Ability->GetCooldownDuration());
+			: FString::Printf(TEXT("마나 %d    재사용 대기 %.1f초"), FMath::RoundToInt(Ability->GetManaCost()), Ability->GetEffectiveCooldown(Character->GetAbilitySystemComponent()));
 		if (Ability->GetCastRange() > 0.0f)
 		{
 			Costs += FString::Printf(TEXT("    사거리 %d"), FMath::RoundToInt(Ability->GetCastRange()));
@@ -1067,6 +1068,60 @@ void AMobaHUD::DrawRecall(const AMobaCharacter* Character)
 
 // ---------------------------------------------------------------------------------------------------------------------
 // 가방과 상점
+
+void AMobaHUD::DrawStatsPanel(const AMobaCharacter* Character)
+{
+	const UAbilitySystemComponent* AbilitySystem = Character->GetAbilitySystemComponent();
+	if (!AbilitySystem)
+	{
+		return;
+	}
+
+	const auto Value = [AbilitySystem](const FGameplayAttribute& Attribute)
+	{
+		return AbilitySystem->GetNumericAttribute(Attribute);
+	};
+
+	struct FStatLine
+	{
+		const TCHAR* Label;
+		FString Text;
+	};
+	const FStatLine Lines[] = {
+		{ TEXT("공격력"), FString::FromInt(FMath::RoundToInt(Value(UMobaAttributeSet::GetAttackDamageAttribute()))) },
+		{ TEXT("주문력"), FString::FromInt(FMath::RoundToInt(Value(UMobaAttributeSet::GetAbilityPowerAttribute()))) },
+		{ TEXT("방어력"), FString::FromInt(FMath::RoundToInt(Value(UMobaAttributeSet::GetArmorAttribute()))) },
+		{ TEXT("마법 저항"), FString::FromInt(FMath::RoundToInt(Value(UMobaAttributeSet::GetMagicResistAttribute()))) },
+		{ TEXT("공격 속도"), FString::Printf(TEXT("%.2f"), Value(UMobaAttributeSet::GetAttackSpeedAttribute())) },
+		{ TEXT("이동 속도"), FString::FromInt(FMath::RoundToInt(Value(UMobaAttributeSet::GetMoveSpeedAttribute()))) },
+		{ TEXT("스킬 가속"), FString::FromInt(FMath::RoundToInt(Value(UMobaAttributeSet::GetAbilityHasteAttribute()))) },
+		{ TEXT("흡혈"), FString::Printf(TEXT("%d%%"), FMath::RoundToInt(Value(UMobaAttributeSet::GetLifeStealAttribute()) * 100.0f)) },
+	};
+
+	// 두 열, 네 줄. 왼쪽 아래 구석에 둔다.
+	UFont* Font = GEngine->GetSmallFont();
+	const float ColumnWidth = 104.0f;
+	const float LineHeight = 17.0f;
+	const float Width = ColumnWidth * 2.0f + 12.0f;
+	const float Height = LineHeight * 4.0f + 10.0f;
+	const float Left = 10.0f;
+	float Top = Canvas->ClipY - Height - 10.0f;
+
+	// 좁은 화면에서 스킬 바(왼쪽 패시브 칸 포함)와 겹치면 스킬 바 묶음보다 위로 올린다.
+	if (Left + Width > GetAbilityBarLeft() - 60.0f)
+	{
+		Top = Canvas->ClipY - AbilityBoxSize - 16.0f * 2.0f - 28.0f - 44.0f - Height - 30.0f;
+	}
+
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.7f), Left, Top, Width, Height);
+	for (int32 Index = 0; Index < UE_ARRAY_COUNT(Lines); ++Index)
+	{
+		const float X = Left + 6.0f + ColumnWidth * (Index / 4);
+		const float Y = Top + 5.0f + LineHeight * (Index % 4);
+		DrawText(Lines[Index].Label, FLinearColor(0.7f, 0.72f, 0.78f), X, Y, Font, 0.95f);
+		DrawText(Lines[Index].Text, FLinearColor::White, X + 62.0f, Y, Font, 0.95f);
+	}
+}
 
 void AMobaHUD::DrawInventory(const AMobaCharacter* Character)
 {

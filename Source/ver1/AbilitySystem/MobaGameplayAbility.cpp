@@ -82,12 +82,10 @@ void UMobaGameplayAbility::ApplyCooldown(const FGameplayAbilitySpecHandle Handle
 	const FGameplayEffectSpecHandle Spec = MakeOutgoingGameplayEffectSpec(Handle, ActorInfo, ActivationInfo, UMobaCooldownEffect::StaticClass(), GetAbilityLevel(Handle, ActorInfo));
 	if (Spec.IsValid())
 	{
-		// 블루 버프가 있으면 재사용 대기 시간이 10% 줄어든다.
 		const UAbilitySystemComponent* AbilitySystem = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;
-		const float Scale = AbilitySystem && AbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Blue) ? 0.9f : 1.0f;
 
 		Spec.Data->DynamicGrantedTags.AppendTags(*CooldownTags);
-		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Cooldown, CooldownDuration * Scale);
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Cooldown, GetEffectiveCooldown(AbilitySystem));
 		ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, Spec);
 	}
 }
@@ -123,6 +121,19 @@ void UMobaGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	}
 
 	ExecuteCast(Caster, TargetLocation);
+}
+
+float UMobaGameplayAbility::GetEffectiveCooldown(const UAbilitySystemComponent* AbilitySystem) const
+{
+	// 소환사 주문은 스킬 가속과 블루 버프의 영향을 받지 않는다.
+	if (bSummonerSpell || !AbilitySystem)
+	{
+		return CooldownDuration;
+	}
+
+	// 블루 버프가 있으면 재사용 대기 시간이 10% 줄어든다.
+	const float BlueScale = AbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Blue) ? 0.9f : 1.0f;
+	return CooldownDuration * BlueScale * GetHasteMultiplier(AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAbilityHasteAttribute()));
 }
 
 bool UMobaGameplayAbility::ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const

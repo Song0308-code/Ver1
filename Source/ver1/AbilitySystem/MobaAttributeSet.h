@@ -139,6 +139,16 @@ public:
 	FGameplayAttributeData AttackRange;
 	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, AttackRange)
 
+	/** 기본 공격으로 준 피해 중 체력으로 돌려받는 비율. 0.1이면 10%. */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_LifeSteal, Category = "Attributes")
+	FGameplayAttributeData LifeSteal;
+	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, LifeSteal)
+
+	/** 스킬 가속. 스킬 재사용 대기 시간이 100 / (100 + 가속) 배가 된다. 소환사 주문에는 적용되지 않는다. */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_AbilityHaste, Category = "Attributes")
+	FGameplayAttributeData AbilityHaste;
+	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, AbilityHaste)
+
 	/** 방어력·마법 저항력이 이미 반영된 최종 피해량. 서버에서만 쓰이고 즉시 체력에서 차감된다. */
 	UPROPERTY(BlueprintReadOnly, Category = "Attributes")
 	FGameplayAttributeData IncomingDamage;
@@ -177,4 +187,10 @@ protected:
 
 	UFUNCTION()
 	void OnRep_AttackRange(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	void OnRep_LifeSteal(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	void OnRep_AbilityHaste(const FGameplayAttributeData& OldValue);
 };

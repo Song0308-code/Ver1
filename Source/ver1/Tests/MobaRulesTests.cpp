@@ -167,6 +167,16 @@ namespace
 	}
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaAbilityHasteTest, "Moba.Rules.AbilityHaste", MobaTestFlags)
+bool FMobaAbilityHasteTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("가속 0"), UMobaGameplayAbility::GetHasteMultiplier(0.0f), 1.0f);
+	TestEqual(TEXT("가속 100이면 절반"), UMobaGameplayAbility::GetHasteMultiplier(100.0f), 0.5f);
+	TestNearlyEqual(TEXT("가속 20"), UMobaGameplayAbility::GetHasteMultiplier(20.0f), 100.0f / 120.0f, 0.0001f);
+	TestEqual(TEXT("음수 가속은 0으로"), UMobaGameplayAbility::GetHasteMultiplier(-50.0f), 1.0f);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaItemRecipeTest, "Moba.Rules.ItemRecipes", MobaTestFlags)
 bool FMobaItemRecipeTest::RunTest(const FString& Parameters)
 {

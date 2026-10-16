@@ -1,5 +1,6 @@
 #include "AbilitySystem/MobaAttributeSet.h"
 #include "Combat/MobaCombatEvents.h"
+#include "Game/MobaGameplayTags.h"
 #include "GameplayEffectExtension.h"
 #include "Net/UnrealNetwork.h"
 
@@ -18,6 +19,8 @@ void UMobaAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, AttackSpeed, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, MoveSpeed, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, AttackRange, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, LifeSteal, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, AbilityHaste, COND_None, REPNOTIFY_Always);
 }
 
 void UMobaAttributeSet::InitFromBaseStats(const FMobaBaseStats& Stats)
@@ -33,6 +36,8 @@ void UMobaAttributeSet::InitFromBaseStats(const FMobaBaseStats& Stats)
 	InitAttackSpeed(Stats.AttackSpeed);
 	InitMoveSpeed(Stats.MoveSpeed);
 	InitAttackRange(Stats.AttackRange);
+	InitLifeSteal(0.0f);
+	InitAbilityHaste(0.0f);
 
 	OnMoveSpeedChanged.Broadcast(GetMoveSpeed());
 }
@@ -88,6 +93,20 @@ void UMobaAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 			if (UMobaCombatEvents* Events = UMobaCombatEvents::Get(GetOwningActor()))
 			{
 				Events->OnDamageDealt.Broadcast(DamageInstigator, GetOwningAbilitySystemComponentChecked()->GetAvatarActor(), Damage);
+			}
+
+			// 기본 공격이면 공격한 쪽이 생명력 흡수만큼 회복한다.
+			UAbilitySystemComponent* SourceAbilitySystem = Data.EffectSpec.GetContext().GetInstigatorAbilitySystemComponent();
+			if (SourceAbilitySystem && SourceAbilitySystem != GetOwningAbilitySystemComponent() && Data.EffectSpec.GetDynamicAssetTags().HasTagExact(MobaTags::Damage_BasicAttack)
+				&& !SourceAbilitySystem->HasMatchingGameplayTag(MobaTags::State_Dead))
+			{
+				const float Steal = SourceAbilitySystem->GetNumericAttribute(GetLifeStealAttribute());
+				if (Steal > 0.0f)
+				{
+					const float SourceHealth = SourceAbilitySystem->GetNumericAttributeBase(GetHealthAttribute());
+					const float SourceMaxHealth = SourceAbilitySystem->GetNumericAttribute(GetMaxHealthAttribute());
+					SourceAbilitySystem->SetNumericAttributeBase(GetHealthAttribute(), FMath::Min(SourceHealth + Damage * Steal, SourceMaxHealth));
+				}
 			}
 
 			if (NewHealth <= 0.0f)
@@ -161,4 +180,14 @@ void UMobaAttributeSet::OnRep_MoveSpeed(const FGameplayAttributeData& OldValue)
 void UMobaAttributeSet::OnRep_AttackRange(const FGameplayAttributeData& OldValue)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UMobaAttributeSet, AttackRange, OldValue);
+}
+
+void UMobaAttributeSet::OnRep_LifeSteal(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMobaAttributeSet, LifeSteal, OldValue);
+}
+
+void UMobaAttributeSet::OnRep_AbilityHaste(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMobaAttributeSet, AbilityHaste, OldValue);
 }

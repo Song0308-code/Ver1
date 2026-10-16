@@ -28,6 +28,11 @@ struct FMobaItemDefinition
 	/** 기본 공격 속도에 곱해 더하는 비율. 0.12면 12%. */
 	float AttackSpeedFraction = 0.0f;
 
+	/** 생명력 흡수 비율. 0.1이면 10%. */
+	float LifeSteal = 0.0f;
+
+	float AbilityHaste = 0.0f;
+
 	/** 같은 묶음 이름의 아이템은 하나만 가질 수 있다(예: 장화 계열). 비어 있으면 제한 없음. */
 	const TCHAR* UniqueGroup = TEXT("");
 

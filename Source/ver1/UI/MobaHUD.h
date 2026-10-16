@@ -64,6 +64,9 @@ protected:
 	/** 가방 여섯 칸. 상점이 열려 있으면 눌러서 팔 수 있다. */
 	void DrawInventory(const AMobaCharacter* Character);
 
+	/** 화면 왼쪽 아래의 능력치 패널. */
+	void DrawStatsPanel(const AMobaCharacter* Character);
+
 	/** 상점 창. P로 여닫는다. */
 	void DrawShop(const AMobaCharacter* Character);
 

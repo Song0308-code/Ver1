@@ -52,9 +52,13 @@ namespace
 		const int32 SpiritVeil = Add(TEXT("정령의 장막"), TEXT("마법 저항력 +40, 체력 +200"), 1200, { NullMantle, RubyCrystal });
 		Items[SpiritVeil].MagicResist = 40.0f;
 		Items[SpiritVeil].MaxHealth = 200.0f;
-		const int32 ManaOrb = Add(TEXT("마력의 보주"), TEXT("주문력 +40, 마나 +400"), 1100, { Tome, SapphireCrystal });
+		const int32 ManaOrb = Add(TEXT("마력의 보주"), TEXT("주문력 +40, 마나 +400, 스킬 가속 +15"), 1100, { Tome, SapphireCrystal });
 		Items[ManaOrb].AbilityPower = 40.0f;
 		Items[ManaOrb].MaxMana = 400.0f;
+		Items[ManaOrb].AbilityHaste = 15.0f;
+		const int32 VampiricScepter = Add(TEXT("흡혈의 홀"), TEXT("공격력 +15, 생명력 흡수 +10%"), 900, { LongSword });
+		Items[VampiricScepter].AttackDamage = 15.0f;
+		Items[VampiricScepter].LifeSteal = 0.1f;
 		const int32 BerserkerBoots = Add(TEXT("광전사의 군화"), TEXT("이동 속도 +45, 공격 속도 +30%"), 1100, { Boots, Dagger });
 		Items[BerserkerBoots].MoveSpeed = 45.0f;
 		Items[BerserkerBoots].AttackSpeedFraction = 0.3f;
@@ -63,8 +67,9 @@ namespace
 		// 3단계.
 		const int32 DoomBlade = Add(TEXT("파멸의 대검"), TEXT("공격력 +75"), 3000, { BigSword, LongSword, LongSword });
 		Items[DoomBlade].AttackDamage = 75.0f;
-		const int32 ArchmageHat = Add(TEXT("대마법사의 모자"), TEXT("주문력 +120"), 3200, { BigRod, Tome, Tome });
+		const int32 ArchmageHat = Add(TEXT("대마법사의 모자"), TEXT("주문력 +120, 스킬 가속 +20"), 3200, { BigRod, Tome, Tome });
 		Items[ArchmageHat].AbilityPower = 120.0f;
+		Items[ArchmageHat].AbilityHaste = 20.0f;
 		const int32 Bulwark = Add(TEXT("수호 군주의 갑주"), TEXT("방어력 +50, 마법 저항력 +50, 체력 +450"), 2900, { WardensPlate, SpiritVeil });
 		Items[Bulwark].Armor = 50.0f;
 		Items[Bulwark].MagicResist = 50.0f;

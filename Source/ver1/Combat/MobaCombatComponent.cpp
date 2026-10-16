@@ -478,6 +478,7 @@ void UMobaCombatComponent::FireAttack(AActor* Target)
 	{
 		return;
 	}
+	Spec.Data->AddDynamicAssetTag(MobaTags::Damage_BasicAttack);
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = GetOwner();
