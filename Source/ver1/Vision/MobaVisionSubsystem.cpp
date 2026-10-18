@@ -317,16 +317,46 @@ void UMobaVisionSubsystem::ComputeHiddenForTeam(EMobaTeam LocalTeam, TSet<TWeakO
 			}
 		}
 
+		// 제어 와드 위치를 팀별로 모은다. 상대 제어 와드 근처의 일반 와드는 시야가 꺼지고, 내 제어 와드 근처의 적 일반 와드는 드러난다.
+		TArray<FVector> MyControlWards;
+		TArray<FVector> EnemyControlWards;
 		for (TActorIterator<AMobaWard> It(World); It; ++It)
 		{
+			if (It->IsControlWard() && !MobaCombat::IsDead(*It))
+			{
+				(It->GetTeam() == LocalTeam ? MyControlWards : EnemyControlWards).Add(It->GetActorLocation());
+			}
+		}
+		const auto IsNear = [](const TArray<FVector>& Points, const FVector& Location)
+		{
+			for (const FVector& Point : Points)
+			{
+				if (FVector::DistSquared2D(Point, Location) <= FMath::Square(AMobaWard::RevealRadius))
+				{
+					return true;
+				}
+			}
+			return false;
+		};
+
+		for (TActorIterator<AMobaWard> It(World); It; ++It)
+		{
+			const FVector Location = It->GetActorLocation();
 			if (It->GetTeam() == LocalTeam)
 			{
-				const FVector Location = It->GetActorLocation();
-				Sources.Add({ Location, WardSightRadius, GetBushMask(Location) });
+				if (It->IsControlWard() || !IsNear(EnemyControlWards, Location))
+				{
+					Sources.Add({ Location, WardSightRadius, GetBushMask(Location) });
+				}
+			}
+			else if (It->IsControlWard() || IsNear(MyControlWards, Location))
+			{
+				// 제어 와드와, 내 제어 와드에 드러난 일반 와드는 시야 안에 있으면 보인다.
+				Targets.Add(*It);
 			}
 			else
 			{
-				// 적의 와드는 언제나 보이지 않는다.
+				// 그 밖의 적 와드는 보이지 않는다.
 				NewHidden.Add(*It);
 			}
 		}

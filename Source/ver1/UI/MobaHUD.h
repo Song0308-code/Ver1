@@ -37,6 +37,7 @@ protected:
 	void DrawChampionBars();
 	void DrawMinionBars();
 	void DrawStructureBars();
+	void DrawWardBars();
 	void DrawMonsterBars();
 
 	/** 정글 캠프와 억제기가 다시 나오기까지 남은 시간을 그 자리에 표시한다. */

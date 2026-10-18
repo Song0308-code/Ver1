@@ -88,6 +88,9 @@ public:
 	/** 물약으로 아직 회복할 양. 0보다 크면 마시는 중이다. */
 	float GetPotionHealRemaining() const { return PotionHealRemaining; }
 
+	/** 조종하는 클라이언트 또는 서버에서 호출한다. 제어 와드를 놓는다. 이미 놓은 것이 있으면 그것은 사라진다. */
+	void PlaceControlWard(const FVector& Location);
+
 	/** 조종하는 클라이언트 또는 서버에서 호출한다. 지정한 위치(멀면 놓을 수 있는 거리까지)에 와드를 놓는다. */
 	void PlaceWard(const FVector& Location);
 
@@ -177,6 +180,15 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerUsePotion();
+
+	UFUNCTION(Server, Reliable)
+	void ServerPlaceControlWard(FVector_NetQuantize Location);
+
+	/** 놓을 위치를 놓을 수 있는 거리 안의 발밑 높이로 맞춘다. */
+	FVector ClampWardLocation(const FVector& Location) const;
+
+	/** 서버 전용. 내가 놓은 제어 와드(한 번에 하나). */
+	TWeakObjectPtr<AMobaWard> ActiveControlWard;
 
 	/** 물약으로 남은 회복량과 초당 회복량. 남은 양은 화면 표시용으로 복제된다. */
 	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")

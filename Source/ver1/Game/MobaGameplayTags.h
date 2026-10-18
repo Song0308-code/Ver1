@@ -29,6 +29,9 @@ namespace MobaTags
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Dragon);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Baron);
 
+	/** 와드. 피해량과 상관없이 기본 공격 한 번에 체력 1씩만 깎인다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Unit_Ward);
+
 	/** 스킬이 어느 칸(QWER)에 들어 있는지. 어빌리티 스펙에 붙인다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Slot_Q);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Slot_W);

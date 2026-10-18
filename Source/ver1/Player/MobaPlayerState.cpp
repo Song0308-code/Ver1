@@ -34,6 +34,7 @@ void AMobaPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMobaPlayerState, SummonerSpellF);
 	DOREPLIFETIME(AMobaPlayerState, Items);
 	DOREPLIFETIME(AMobaPlayerState, Potions);
+	DOREPLIFETIME(AMobaPlayerState, ControlWards);
 	DOREPLIFETIME(AMobaPlayerState, MinionKills);
 	DOREPLIFETIME(AMobaPlayerState, DamageToChampions);
 	DOREPLIFETIME(AMobaPlayerState, bReady);

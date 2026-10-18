@@ -87,6 +87,7 @@ protected:
 	void OnReturnToMenu();
 	void OnPlaceWard();
 	void OnUsePotion();
+	void OnPlaceControlWard();
 	void OnRecall();
 	void OnToggleShop();
 	void OnToggleGameMenu();
@@ -234,6 +235,9 @@ protected:
 	TObjectPtr<UInputAction> UsePotionAction;
 
 	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> PlaceControlWardAction;
+
+	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> RecallAction;
 
 	UPROPERTY(Transient)
@@ -277,6 +281,10 @@ protected:
 	/** 에디터 자동 검증용. 켜면 다음 틱에 DebugCastSlot 스킬을 한 단계 올린다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugLevelUp = false;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 DebugCastLocation에 제어 와드를 놓는다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugPlaceControlWard = false;
 
 	/** 에디터 자동 검증용. 켜면 다음 틱에 체력 물약을 마신다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")

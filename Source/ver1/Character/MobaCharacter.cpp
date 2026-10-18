@@ -634,6 +634,48 @@ float AMobaCharacter::GetWardCooldownRemaining() const
 	return FMath::Max(MobaPlayerState->GetNextWardServerTime() - static_cast<float>(GameState->GetServerWorldTimeSeconds()), 0.0f);
 }
 
+FVector AMobaCharacter::ClampWardLocation(const FVector& Location) const
+{
+	// 너무 먼 곳을 찍었으면 놓을 수 있는 거리까지만 나간다. 높이는 발밑에 맞춘다.
+	const FVector Feet = GetActorLocation() - FVector(0.0, 0.0, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	FVector Offset = Location - Feet;
+	Offset.Z = 0.0;
+	return Feet + Offset.GetClampedToMaxSize(WardPlaceRange);
+}
+
+void AMobaCharacter::PlaceControlWard(const FVector& Location)
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	if (CanAct() && MobaPlayerState && MobaPlayerState->GetControlWards() > 0)
+	{
+		ServerPlaceControlWard(Location);
+	}
+}
+
+void AMobaCharacter::ServerPlaceControlWard_Implementation(FVector_NetQuantize Location)
+{
+	AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	if (!MobaPlayerState || MobaPlayerState->GetControlWards() <= 0 || !CanAct() || MobaCombat::IsMatchOver(this))
+	{
+		return;
+	}
+
+	AMobaWard* Ward = AMobaWard::SpawnWard(GetWorld(), GetTeam(), ClampWardLocation(Location), 0.0f, true);
+	if (!Ward)
+	{
+		return;
+	}
+
+	MobaPlayerState->SetControlWards(MobaPlayerState->GetControlWards() - 1);
+
+	// 한 사람당 하나만 남는다.
+	if (AMobaWard* Previous = ActiveControlWard.Get())
+	{
+		Previous->Destroy();
+	}
+	ActiveControlWard = Ward;
+}
+
 void AMobaCharacter::PlaceWard(const FVector& Location)
 {
 	if (CanAct() && GetWardCooldownRemaining() <= 0.0f)
@@ -651,13 +693,7 @@ void AMobaCharacter::ServerPlaceWard_Implementation(FVector_NetQuantize Location
 		return;
 	}
 
-	// 너무 먼 곳을 찍었으면 놓을 수 있는 거리까지만 나간다. 높이는 발밑에 맞춘다.
-	const FVector Feet = GetActorLocation() - FVector(0.0, 0.0, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
-	FVector Offset = FVector(Location) - Feet;
-	Offset.Z = 0.0;
-	const FVector WardLocation = Feet + Offset.GetClampedToMaxSize(WardPlaceRange);
-
-	AMobaWard* Ward = AMobaWard::SpawnWard(GetWorld(), GetTeam(), WardLocation, WardDuration);
+	AMobaWard* Ward = AMobaWard::SpawnWard(GetWorld(), GetTeam(), ClampWardLocation(Location), WardDuration);
 	if (!Ward)
 	{
 		return;
@@ -847,7 +883,8 @@ bool AMobaCharacter::CanBuyItem(int32 ItemIndex) const
 	// 소모품은 가방 칸 대신 개수로 쌓인다.
 	if (Item->bConsumable)
 	{
-		return MobaPlayerState->GetGold() >= Item->Cost && MobaPlayerState->GetPotions() < MobaItems::MaxPotions;
+		const bool bRoom = Item->bControlWard ? MobaPlayerState->GetControlWards() < MobaItems::MaxControlWards : MobaPlayerState->GetPotions() < MobaItems::MaxPotions;
+		return MobaPlayerState->GetGold() >= Item->Cost && bRoom;
 	}
 
 	const FMobaPurchasePlan Plan = MobaItems::PlanPurchase(ItemIndex, MobaPlayerState->GetItems());
@@ -887,7 +924,14 @@ void AMobaCharacter::ServerBuyItem_Implementation(int32 ItemIndex)
 	{
 		if (MobaPlayerState->SpendGold(Item->Cost))
 		{
-			MobaPlayerState->SetPotions(MobaPlayerState->GetPotions() + 1);
+			if (Item->bControlWard)
+			{
+				MobaPlayerState->SetControlWards(MobaPlayerState->GetControlWards() + 1);
+			}
+			else
+			{
+				MobaPlayerState->SetPotions(MobaPlayerState->GetPotions() + 1);
+			}
 		}
 		return;
 	}

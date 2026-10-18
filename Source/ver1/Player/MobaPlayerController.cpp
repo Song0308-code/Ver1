@@ -88,6 +88,7 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(ReturnToMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnReturnToMenu);
 		EnhancedInput->BindAction(PlaceWardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnPlaceWard);
 		EnhancedInput->BindAction(UsePotionAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnUsePotion);
+		EnhancedInput->BindAction(PlaceControlWardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnPlaceControlWard);
 		EnhancedInput->BindAction(RecallAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnRecall);
 		EnhancedInput->BindAction(ShopAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnToggleShop);
 		EnhancedInput->BindAction(GameMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnToggleGameMenu);
@@ -119,6 +120,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	ReturnToMenuAction = NewObject<UInputAction>(this, TEXT("IA_ReturnToMenu"));
 	PlaceWardAction = NewObject<UInputAction>(this, TEXT("IA_PlaceWard"));
 	UsePotionAction = NewObject<UInputAction>(this, TEXT("IA_UsePotion"));
+	PlaceControlWardAction = NewObject<UInputAction>(this, TEXT("IA_PlaceControlWard"));
 	RecallAction = NewObject<UInputAction>(this, TEXT("IA_Recall"));
 	ShopAction = NewObject<UInputAction>(this, TEXT("IA_Shop"));
 	ScoreboardAction = NewObject<UInputAction>(this, TEXT("IA_Scoreboard"));
@@ -143,6 +145,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	DefaultMappingContext->MapKey(ReturnToMenuAction, EKeys::Enter);
 	DefaultMappingContext->MapKey(PlaceWardAction, EKeys::Four);
 	DefaultMappingContext->MapKey(UsePotionAction, EKeys::One);
+	DefaultMappingContext->MapKey(PlaceControlWardAction, EKeys::Three);
 	DefaultMappingContext->MapKey(RecallAction, EKeys::B);
 	DefaultMappingContext->MapKey(ShopAction, EKeys::P);
 	DefaultMappingContext->MapKey(ScoreboardAction, EKeys::Tab);
@@ -316,6 +319,15 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		bDebugRecall = false;
 	}
 
+	if (bDebugPlaceControlWard)
+	{
+		bDebugPlaceControlWard = false;
+		if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
+		{
+			MobaCharacter->PlaceControlWard(DebugCastLocation);
+		}
+	}
+
 	if (bDebugUsePotion)
 	{
 		bDebugUsePotion = false;
@@ -419,9 +431,10 @@ AActor* AMobaPlayerController::FindEnemyAtCursor(FVector& OutCursorLocation) con
 		return nullptr;
 	}
 
-	// 챔피언·미니언(폰), 건물(동적 오브젝트), 지형(정적 오브젝트) 중 커서에 가장 먼저 닿는 것을 본다.
+	// 챔피언·미니언(폰), 와드(물리 물체), 건물(동적 오브젝트), 지형(정적 오브젝트) 중 커서에 가장 먼저 닿는 것을 본다.
 	static const TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes = {
 		UEngineTypes::ConvertToObjectType(ECC_Pawn),
+		UEngineTypes::ConvertToObjectType(ECC_PhysicsBody),
 		UEngineTypes::ConvertToObjectType(ECC_WorldDynamic),
 		UEngineTypes::ConvertToObjectType(ECC_WorldStatic)
 	};
@@ -663,6 +676,16 @@ void AMobaPlayerController::OnConfirmTarget()
 			bCameraLocked = false;
 			CameraRig->SetFocusLocation(MapLocation);
 		}
+	}
+}
+
+void AMobaPlayerController::OnPlaceControlWard()
+{
+	AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
+	FVector GroundLocation;
+	if (MobaCharacter && GetCursorGroundLocation(GroundLocation))
+	{
+		MobaCharacter->PlaceControlWard(GroundLocation);
 	}
 }
 

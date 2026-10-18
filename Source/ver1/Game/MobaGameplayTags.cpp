@@ -19,6 +19,7 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Red, "Buff.Red", "붉은 덩굴정령 버프. 체력 재생이 늘고 기본 공격이 둔화와 추가 피해를 준다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon, "Buff.Dragon", "드래곤 처치 보상. 경기 끝까지 유지되고 잡을 때마다 겹친다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Baron, "Buff.Baron", "내셔 남작 처치 보상.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Unit_Ward, "Unit.Ward", "와드. 기본 공격 한 번에 체력 1씩만 깎인다.");
 
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_Q, "Ability.Slot.Q");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_W, "Ability.Slot.W");

@@ -38,6 +38,9 @@ struct FMobaItemDefinition
 	float HealAmount = 0.0f;
 	float HealDuration = 0.0f;
 
+	/** 소모품 중 제어 와드. 개수로 쌓이고(최대 MaxControlWards) 키 3으로 놓는다. */
+	bool bControlWard = false;
+
 	/** 같은 묶음 이름의 아이템은 하나만 가질 수 있다(예: 장화 계열). 비어 있으면 제한 없음. */
 	const TCHAR* UniqueGroup = TEXT("");
 
@@ -60,6 +63,9 @@ namespace MobaItems
 
 	/** 체력 물약을 들고 있을 수 있는 최대 개수. */
 	constexpr int32 MaxPotions = 5;
+
+	/** 제어 와드를 들고 있을 수 있는 최대 개수. 맵에는 한 사람당 하나만 놓인다. */
+	constexpr int32 MaxControlWards = 2;
 
 	/** 소모품(체력 물약)의 아이템 번호. 없으면 INDEX_NONE. */
 	VER1_API int32 GetPotionItemIndex();

@@ -28,6 +28,7 @@
 #include "Structures/MobaStructure.h"
 #include "Units/MobaMinion.h"
 #include "Units/MobaMonster.h"
+#include "Vision/MobaWard.h"
 #include "Vision/MobaVisionSubsystem.h"
 #include "Vision/MobaWard.h"
 
@@ -46,6 +47,7 @@ void AMobaHUD::DrawHUD()
 	UpdateDamageNumbers();
 
 	DrawStructureBars();
+	DrawWardBars();
 	DrawMonsterBars();
 	DrawMinionBars();
 	DrawChampionBars();
@@ -295,6 +297,23 @@ void AMobaHUD::DrawMonsterBars()
 
 		const FVector BarLocation = Monster->GetActorLocation() + FVector(0.0, 0.0, Monster->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 35.0f);
 		DrawUnitBar(Monster->GetAbilitySystemComponent(), BarLocation, FVector2D(80.0, 8.0), GetRelationColor(EMobaTeam::Neutral, false), false, FString());
+	}
+}
+
+void AMobaHUD::DrawWardBars()
+{
+	// 보이는 와드에 남은 공격 횟수를 칸으로 보여 준다.
+	for (TActorIterator<AMobaWard> It(GetWorld()); It; ++It)
+	{
+		const AMobaWard* Ward = *It;
+		const UAbilitySystemComponent* AbilitySystem = Ward->GetAbilitySystemComponent();
+		if (!AbilitySystem || Ward->IsHidden() || !IsSeen(Ward))
+		{
+			continue;
+		}
+
+		const int32 Hits = FMath::RoundToInt(AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute()));
+		DrawUnitBar(AbilitySystem, Ward->GetActorLocation() + FVector(0.0, 0.0, 80.0), FVector2D(40.0, 6.0), GetRelationColor(Ward->GetTeam(), false), false, FString(), Hits);
 	}
 }
 
@@ -1363,7 +1382,7 @@ void AMobaHUD::DrawGameMenu()
 	// 조작 안내.
 	const TCHAR* Help[] = {
 		TEXT("우클릭 이동·공격   A+좌클릭 공격 이동"),
-		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기   D·F 소환사 주문   1 체력 물약"),
+		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기   D·F 소환사 주문   1 체력 물약   3 제어 와드"),
 		TEXT("4 와드   B 귀환   P 상점   Tab 점수판"),
 		TEXT("Y 카메라 고정   Space 내 챔피언 보기"),
 		TEXT("Alt+좌클릭 핑   미니맵 좌클릭 카메라 이동"),
@@ -1656,6 +1675,14 @@ void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
 		DrawRect(bDrinking ? FLinearColor(0.3f, 0.75f, 0.35f) : (Potions > 0 ? FLinearColor(0.55f, 0.15f, 0.15f) : FLinearColor(0.15f, 0.1f, 0.1f)), WardLeft, PotionTop, WardSize, WardSize);
 		DrawText(TEXT("1"), FLinearColor::White, WardLeft + 4.0f, PotionTop + 2.0f, Font, 1.2f);
 		DrawCenteredText(FString::Printf(TEXT("물약 %d"), Potions), FLinearColor::White, WardLeft + WardSize * 0.5f, PotionTop + WardSize * 0.5f, Font, 0.9f);
+
+		// 그 오른쪽에 제어 와드 칸.
+		const float ControlLeft = WardLeft + WardSize + 6.0f;
+		const int32 ControlWards = PotionOwner->GetControlWards();
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), ControlLeft - 2.0f, PotionTop - 2.0f, WardSize + 4.0f, WardSize + 4.0f);
+		DrawRect(ControlWards > 0 ? FLinearColor(0.5f, 0.2f, 0.35f) : FLinearColor(0.15f, 0.1f, 0.12f), ControlLeft, PotionTop, WardSize, WardSize);
+		DrawText(TEXT("3"), FLinearColor::White, ControlLeft + 4.0f, PotionTop + 2.0f, Font, 1.2f);
+		DrawCenteredText(FString::Printf(TEXT("제어 %d"), ControlWards), FLinearColor::White, ControlLeft + WardSize * 0.5f, PotionTop + WardSize * 0.5f, Font, 0.9f);
 	}
 
 	// 가지고 있는 정글 버프를 스킬 칸 왼쪽에 적는다.

@@ -76,6 +76,10 @@ public:
 	/** 서버 전용. */
 	void SetPotions(int32 NewPotions) { Potions = NewPotions; }
 
+	/** 들고 있는 제어 와드 수. */
+	int32 GetControlWards() const { return ControlWards; }
+	void SetControlWards(int32 NewCount) { ControlWards = NewCount; }
+
 	/** 가방에 든 아이템 번호들(MobaItems::GetItems의 인덱스). */
 	const TArray<uint8>& GetItems() const { return Items; }
 
@@ -192,6 +196,9 @@ protected:
 
 	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")
 	int32 Potions = 0;
+
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")
+	int32 ControlWards = 0;
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	int32 MinionKills = 0;

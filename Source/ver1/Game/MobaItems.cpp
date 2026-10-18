@@ -81,6 +81,10 @@ namespace
 		Items[Potion].HealAmount = 120.0f;
 		Items[Potion].HealDuration = 15.0f;
 
+		const int32 ControlWard = Add(TEXT("제어 와드"), TEXT("근처 적 와드를 드러내고 끔 (최대 2개, 키 3)"), 75);
+		Items[ControlWard].bConsumable = true;
+		Items[ControlWard].bControlWard = true;
+
 		return Items;
 	}
 
@@ -138,7 +142,7 @@ int32 MobaItems::GetPotionItemIndex()
 	const TArray<FMobaItemDefinition>& Items = GetItems();
 	for (int32 Index = 0; Index < Items.Num(); ++Index)
 	{
-		if (Items[Index].bConsumable)
+		if (Items[Index].bConsumable && Items[Index].HealAmount > 0.0f)
 		{
 			return Index;
 		}

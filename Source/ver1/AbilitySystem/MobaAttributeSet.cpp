@@ -78,7 +78,13 @@ void UMobaAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 
 	if (Data.EvaluatedData.Attribute == GetIncomingDamageAttribute())
 	{
-		const float Damage = GetIncomingDamage();
+		float Damage = GetIncomingDamage();
+
+		// 와드는 기본 공격 한 번에 1씩만 깎이고 스킬 피해는 받지 않는다.
+		if (GetOwningAbilitySystemComponentChecked()->HasMatchingGameplayTag(MobaTags::Unit_Ward))
+		{
+			Damage = Data.EffectSpec.GetDynamicAssetTags().HasTagExact(MobaTags::Damage_BasicAttack) && Damage > 0.0f ? 1.0f : 0.0f;
+		}
 		SetIncomingDamage(0.0f);
 
 		if (Damage > 0.0f && GetHealth() > 0.0f)
