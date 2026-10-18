@@ -92,6 +92,14 @@ FMobaCampDefinition AMobaJungleCamp::GetDefinition(EMobaCampType Type)
 		Definition.Monsters.Add(MakeMonster(3500.0f, 80.0f, 0.5f, 500.0f, true, 25.0f, 150.0f, 2.5f));
 		break;
 
+	case EMobaCampType::Herald:
+		Definition.DisplayName = TEXT("협곡의 전령");
+		Definition.InitialSpawnTime = 480.0f;
+		Definition.RespawnTime = 360.0f;
+		Definition.DespawnTime = 1185.0f;
+		Definition.Monsters.Add(MakeMonster(5000.0f, 90.0f, 0.5f, 200.0f, false, 100.0f, 300.0f, 2.8f));
+		break;
+
 	case EMobaCampType::Baron:
 		Definition.DisplayName = TEXT("내셔 남작");
 		Definition.InitialSpawnTime = 1200.0f;
@@ -121,6 +129,7 @@ void AMobaJungleCamp::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AMobaJungleCamp, CampType);
 	DOREPLIFETIME(AMobaJungleCamp, NextSpawnMatchTime);
 	DOREPLIFETIME(AMobaJungleCamp, AliveCount);
+	DOREPLIFETIME(AMobaJungleCamp, bExpired);
 }
 
 void AMobaJungleCamp::BeginPlay()
@@ -137,7 +146,7 @@ void AMobaJungleCamp::BeginPlay()
 float AMobaJungleCamp::GetSecondsUntilSpawn() const
 {
 	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
-	if (!GameState || !GameState->HasMatchStarted() || IsAlive())
+	if (!GameState || !GameState->HasMatchStarted() || IsAlive() || bExpired)
 	{
 		return 0.0f;
 	}
@@ -160,7 +169,30 @@ void AMobaJungleCamp::UpdateSpawn()
 #endif
 
 	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
-	if (!GameState || !GameState->HasMatchStarted() || GameState->IsMatchOver() || IsAlive())
+	if (!GameState || !GameState->HasMatchStarted() || GameState->IsMatchOver())
+	{
+		return;
+	}
+
+	// 사라지는 시각이 지나면 살아 있는 몬스터를 보상 없이 지우고 더 내보내지 않는다.
+	const float DespawnTime = GetDefinition(CampType).DespawnTime;
+	if (DespawnTime > 0.0f && GameState->GetMatchTimeSeconds() >= DespawnTime && !bForceSpawn)
+	{
+		for (const TWeakObjectPtr<AMobaMonster>& Monster : SpawnedMonsters)
+		{
+			if (Monster.IsValid())
+			{
+				Monster->Destroy();
+			}
+		}
+		SpawnedMonsters.Reset();
+		AliveCount = 0;
+		bExpired = true;
+		StopSpawning();
+		return;
+	}
+
+	if (IsAlive())
 	{
 		return;
 	}
@@ -191,6 +223,7 @@ void AMobaJungleCamp::SpawnMonsters()
 		{
 			Monster->InitMonster(this, Config, Home);
 			Monster->FinishSpawning(SpawnTransform);
+			SpawnedMonsters.Add(Monster);
 			++AliveCount;
 		}
 	}

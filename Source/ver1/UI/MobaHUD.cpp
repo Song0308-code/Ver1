@@ -1434,7 +1434,7 @@ void AMobaHUD::DrawGameMenu()
 	// 조작 안내.
 	const TCHAR* Help[] = {
 		TEXT("우클릭 이동·공격   A+좌클릭 공격 이동"),
-		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기   D·F 소환사 주문   1 체력 물약   3 제어 와드"),
+		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기   D·F 소환사 주문   1 물약   2 전령의 눈   3 제어 와드"),
 		TEXT("4 와드   B 귀환   P 상점   Tab 점수판"),
 		TEXT("Y 카메라 고정   Space 내 챔피언 보기"),
 		TEXT("Alt+좌클릭 핑   미니맵 좌클릭 카메라 이동"),
@@ -1735,6 +1735,18 @@ void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
 		DrawRect(ControlWards > 0 ? FLinearColor(0.5f, 0.2f, 0.35f) : FLinearColor(0.15f, 0.1f, 0.12f), ControlLeft, PotionTop, WardSize, WardSize);
 		DrawText(TEXT("3"), FLinearColor::White, ControlLeft + 4.0f, PotionTop + 2.0f, Font, 1.2f);
 		DrawCenteredText(FString::Printf(TEXT("제어 %d"), ControlWards), FLinearColor::White, ControlLeft + WardSize * 0.5f, PotionTop + WardSize * 0.5f, Font, 0.9f);
+
+		// 전령의 눈을 들고 있으면 그 오른쪽에 남은 시간과 함께 보인다.
+		const AGameStateBase* EyeGameState = GetWorld()->GetGameState();
+		const float EyeRemaining = EyeGameState ? PotionOwner->GetHeraldEyeExpireServerTime() - EyeGameState->GetServerWorldTimeSeconds() : 0.0f;
+		if (EyeRemaining > 0.0f)
+		{
+			const float EyeLeft = ControlLeft + WardSize + 6.0f;
+			DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), EyeLeft - 2.0f, PotionTop - 2.0f, WardSize + 4.0f, WardSize + 4.0f);
+			DrawRect(FLinearColor(0.45f, 0.25f, 0.6f), EyeLeft, PotionTop, WardSize, WardSize);
+			DrawText(TEXT("2"), FLinearColor::White, EyeLeft + 4.0f, PotionTop + 2.0f, Font, 1.2f);
+			DrawCenteredText(FString::Printf(TEXT("전령 %d"), FMath::CeilToInt(EyeRemaining)), FLinearColor::White, EyeLeft + WardSize * 0.5f, PotionTop + WardSize * 0.5f, Font, 0.85f);
+		}
 	}
 
 	// 가지고 있는 정글 버프를 스킬 칸 왼쪽에 적는다.

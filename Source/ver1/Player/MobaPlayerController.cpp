@@ -89,6 +89,7 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(PlaceWardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnPlaceWard);
 		EnhancedInput->BindAction(UsePotionAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnUsePotion);
 		EnhancedInput->BindAction(PlaceControlWardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnPlaceControlWard);
+		EnhancedInput->BindAction(UseHeraldEyeAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnUseHeraldEye);
 		EnhancedInput->BindAction(RecallAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnRecall);
 		EnhancedInput->BindAction(ShopAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnToggleShop);
 		EnhancedInput->BindAction(GameMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnToggleGameMenu);
@@ -121,6 +122,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	PlaceWardAction = NewObject<UInputAction>(this, TEXT("IA_PlaceWard"));
 	UsePotionAction = NewObject<UInputAction>(this, TEXT("IA_UsePotion"));
 	PlaceControlWardAction = NewObject<UInputAction>(this, TEXT("IA_PlaceControlWard"));
+	UseHeraldEyeAction = NewObject<UInputAction>(this, TEXT("IA_UseHeraldEye"));
 	RecallAction = NewObject<UInputAction>(this, TEXT("IA_Recall"));
 	ShopAction = NewObject<UInputAction>(this, TEXT("IA_Shop"));
 	ScoreboardAction = NewObject<UInputAction>(this, TEXT("IA_Scoreboard"));
@@ -146,6 +148,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	DefaultMappingContext->MapKey(PlaceWardAction, EKeys::Four);
 	DefaultMappingContext->MapKey(UsePotionAction, EKeys::One);
 	DefaultMappingContext->MapKey(PlaceControlWardAction, EKeys::Three);
+	DefaultMappingContext->MapKey(UseHeraldEyeAction, EKeys::Two);
 	DefaultMappingContext->MapKey(RecallAction, EKeys::B);
 	DefaultMappingContext->MapKey(ShopAction, EKeys::P);
 	DefaultMappingContext->MapKey(ScoreboardAction, EKeys::Tab);
@@ -326,6 +329,12 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		{
 			MobaCharacter->PlaceControlWard(DebugCastLocation);
 		}
+	}
+
+	if (bDebugUseHeraldEye)
+	{
+		bDebugUseHeraldEye = false;
+		OnUseHeraldEye();
 	}
 
 	if (bDebugUsePotion)
@@ -686,6 +695,14 @@ void AMobaPlayerController::OnPlaceControlWard()
 	if (MobaCharacter && GetCursorGroundLocation(GroundLocation))
 	{
 		MobaCharacter->PlaceControlWard(GroundLocation);
+	}
+}
+
+void AMobaPlayerController::OnUseHeraldEye()
+{
+	if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
+	{
+		MobaCharacter->UseHeraldEye();
 	}
 }
 

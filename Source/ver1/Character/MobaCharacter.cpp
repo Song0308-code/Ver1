@@ -643,6 +643,27 @@ FVector AMobaCharacter::ClampWardLocation(const FVector& Location) const
 	return Feet + Offset.GetClampedToMaxSize(WardPlaceRange);
 }
 
+void AMobaCharacter::UseHeraldEye()
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	if (CanAct() && MobaPlayerState && GameState && MobaPlayerState->GetHeraldEyeExpireServerTime() > GameState->GetServerWorldTimeSeconds())
+	{
+		ServerUseHeraldEye();
+	}
+}
+
+void AMobaCharacter::ServerUseHeraldEye_Implementation()
+{
+	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
+	{
+		if (CanAct())
+		{
+			GameMode->SummonHerald(this);
+		}
+	}
+}
+
 void AMobaCharacter::PlaceControlWard(const FVector& Location)
 {
 	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();

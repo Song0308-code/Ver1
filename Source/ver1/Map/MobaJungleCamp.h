@@ -17,6 +17,9 @@ struct FMobaCampDefinition
 	/** 전멸한 뒤 다시 나오기까지의 시간(초). */
 	float RespawnTime = 135.0f;
 
+	/** 0보다 크면 이 시각(경기 시간)부터는 더 나오지 않고, 살아 있던 몬스터도 사라진다. */
+	float DespawnTime = 0.0f;
+
 	TArray<FMobaMonsterConfig> Monsters;
 };
 
@@ -41,6 +44,9 @@ public:
 
 	/** 몬스터가 한 마리라도 살아 있는지. */
 	bool IsAlive() const { return AliveCount > 0; }
+
+	/** 사라지는 시각이 지나 더는 나오지 않는지. */
+	bool IsExpired() const { return bExpired; }
 
 	/** 다음 몬스터가 나오기까지 남은 시간(초). 살아 있거나 경기 시작 전이면 0. */
 	float GetSecondsUntilSpawn() const;
@@ -76,6 +82,12 @@ protected:
 
 	UPROPERTY(Replicated)
 	int32 AliveCount = 0;
+
+	UPROPERTY(Replicated)
+	bool bExpired = false;
+
+	/** 서버 전용. 지금 살아 있는 이 캠프의 몬스터. 사라지는 시각에 지운다. */
+	TArray<TWeakObjectPtr<AMobaMonster>> SpawnedMonsters;
 
 #if WITH_EDITORONLY_DATA
 	/** 에디터 자동 검증용. 켜면 기다리지 않고 바로 내보낸다. */

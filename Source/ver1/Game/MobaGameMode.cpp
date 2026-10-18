@@ -102,6 +102,23 @@ AMobaGameMode::AMobaGameMode()
 	SuperMinion.MeshScale = 0.85f;
 	SuperMinion.Animations = MinionAnimations;
 	SuperMinion.Animations.LocomotionSpeedScale = 1.1f;
+
+	// 전령: 체력이 많고 건물에 큰 피해를 주는 느린 공성 유닛.
+	HeraldMinion.Stats.MaxHealth = 3000.0f;
+	HeraldMinion.Stats.MaxMana = 0.0f;
+	HeraldMinion.Stats.AttackDamage = 400.0f;
+	HeraldMinion.Stats.Armor = 40.0f;
+	HeraldMinion.Stats.MagicResist = 40.0f;
+	HeraldMinion.Stats.AttackSpeed = 0.5f;
+	HeraldMinion.Stats.MoveSpeed = 300.0f;
+	HeraldMinion.Stats.AttackRange = 220.0f;
+	HeraldMinion.bRanged = false;
+	HeraldMinion.GoldReward = 100.0f;
+	HeraldMinion.ExperienceReward = 100.0f;
+	HeraldMinion.Mesh = TSoftObjectPtr<USkeletalMesh>(Manny);
+	HeraldMinion.MeshScale = 1.25f;
+	HeraldMinion.Animations = MinionAnimations;
+	HeraldMinion.Animations.LocomotionSpeedScale = 0.9f;
 }
 
 void AMobaGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -516,6 +533,7 @@ const FMobaMinionConfig& AMobaGameMode::GetMinionConfig(EMobaMinionType Type) co
 	{
 	case EMobaMinionType::Caster: return CasterMinion;
 	case EMobaMinionType::Super: return SuperMinion;
+	case EMobaMinionType::Herald: return HeraldMinion;
 	default: return MeleeMinion;
 	}
 }
@@ -547,6 +565,54 @@ void AMobaGameMode::SpawnMinion(AMobaLanePath* LanePath, EMobaTeam Team, EMobaMi
 		Minion->InitMinion(Team, Type, LanePath, Config);
 		Minion->FinishSpawning(SpawnTransform);
 	}
+}
+
+bool AMobaGameMode::SummonHerald(AMobaCharacter* Summoner)
+{
+	AMobaPlayerState* SummonerState = Summoner ? Summoner->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!SummonerState || !GameState || !MinionClass || Summoner->IsDead() || MobaCombat::IsMatchOver(this)
+		|| SummonerState->GetHeraldEyeExpireServerTime() <= GameState->GetServerWorldTimeSeconds())
+	{
+		return false;
+	}
+
+	// 가장 가까운 라인을 고르고, 그 라인 위의 가장 가까운 지점에 내보낸다.
+	AMobaLanePath* BestLane = nullptr;
+	float BestDistance = TNumericLimits<float>::Max();
+	FVector BestPoint = FVector::ZeroVector;
+	for (TActorIterator<AMobaLanePath> It(GetWorld()); It; ++It)
+	{
+		const USplineComponent* Spline = It->GetSpline();
+		const FVector Point = Spline->FindLocationClosestToWorldLocation(Summoner->GetActorLocation(), ESplineCoordinateSpace::World);
+		const float Distance = FVector::Dist2D(Point, Summoner->GetActorLocation());
+		if (Distance < BestDistance)
+		{
+			BestDistance = Distance;
+			BestLane = *It;
+			BestPoint = Point;
+		}
+	}
+
+	// 라인에서 너무 멀면(정글 깊숙이) 쓰지 못한다.
+	if (!BestLane || BestDistance > 1500.0f)
+	{
+		return false;
+	}
+
+	const FTransform SpawnTransform(Summoner->GetActorRotation(), BestPoint + FVector(0.0, 0.0, 120.0));
+	AMobaMinion* Herald = GetWorld()->SpawnActorDeferred<AMobaMinion>(MinionClass, SpawnTransform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
+	if (!Herald)
+	{
+		return false;
+	}
+
+	Herald->InitMinion(Summoner->GetTeam(), EMobaMinionType::Herald, BestLane, HeraldMinion);
+	Herald->FinishSpawning(SpawnTransform);
+	Herald->SetLifeSpan(SummonedHeraldLifetime);
+
+	SummonerState->SetHeraldEyeExpireServerTime(0.0f);
+	Announce(FString::Printf(TEXT("%s 팀이 협곡의 전령을 소환했습니다"), *MobaTeam::GetTeamDisplayName(Summoner->GetTeam())), Summoner->GetTeam());
+	return true;
 }
 
 void AMobaGameMode::GrantPassiveGold()
@@ -594,7 +660,10 @@ void AMobaGameMode::HandleMinionKilled(AMobaMinion* Minion, AActor* Killer)
 	if (AMobaPlayerState* KillerState = KillerChampion ? KillerChampion->GetPlayerState<AMobaPlayerState>() : nullptr)
 	{
 		KillerState->AddGold(Minion->GetConfig().GoldReward);
-		KillerState->AddMinionKill();
+		if (Minion->GetMinionType() != EMobaMinionType::Herald)
+		{
+			KillerState->AddMinionKill();
+		}
 	}
 
 	// 경험치는 근처에 살아 있는 적 챔피언들이 똑같이 나눠 받는다.
@@ -664,11 +733,18 @@ void AMobaGameMode::HandleCampCleared(AMobaJungleCamp* Camp, AActor* Killer)
 		GrantGoldToTeam(Team, BaronTeamGold);
 		break;
 
+	case EMobaCampType::Herald:
+		if (AMobaPlayerState* KillerState = KillerChampion->GetPlayerState<AMobaPlayerState>())
+		{
+			KillerState->SetHeraldEyeExpireServerTime(static_cast<float>(GameState->GetServerWorldTimeSeconds()) + HeraldEyeDuration);
+		}
+		break;
+
 	default:
 		break;
 	}
 
-	if (Camp->GetCampType() == EMobaCampType::Dragon || Camp->GetCampType() == EMobaCampType::Baron)
+	if (Camp->GetCampType() == EMobaCampType::Dragon || Camp->GetCampType() == EMobaCampType::Baron || Camp->GetCampType() == EMobaCampType::Herald)
 	{
 		Announce(FString::Printf(TEXT("%s 팀이 %s 처치"), *MobaTeam::GetTeamDisplayName(Team), *AMobaJungleCamp::GetDefinition(Camp->GetCampType()).DisplayName), Team);
 	}

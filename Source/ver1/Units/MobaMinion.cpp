@@ -179,6 +179,10 @@ void AMobaMinion::ApplyAppearance()
 	{
 		Scale = FVector(0.9f, 0.9f, 1.2f);
 	}
+	else if (MinionType == EMobaMinionType::Herald)
+	{
+		Scale = FVector(1.3f, 1.3f, 1.4f);
+	}
 	PlaceholderMesh->SetRelativeScale3D(Scale);
 
 	const FLinearColor TeamColor = MobaTeam::GetTeamColor(Team);
@@ -236,6 +240,12 @@ AActor* AMobaMinion::FindBestTarget() const
 
 	for (AActor* Enemy : Enemies)
 	{
+		// 전령은 건물만 노린다.
+		if (MinionType == EMobaMinionType::Herald && (Enemy->IsA<AMobaMinion>() || Enemy->IsA<AMobaCharacter>()))
+		{
+			continue;
+		}
+
 		const int32 Priority = Enemy->IsA<AMobaMinion>() ? 0 : (Enemy->IsA<AMobaCharacter>() ? 1 : 2);
 		const float Distance = MobaCombat::GetDistanceToTargetEdge(this, Enemy);
 		if (Priority < BestPriority || (Priority == BestPriority && Distance < BestDistance))
@@ -273,7 +283,7 @@ void AMobaMinion::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, fl
 	// 적 챔피언이 근처의 아군 챔피언을 공격하면 그 적을 노린다.
 	const AMobaCharacter* VictimChampion = Cast<AMobaCharacter>(Victim);
 	AMobaCharacter* AttackerChampion = Cast<AMobaCharacter>(DamageInstigator);
-	if (!bActing || !VictimChampion || !AttackerChampion || VictimChampion->GetTeam() != Team)
+	if (!bActing || !VictimChampion || !AttackerChampion || VictimChampion->GetTeam() != Team || MinionType == EMobaMinionType::Herald)
 	{
 		return;
 	}

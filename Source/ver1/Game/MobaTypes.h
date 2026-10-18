@@ -63,7 +63,10 @@ enum class EMobaMinionType : uint8
 	Caster,
 
 	/** 적 억제기가 파괴된 라인에 나오는 강한 미니언. */
-	Super
+	Super,
+
+	/** 전령의 눈으로 소환한 협곡의 전령. 라인을 따라가며 건물만 공격한다. */
+	Herald
 };
 
 UENUM(BlueprintType)
@@ -77,7 +80,10 @@ enum class EMobaCampType : uint8
 	Krugs,
 	Scuttle,
 	Dragon,
-	Baron
+	Baron,
+
+	/** 협곡의 전령. 정해진 시각까지만 나온다. */
+	Herald
 };
 
 /** 스킬을 쓸 때 무엇을 지정해야 하는지. */

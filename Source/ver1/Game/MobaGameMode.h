@@ -72,6 +72,9 @@ public:
 	/** 미니언 종류별 수치와 외형. 클라이언트는 외형을 고를 때 클래스 기본값에서 읽는다. */
 	const FMobaMinionConfig& GetMinionConfig(EMobaMinionType Type) const;
 
+	/** 서버 전용. Summoner가 전령의 눈을 써서 가장 가까운 라인에 아군 전령을 소환한다. 성공하면 true. */
+	bool SummonHerald(class AMobaCharacter* Summoner);
+
 	/** 챔피언이 죽었을 때 서버에서 호출된다. 전적을 기록하고 부활을 예약한다. */
 	void HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer);
 
@@ -191,6 +194,18 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Minions")
 	FMobaMinionConfig SuperMinion;
+
+	/** 전령의 눈으로 소환하는 협곡의 전령. */
+	UPROPERTY(EditDefaultsOnly, Category = "Minions")
+	FMobaMinionConfig HeraldMinion;
+
+	/** 전령의 눈을 들고 있을 수 있는 시간(초). */
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float HeraldEyeDuration = 240.0f;
+
+	/** 소환된 전령이 살아 있는 시간(초). */
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float SummonedHeraldLifetime = 90.0f;
 
 	/** 경기 시작 후 첫 웨이브까지의 시간(초). */
 	UPROPERTY(EditAnywhere, Category = "Minions")

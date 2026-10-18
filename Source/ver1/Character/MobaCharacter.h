@@ -88,6 +88,9 @@ public:
 	/** 물약으로 아직 회복할 양. 0보다 크면 마시는 중이다. */
 	float GetPotionHealRemaining() const { return PotionHealRemaining; }
 
+	/** 조종하는 클라이언트 또는 서버에서 호출한다. 전령의 눈을 써서 가까운 라인에 아군 전령을 소환한다. */
+	void UseHeraldEye();
+
 	/** 조종하는 클라이언트 또는 서버에서 호출한다. 제어 와드를 놓는다. 이미 놓은 것이 있으면 그것은 사라진다. */
 	void PlaceControlWard(const FVector& Location);
 
@@ -183,6 +186,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerPlaceControlWard(FVector_NetQuantize Location);
+
+	UFUNCTION(Server, Reliable)
+	void ServerUseHeraldEye();
 
 	/** 놓을 위치를 놓을 수 있는 거리 안의 발밑 높이로 맞춘다. */
 	FVector ClampWardLocation(const FVector& Location) const;

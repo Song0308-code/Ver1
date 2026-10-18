@@ -76,6 +76,10 @@ public:
 	/** 서버 전용. */
 	void SetPotions(int32 NewPotions) { Potions = NewPotions; }
 
+	/** 전령의 눈이 사라지는 서버 시각. 0이면 없다. */
+	float GetHeraldEyeExpireServerTime() const { return HeraldEyeExpireServerTime; }
+	void SetHeraldEyeExpireServerTime(float NewTime) { HeraldEyeExpireServerTime = NewTime; }
+
 	/** 들고 있는 제어 와드 수. */
 	int32 GetControlWards() const { return ControlWards; }
 	void SetControlWards(int32 NewCount) { ControlWards = NewCount; }
@@ -199,6 +203,9 @@ protected:
 
 	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")
 	int32 ControlWards = 0;
+
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")
+	float HeraldEyeExpireServerTime = 0.0f;
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	int32 MinionKills = 0;
