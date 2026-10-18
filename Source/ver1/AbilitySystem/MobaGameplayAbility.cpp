@@ -19,7 +19,9 @@ UMobaGameplayAbility::UMobaGameplayAbility()
 bool UMobaGameplayAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
 	// 아직 한 번도 찍지 않은 스킬은 쓸 수 없다.
-	return GetAbilityLevel(Handle, ActorInfo) >= 1 && Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags);
+	const UAbilitySystemComponent* AbilitySystem = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;
+	return GetAbilityLevel(Handle, ActorInfo) >= 1 && !IsBlockedByCrowdControl(AbilitySystem)
+		&& Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags);
 }
 
 bool UMobaGameplayAbility::CanLevelUp(int32 CurrentLevel, int32 ChampionLevel) const
@@ -121,6 +123,21 @@ void UMobaGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	}
 
 	ExecuteCast(Caster, TargetLocation);
+}
+
+bool UMobaGameplayAbility::IsBlockedByCrowdControl(const UAbilitySystemComponent* AbilitySystem) const
+{
+	if (!AbilitySystem)
+	{
+		return false;
+	}
+
+	// 소환사 주문은 침묵에 막히지 않는다(점멸은 속박에는 막힌다).
+	if (!bSummonerSpell && AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Silenced))
+	{
+		return true;
+	}
+	return bMovementAbility && AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Rooted);
 }
 
 float UMobaGameplayAbility::GetEffectiveCooldown(const UAbilitySystemComponent* AbilitySystem) const

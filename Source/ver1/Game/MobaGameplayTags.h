@@ -9,6 +9,15 @@ namespace MobaTags
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Slowed);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Hasted);
 
+	/** 속박: 움직일 수 없고 돌진·순간이동 스킬도 못 쓴다. 공격과 다른 스킬은 된다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Rooted);
+
+	/** 침묵: 스킬을 못 쓴다. 이동·공격·소환사 주문은 된다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Silenced);
+
+	/** 에어본: 공중에 떠 있는 동안 아무것도 못 한다. 함께 State_Stunned가 붙어 기절처럼 막힌다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Airborne);
+
 	/** 기본 공격 피해 스펙에 붙는다. 생명력 흡수처럼 기본 공격에만 걸리는 효과가 본다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Damage_BasicAttack);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Invulnerable);

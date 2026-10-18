@@ -117,6 +117,21 @@ FGameplayEffectSpecHandle MobaAbility::MakeStunSpec(UAbilitySystemComponent* Sou
 	return Spec;
 }
 
+FGameplayEffectSpecHandle MobaAbility::MakeCrowdControlSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, const FGameplayTag& StateTag)
+{
+	const FGameplayEffectSpecHandle Spec = MakeSpec(Source, Instigator, UMobaTimedTagEffect::StaticClass());
+	if (Spec.IsValid())
+	{
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Duration, Duration);
+		Spec.Data->DynamicGrantedTags.AddTag(StateTag);
+		if (StateTag == MobaTags::State_Airborne)
+		{
+			Spec.Data->DynamicGrantedTags.AddTag(MobaTags::State_Stunned);
+		}
+	}
+	return Spec;
+}
+
 void MobaAbility::ApplySpecToTarget(const FGameplayEffectSpecHandle& Spec, AActor* Target)
 {
 	UAbilitySystemComponent* TargetAbilitySystem = MobaCombat::GetAbilitySystem(Target);

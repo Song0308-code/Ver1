@@ -105,6 +105,7 @@ UMobaAbility_Blink::UMobaAbility_Blink()
 	CastRange = 450.0f;
 	ManaCost = 60.0f;
 	CooldownDuration = 10.0f;
+	bMovementAbility = true;
 }
 
 bool UMobaAbility_Blink::ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const
@@ -208,10 +209,22 @@ void UMobaAbility_GroundAoE::Detonate(FVector Location)
 				MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatModSpec(AbilitySystem, Caster, SlowDuration, SlowMoveSpeedMultiplier, 1.0f, MobaTags::State_Slowed), Enemy);
 			}
 
-			// 이 피해로 죽은 대상에게는 기절을 남기지 않는다.
-			if (StunDuration > 0.0f && !MobaCombat::IsDead(Enemy))
+			// 이 피해로 죽은 대상에게는 기절 등을 남기지 않는다.
+			if (MobaCombat::IsDead(Enemy))
+			{
+				continue;
+			}
+			if (StunDuration > 0.0f)
 			{
 				MobaAbility::ApplySpecToTarget(MobaAbility::MakeStunSpec(AbilitySystem, Caster, StunDuration), Enemy);
+			}
+			if (AirborneDuration > 0.0f)
+			{
+				MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(AbilitySystem, Caster, AirborneDuration, MobaTags::State_Airborne), Enemy);
+			}
+			if (RootDuration > 0.0f)
+			{
+				MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(AbilitySystem, Caster, RootDuration, MobaTags::State_Rooted), Enemy);
 			}
 		}
 	}
@@ -225,11 +238,12 @@ void UMobaAbility_GroundAoE::Detonate(FVector Location)
 UMobaAbility_DashStrike::UMobaAbility_DashStrike()
 {
 	DisplayName = NSLOCTEXT("Moba", "DashStrikeName", "돌진 베기");
-	Description = NSLOCTEXT("Moba", "DashStrikeDesc", "커서 쪽으로 돌진해 도착 지점 주변의 적에게 물리 피해를 줍니다.");
+	Description = NSLOCTEXT("Moba", "DashStrikeDesc", "커서 쪽으로 돌진해 도착 지점 주변의 적에게 물리 피해를 주고 0.75초 동안 침묵시킵니다.");
 	TargetingMode = EMobaTargetingMode::Location;
 	CastRange = 450.0f;
 	ManaCost = 45.0f;
 	CooldownDuration = 7.0f;
+	SilenceDuration = 0.75f;
 }
 
 void UMobaAbility_DashStrike::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
@@ -249,6 +263,10 @@ void UMobaAbility_DashStrike::ExecuteCast(AMobaCharacter* Caster, const FVector&
 	for (AActor* Enemy : Enemies)
 	{
 		MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(AbilitySystem, Caster, Damage, 0.0f, 0.0f), Enemy);
+		if (SilenceDuration > 0.0f && !MobaCombat::IsDead(Enemy))
+		{
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(AbilitySystem, Caster, SilenceDuration, MobaTags::State_Silenced), Enemy);
+		}
 	}
 
 	FinishCast();
@@ -286,7 +304,7 @@ void UMobaAbility_SelfHeal::ExecuteCast(AMobaCharacter* Caster, const FVector& T
 UMobaAbility_GroundSlam::UMobaAbility_GroundSlam()
 {
 	DisplayName = NSLOCTEXT("Moba", "GroundSlamName", "지면 강타");
-	Description = NSLOCTEXT("Moba", "GroundSlamDesc", "주변의 적에게 물리 피해를 주고 1.5초 동안 40% 둔화시킵니다.");
+	Description = NSLOCTEXT("Moba", "GroundSlamDesc", "주변의 적에게 물리 피해를 주고 0.75초 동안 공중에 띄웁니다.");
 	TargetingMode = EMobaTargetingMode::None;
 	CastRange = 0.0f;
 	ManaCost = 50.0f;
@@ -301,8 +319,9 @@ UMobaAbility_GroundSlam::UMobaAbility_GroundSlam()
 	AttackDamageRatio = 0.5f;
 	bPhysicalDamage = true;
 	StunDuration = 0.0f;
-	SlowMoveSpeedMultiplier = 0.6f;
-	SlowDuration = 1.5f;
+	AirborneDuration = 0.75f;
+	SlowMoveSpeedMultiplier = 1.0f;
+	SlowDuration = 0.0f;
 }
 
 UMobaAbility_Frenzy::UMobaAbility_Frenzy()
@@ -340,7 +359,7 @@ UMobaAbility_ArcaneBolt::UMobaAbility_ArcaneBolt()
 UMobaAbility_GravityField::UMobaAbility_GravityField()
 {
 	DisplayName = NSLOCTEXT("Moba", "GravityFieldName", "중력장");
-	Description = NSLOCTEXT("Moba", "GravityFieldDesc", "지정한 곳에 잠시 뒤 중력장이 생겨 범위 안의 적에게 마법 피해를 주고 2초 동안 50% 둔화시킵니다.");
+	Description = NSLOCTEXT("Moba", "GravityFieldDesc", "지정한 곳에 잠시 뒤 중력장이 생겨 범위 안의 적에게 마법 피해를 주고 1.25초 동안 속박합니다.");
 	CastRange = 850.0f;
 	ManaCost = 70.0f;
 	CooldownDuration = 11.0f;
@@ -352,8 +371,9 @@ UMobaAbility_GravityField::UMobaAbility_GravityField()
 	DamagePerLevel = 40.0f;
 	AbilityPowerRatio = 0.5f;
 	StunDuration = 0.0f;
-	SlowMoveSpeedMultiplier = 0.5f;
-	SlowDuration = 2.0f;
+	RootDuration = 1.25f;
+	SlowMoveSpeedMultiplier = 1.0f;
+	SlowDuration = 0.0f;
 }
 
 UMobaAbility_PhaseShift::UMobaAbility_PhaseShift()

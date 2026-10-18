@@ -132,6 +132,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Stun")
 	float StunDuration = 1.5f;
 
+	/** 0보다 크면 맞은 적을 이 시간 동안 띄운다(에어본). */
+	UPROPERTY(EditDefaultsOnly, Category = "Stun")
+	float AirborneDuration = 0.0f;
+
+	/** 0보다 크면 맞은 적을 이 시간 동안 속박한다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Stun")
+	float RootDuration = 0.0f;
+
 	/** 1보다 작으면 맞은 적을 둔화시킨다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Slow")
 	float SlowMoveSpeedMultiplier = 1.0f;
@@ -167,6 +175,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Damage")
 	float AttackDamageRatio = 0.8f;
+
+	/** 0보다 크면 맞은 적을 이 시간 동안 침묵시킨다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Stun")
+	float SilenceDuration = 0.0f;
 };
 
 /** 즉시 발동. 자신의 체력을 회복한다. 잃은 체력이 많을수록 더 많이 회복한다. */

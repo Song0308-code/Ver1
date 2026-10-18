@@ -579,7 +579,7 @@ void AMobaPlayerController::IssueAttack(AActor* Target)
 void AMobaPlayerController::IssueMoveTo(const FVector& WorldLocation)
 {
 	const AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>();
-	if (!MobaCharacter || !MobaCharacter->CanAct())
+	if (!MobaCharacter || !MobaCharacter->CanMove())
 	{
 		return;
 	}

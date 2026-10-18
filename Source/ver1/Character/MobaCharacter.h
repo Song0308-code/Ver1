@@ -52,6 +52,12 @@ public:
 	/** 죽지도 기절하지도 않아 명령을 받을 수 있는 상태인지. */
 	bool CanAct() const { return !IsDead() && !IsStunned(); }
 
+	/** 속박 중인지. 속박은 이동만 막는다. */
+	bool IsRooted() const;
+
+	/** 지금 움직일 수 있는지(행동 가능하고 속박되지 않음). */
+	bool CanMove() const { return CanAct() && !IsRooted(); }
+
 	/** 서버 전용. 체력과 마나를 채우고 지정한 위치에서 되살린다. */
 	void Respawn(const FVector& Location, const FRotator& Rotation);
 

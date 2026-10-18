@@ -6,6 +6,9 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Stunned, "State.Stunned", "기절. 이동·공격·스킬 사용이 불가능하다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Slowed, "State.Slowed", "이동 속도 감소 중.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Hasted, "State.Hasted", "이동·공격 속도 증가 중.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Rooted, "State.Rooted", "속박. 이동과 이동 스킬만 막힌다.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Silenced, "State.Silenced", "침묵. 스킬만 막힌다.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Airborne, "State.Airborne", "에어본. 기절과 같이 모든 행동이 막힌다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Damage_BasicAttack, "Damage.BasicAttack", "기본 공격으로 준 피해.");
 
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Invulnerable, "State.Invulnerable", "무적. 공격 대상이 되지 않는다. 앞선 건물이 남아 있는 건물에 붙는다.");

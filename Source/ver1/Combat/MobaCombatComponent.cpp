@@ -324,6 +324,13 @@ void UMobaCombatComponent::UpdateChase(AController* Controller)
 	const float Range = GetAttackRange();
 	const float Distance = MobaCombat::GetDistanceToTargetEdge(GetOwner(), AttackTarget);
 
+	// 속박 중에는 사거리 안의 대상만 공격하고 쫓아가지는 않는다. 대상은 유지한다.
+	if (Distance > Range && OwnerAbilitySystem && OwnerAbilitySystem->HasMatchingGameplayTag(MobaTags::State_Rooted))
+	{
+		bChasing = false;
+		return;
+	}
+
 	// 자동으로 잡은 대상은 사거리를 벗어나면 쫓아가지 않고 놓는다. 부쉬나 벽 뒤로 사라진 대상도 놓는다.
 	if ((bTargetAutoAcquired && Distance > Range) || !CanSeeTarget(AttackTarget))
 	{

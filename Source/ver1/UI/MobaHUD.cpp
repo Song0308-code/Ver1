@@ -238,6 +238,33 @@ void AMobaHUD::DrawChampionBars()
 		const bool bIsLocal = Character == LocalCharacter;
 
 		DrawUnitBar(AbilitySystem, BarLocation, ChampionBarSize, GetRelationColor(Character->GetTeam(), bIsLocal), bIsLocal, LevelLabel);
+
+		// 걸린 군중 제어를 체력바 위에 적는다. 여러 개면 가장 강한 것 하나만.
+		const TCHAR* Status = nullptr;
+		if (AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Airborne))
+		{
+			Status = TEXT("공중에 뜸");
+		}
+		else if (AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Stunned))
+		{
+			Status = TEXT("기절");
+		}
+		else if (AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Rooted))
+		{
+			Status = TEXT("속박");
+		}
+		else if (AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Silenced))
+		{
+			Status = TEXT("침묵");
+		}
+		if (Status)
+		{
+			const FVector ScreenLocation = Project(BarLocation);
+			if (ScreenLocation.Z > 0.0)
+			{
+				DrawCenteredText(Status, FLinearColor(1.0f, 0.85f, 0.3f), ScreenLocation.X, ScreenLocation.Y - ChampionBarSize.Y - 20.0f, GEngine->GetSmallFont(), 1.1f);
+			}
+		}
 	}
 }
 

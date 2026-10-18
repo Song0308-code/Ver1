@@ -42,6 +42,9 @@ public:
 	/** 현재 CurrentLevel단계인 이 스킬을 챔피언 레벨 ChampionLevel에서 한 단계 올릴 수 있는지. */
 	bool CanLevelUp(int32 CurrentLevel, int32 ChampionLevel) const;
 
+	/** 지금 걸린 군중 제어(침묵, 이동 스킬이면 속박) 때문에 쓸 수 없는지. 기절·사망은 ActivationBlockedTags가 막는다. */
+	bool IsBlockedByCrowdControl(const UAbilitySystemComponent* AbilitySystem) const;
+
 	/** 이 스킬을 AbilitySystem이 쓸 때의 실제 재사용 대기 시간(스킬 가속, 블루 버프 반영). */
 	float GetEffectiveCooldown(const UAbilitySystemComponent* AbilitySystem) const;
 
@@ -88,6 +91,10 @@ protected:
 	/** 궁극기는 챔피언 레벨 6, 11, 16에서만 한 단계씩 올릴 수 있다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Skill")
 	bool bUltimate = false;
+
+	/** 돌진·순간이동처럼 시전자를 옮기는 스킬. 속박 중에는 쓸 수 없다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Skill")
+	bool bMovementAbility = false;
 
 	/** 소환사 주문은 1단계로 주어지고 스킬 포인트로 올릴 수 없다. 패시브의 "스킬을 쓰면" 효과도 일으키지 않는다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Skill")

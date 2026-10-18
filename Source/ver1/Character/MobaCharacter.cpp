@@ -207,6 +207,12 @@ bool AMobaCharacter::IsDead() const
 	return AbilitySystem && AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Dead);
 }
 
+bool AMobaCharacter::IsRooted() const
+{
+	const UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	return AbilitySystem && AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Rooted);
+}
+
 bool AMobaCharacter::IsStunned() const
 {
 	const UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
@@ -274,6 +280,7 @@ void AMobaCharacter::InitAbilitySystem()
 
 	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Dead, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaCharacter::HandleDeadTagChanged);
 	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Stunned, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaCharacter::HandleStunnedTagChanged);
+	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Rooted, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaCharacter::HandleStunnedTagChanged);
 	AttributeSet->OnMoveSpeedChanged.AddUObject(this, &AMobaCharacter::HandleMoveSpeedChanged);
 
 	if (HasAuthority())
@@ -404,7 +411,7 @@ void AMobaCharacter::ApplyDeadState(bool bDead)
 void AMobaCharacter::UpdateMovementLock()
 {
 	UCharacterMovementComponent* Movement = GetCharacterMovement();
-	if (!CanAct())
+	if (!CanMove())
 	{
 		if (IsLocallyControlled() && GetController())
 		{
@@ -486,6 +493,7 @@ bool AMobaCharacter::CanCastLocally(EMobaAbilitySlot Slot) const
 	float Remaining = 0.0f;
 	float Duration = 0.0f;
 	return Ability && AbilitySystem && GetAbilityLevel(Slot) >= 1
+		&& !Ability->IsBlockedByCrowdControl(AbilitySystem)
 		&& !GetCooldownRemaining(Slot, Remaining, Duration)
 		&& AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetManaAttribute()) >= Ability->GetManaCost();
 }

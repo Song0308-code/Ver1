@@ -27,6 +27,9 @@ namespace MobaAbility
 
 	VER1_API FGameplayEffectSpecHandle MakeStunSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration);
 
+	/** Duration초 동안 상태 태그 하나를 붙이는 스펙(속박·침묵 등). 에어본은 기절 태그도 함께 붙인다. */
+	VER1_API FGameplayEffectSpecHandle MakeCrowdControlSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, const FGameplayTag& StateTag);
+
 	/** 서버 전용. 스펙이 유효하고 대상에게 능력 시스템이 있으면 적용한다. */
 	VER1_API void ApplySpecToTarget(const FGameplayEffectSpecHandle& Spec, AActor* Target);
 
