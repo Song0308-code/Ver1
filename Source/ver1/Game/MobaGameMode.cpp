@@ -221,6 +221,18 @@ void AMobaGameMode::StartPlay()
 
 void AMobaGameMode::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, float Damage)
 {
+	// 챔피언이 받은 피해는 누구에게서든 사망 요약용으로 적어 둔다.
+	if (const AMobaCharacter* HitChampion = Cast<AMobaCharacter>(Victim))
+	{
+		if (AMobaPlayerState* HitState = HitChampion->GetPlayerState<AMobaPlayerState>())
+		{
+			const double Now = GetWorld()->GetTimeSeconds();
+			TArray<FRecentHit>& Hits = RecentHitsTaken.FindOrAdd(HitState);
+			Hits.RemoveAll([Now](const FRecentHit& Hit) { return Now - Hit.Time > DeathRecapWindow; });
+			Hits.Add({ Now, DamageInstigator ? DescribeUnit(DamageInstigator) : FString(TEXT("알 수 없음")), Damage });
+		}
+	}
+
 	const AMobaCharacter* Attacker = Cast<AMobaCharacter>(DamageInstigator);
 	const AMobaCharacter* VictimChampion = Cast<AMobaCharacter>(Victim);
 	if (Attacker && VictimChampion && Attacker != VictimChampion)
@@ -1014,6 +1026,8 @@ void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)
 		Announce(FString::Printf(TEXT("%s %d연속 처치!"), *DescribeUnit(KillerPawn), KillerState->GetKillStreak()), KillerState->GetTeam());
 	}
 
+	SendDeathRecap(Victim, Killer);
+
 	FTimerHandle TimerHandle;
 	GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(Victim, [this, Victim]()
 	{
@@ -1070,6 +1084,44 @@ void AMobaGameMode::EndTowerPlating()
 	if (bAnyRemoved)
 	{
 		Announce(TEXT("포탑 방패가 사라졌습니다"), EMobaTeam::None);
+	}
+}
+
+void AMobaGameMode::SendDeathRecap(AMobaCharacter* Victim, AActor* Killer)
+{
+	AMobaPlayerState* VictimState = Victim ? Victim->GetPlayerState<AMobaPlayerState>() : nullptr;
+	AMobaPlayerController* VictimController = Victim ? Cast<AMobaPlayerController>(Victim->GetController()) : nullptr;
+	if (!VictimState)
+	{
+		return;
+	}
+
+	TArray<FMobaDeathRecapEntry> Entries;
+	if (const TArray<FRecentHit>* Hits = RecentHitsTaken.Find(VictimState))
+	{
+		const double Now = GetWorld()->GetTimeSeconds();
+		for (const FRecentHit& Hit : *Hits)
+		{
+			if (Now - Hit.Time > DeathRecapWindow)
+			{
+				continue;
+			}
+
+			FMobaDeathRecapEntry* Entry = Entries.FindByPredicate([&Hit](const FMobaDeathRecapEntry& Existing) { return Existing.Source == Hit.Source; });
+			if (!Entry)
+			{
+				Entry = &Entries.AddDefaulted_GetRef();
+				Entry->Source = Hit.Source;
+			}
+			Entry->Damage += Hit.Damage;
+		}
+	}
+	RecentHitsTaken.Remove(VictimState);
+
+	Entries.Sort([](const FMobaDeathRecapEntry& A, const FMobaDeathRecapEntry& B) { return A.Damage > B.Damage; });
+	if (VictimController)
+	{
+		VictimController->ClientShowDeathRecap(Killer ? DescribeUnit(Killer) : FString(TEXT("알 수 없음")), Entries);
 	}
 }
 

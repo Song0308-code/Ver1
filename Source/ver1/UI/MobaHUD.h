@@ -101,6 +101,9 @@ protected:
 
 	/** 유닛마다 지난 프레임의 체력. */
 	TMap<TWeakObjectPtr<AActor>, float> LastHealth;
+
+	/** 지난 프레임의 내 골드. 늘어난 만큼 "+NG"를 띄운다. 음수면 아직 모름. */
+	float LastGold = -1.0f;
 	TArray<FDamageNumber> DamageNumbers;
 
 	/** 스킬 칸 묶음(QWER)의 왼쪽 끝. 화면 가운데에 두되 오른쪽의 가방이 미니맵에 닿으면 왼쪽으로 민다. */

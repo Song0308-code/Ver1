@@ -19,6 +19,19 @@ struct FMobaPing
 	double Time = 0.0;
 };
 
+/** 사망 요약의 한 줄: 최근에 나에게 피해를 준 쪽과 그 합계. */
+USTRUCT()
+struct FMobaDeathRecapEntry
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FString Source;
+
+	UPROPERTY()
+	float Damage = 0.0f;
+};
+
 UCLASS()
 class VER1_API AMobaPlayerController : public APlayerController
 {
@@ -56,6 +69,14 @@ public:
 
 	/** 최근에 받은 핑. 오래된 것부터 들어 있다. */
 	const TArray<FMobaPing>& GetPings() const { return Pings; }
+
+	/** 마지막으로 죽었을 때의 요약. 처치한 쪽과, 최근에 피해를 준 쪽별 합계(큰 것부터). */
+	const FString& GetDeathRecapKiller() const { return DeathRecapKiller; }
+	const TArray<FMobaDeathRecapEntry>& GetDeathRecap() const { return DeathRecap; }
+
+	/** 서버에서 호출한다. 이 플레이어의 PC에 사망 요약을 보낸다. */
+	UFUNCTION(Client, Reliable)
+	void ClientShowDeathRecap(const FString& Killer, const TArray<FMobaDeathRecapEntry>& Entries);
 
 	/** 로비에서 챔피언을 바꾼다. 고른 것은 다음 경기를 위해 저장해 둔다. */
 	void RequestChampion(const FString& AssetName);
@@ -114,6 +135,9 @@ protected:
 
 	UFUNCTION(Client, Reliable)
 	void ClientShowPing(FVector_NetQuantize Location);
+
+	FString DeathRecapKiller;
+	TArray<FMobaDeathRecapEntry> DeathRecap;
 
 	bool IsAltKeyDown() const;
 

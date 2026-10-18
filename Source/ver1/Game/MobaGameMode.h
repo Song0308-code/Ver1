@@ -123,6 +123,23 @@ protected:
 	/** 이 챔피언을 처치했을 때 주는 골드. 연속 처치 중이면 늘고, 계속 죽고 있으면 준다. */
 	float GetKillBounty(const AMobaPlayerState* VictimState) const;
 
+	/** 챔피언이 최근에 받은 피해 한 건(사망 요약용). */
+	struct FRecentHit
+	{
+		double Time = 0.0;
+		FString Source;
+		float Damage = 0.0f;
+	};
+
+	/** 챔피언마다 최근 DeathRecapWindow초 동안 받은 피해. */
+	TMap<TWeakObjectPtr<AMobaPlayerState>, TArray<FRecentHit>> RecentHitsTaken;
+
+	/** 사망 요약에 넣는 기간(초). */
+	static constexpr double DeathRecapWindow = 10.0;
+
+	/** 처치당한 플레이어의 PC에 사망 요약을 보내고 기록을 비운다. */
+	void SendDeathRecap(AMobaCharacter* Victim, AActor* Killer);
+
 	/** 챔피언마다 최근에 피해를 준 상대 챔피언과 그 시각. */
 	TMap<TWeakObjectPtr<AMobaPlayerState>, TMap<TWeakObjectPtr<AMobaPlayerState>, double>> RecentChampionDamage;
 

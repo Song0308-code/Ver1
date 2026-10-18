@@ -846,6 +846,12 @@ void AMobaPlayerController::ServerRequestReady_Implementation(bool bReady)
 	}
 }
 
+void AMobaPlayerController::ClientShowDeathRecap_Implementation(const FString& Killer, const TArray<FMobaDeathRecapEntry>& Entries)
+{
+	DeathRecapKiller = Killer;
+	DeathRecap = Entries;
+}
+
 void AMobaPlayerController::ClientShowPing_Implementation(FVector_NetQuantize Location)
 {
 	if (Pings.Num() >= 8)

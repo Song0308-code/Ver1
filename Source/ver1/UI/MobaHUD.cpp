@@ -55,7 +55,6 @@ void AMobaHUD::DrawHUD()
 	DrawDamageNumbers();
 
 	DrawMatchInfo();
-	DrawRespawnCountdown();
 	DrawWaitingForPlayers();
 
 	// 경기가 끝나면 결과 화면만 보이도록 조작용 UI는 그리지 않는다.
@@ -85,6 +84,9 @@ void AMobaHUD::DrawHUD()
 	// 미니맵 위의 핑 표시가 미니맵 배경에 덮이지 않도록 미니맵 다음에 그린다.
 	DrawPings();
 	DrawAnnouncements();
+
+	// 부활 카운트다운과 사망 요약은 능력치 패널·미니맵에 가리지 않게 그 뒤에 그린다(상점은 이보다 위).
+	DrawRespawnCountdown();
 
 	bShopDrawn = false;
 	if (const AMobaCharacter* ShopCharacter = Cast<AMobaCharacter>(GetOwningPawn()))
@@ -529,6 +531,18 @@ void AMobaHUD::UpdateDamageNumbers()
 	{
 		Track(*It, It->GetAbilitySystemComponent(), 140.0f);
 	}
+
+	// 내 골드가 눈에 띄게 늘면(처치·막타·방패·판매 등) 내 챔피언 위에 띄운다. 초당 기본 골드 같은 작은 증가는 뺀다.
+	const AMobaPlayerState* LocalState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (LocalState)
+	{
+		const float Gold = LocalState->GetGold();
+		if (LastGold >= 0.0f && Gold - LastGold >= 5.0f && LocalPawn)
+		{
+			DamageNumbers.Add({ LocalPawn->GetActorLocation() + FVector(0.0, 0.0, 190.0), FString::Printf(TEXT("+%dG"), FMath::RoundToInt(Gold - LastGold)), FLinearColor(1.0f, 0.82f, 0.2f), Now });
+		}
+		LastGold = Gold;
+	}
 	for (TActorIterator<AMobaMonster> It(GetWorld()); It; ++It)
 	{
 		Track(*It, It->GetAbilitySystemComponent(), 120.0f);
@@ -827,9 +841,47 @@ void AMobaHUD::DrawRespawnCountdown()
 	}
 
 	const float Remaining = PlayerState->GetRespawnServerTime() - GameState->GetServerWorldTimeSeconds();
-	if (Remaining > 0.0f)
+	if (Remaining <= 0.0f)
 	{
-		DrawCenteredText(FString::Printf(TEXT("부활까지 %d초"), FMath::CeilToInt(Remaining)), FLinearColor::White, Canvas->ClipX * 0.5f, Canvas->ClipY * 0.3f, GEngine->GetLargeFont(), 2.0f);
+		return;
+	}
+
+	const float CenterX = Canvas->ClipX * 0.5f;
+	const float CountdownTop = Canvas->ClipY * 0.3f;
+	DrawCenteredText(FString::Printf(TEXT("부활까지 %d초"), FMath::CeilToInt(Remaining)), FLinearColor::White, CenterX, CountdownTop, GEngine->GetLargeFont(), 2.0f);
+
+	// 그 아래에 사망 요약: 처치한 쪽과 최근 10초 동안 받은 피해(많은 순 최대 5줄).
+	const AMobaPlayerController* MobaController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+	if (!MobaController || MobaController->GetDeathRecapKiller().IsEmpty())
+	{
+		return;
+	}
+
+	UFont* Font = GEngine->GetSmallFont();
+	const TArray<FMobaDeathRecapEntry>& Entries = MobaController->GetDeathRecap();
+	const int32 Lines = FMath::Min(Entries.Num(), 5);
+	const float Width = 300.0f;
+	const float LineHeight = 20.0f;
+	const float Left = CenterX - Width * 0.5f;
+	const float Top = CountdownTop + 56.0f;
+	const float Height = 60.0f + LineHeight * Lines;
+
+	float Total = 0.0f;
+	for (const FMobaDeathRecapEntry& Entry : Entries)
+	{
+		Total += Entry.Damage;
+	}
+
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.75f), Left, Top, Width, Height);
+	DrawText(FString::Printf(TEXT("처치: %s"), *MobaController->GetDeathRecapKiller()), FLinearColor(1.0f, 0.5f, 0.4f), Left + 10.0f, Top + 8.0f, Font, 1.2f);
+	DrawText(FString::Printf(TEXT("최근 10초 동안 받은 피해 %d"), FMath::RoundToInt(Total)), FLinearColor(0.75f, 0.75f, 0.8f), Left + 10.0f, Top + 30.0f, Font, 1.0f);
+	for (int32 Index = 0; Index < Lines; ++Index)
+	{
+		const float Y = Top + 52.0f + LineHeight * Index;
+		const float Fraction = Total > 0.0f ? Entries[Index].Damage / Total : 0.0f;
+		DrawRect(FLinearColor(0.55f, 0.15f, 0.12f, 0.8f), Left + 10.0f, Y + 2.0f, (Width - 20.0f) * Fraction, LineHeight - 4.0f);
+		DrawText(Entries[Index].Source, FLinearColor::White, Left + 14.0f, Y + 2.0f, Font, 1.0f);
+		DrawText(FString::FromInt(FMath::RoundToInt(Entries[Index].Damage)), FLinearColor::White, Left + Width - 50.0f, Y + 2.0f, Font, 1.0f);
 	}
 }
 
