@@ -102,7 +102,7 @@ void AMobaMinion::BeginPlay()
 	{
 		AttributeSet->InitFromBaseStats(Config.Stats);
 		AttributeSet->OnOutOfHealth.AddUObject(this, &AMobaMinion::HandleOutOfHealth);
-		GetCharacterMovement()->MaxWalkSpeed = Config.Stats.MoveSpeed;
+		MobaCombat::BindUnitMovement(this, AbilitySystemComponent, AttributeSet);
 		CombatComponent->ConfigureBasicAttack(Config.bRanged, Config.ProjectileSpeed);
 
 		if (UMobaCombatEvents* Events = UMobaCombatEvents::Get(this))

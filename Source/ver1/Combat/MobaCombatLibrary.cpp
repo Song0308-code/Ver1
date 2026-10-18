@@ -1,5 +1,8 @@
 #include "Combat/MobaCombatLibrary.h"
+#include "AbilitySystem/MobaAttributeSet.h"
 #include "AbilitySystemComponent.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "Character/MobaCharacter.h"
 #include "Engine/World.h"
@@ -77,4 +80,39 @@ float MobaCombat::GetDistanceToTargetEdge(const AActor* Source, const AActor* Ta
 {
 	const float CenterDistance = FVector::Dist2D(Source->GetActorLocation(), Target->GetActorLocation());
 	return FMath::Max(CenterDistance - Target->GetSimpleCollisionRadius(), 0.0f);
+}
+
+void MobaCombat::BindUnitMovement(ACharacter* Unit, UAbilitySystemComponent* AbilitySystem, UMobaAttributeSet* AttributeSet)
+{
+	if (!Unit || !AbilitySystem || !AttributeSet)
+	{
+		return;
+	}
+
+	UCharacterMovementComponent* Movement = Unit->GetCharacterMovement();
+	Movement->MaxWalkSpeed = AttributeSet->GetMoveSpeed();
+	AttributeSet->OnMoveSpeedChanged.AddWeakLambda(Unit, [Movement](float NewMoveSpeed)
+	{
+		Movement->MaxWalkSpeed = NewMoveSpeed;
+	});
+
+	const auto UpdateLock = [Unit, AbilitySystem, Movement](const FGameplayTag, int32)
+	{
+		const bool bLocked = AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Stunned) || AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Rooted);
+		if (bLocked)
+		{
+			if (AController* Controller = Unit->GetController())
+			{
+				Controller->StopMovement();
+			}
+			Movement->StopMovementImmediately();
+			Movement->DisableMovement();
+		}
+		else if (Movement->MovementMode == MOVE_None && !AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Dead))
+		{
+			Movement->SetMovementMode(MOVE_Walking);
+		}
+	};
+	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Stunned, EGameplayTagEventType::NewOrRemoved).AddWeakLambda(Unit, UpdateLock);
+	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Rooted, EGameplayTagEventType::NewOrRemoved).AddWeakLambda(Unit, UpdateLock);
 }
