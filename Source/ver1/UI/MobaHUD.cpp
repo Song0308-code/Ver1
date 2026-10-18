@@ -1363,7 +1363,7 @@ void AMobaHUD::DrawGameMenu()
 	// 조작 안내.
 	const TCHAR* Help[] = {
 		TEXT("우클릭 이동·공격   A+좌클릭 공격 이동"),
-		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기   D·F 소환사 주문"),
+		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기   D·F 소환사 주문   1 체력 물약"),
 		TEXT("4 와드   B 귀환   P 상점   Tab 점수판"),
 		TEXT("Y 카메라 고정   Space 내 챔피언 보기"),
 		TEXT("Alt+좌클릭 핑   미니맵 좌클릭 카메라 이동"),
@@ -1644,6 +1644,18 @@ void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
 	else
 	{
 		DrawCenteredText(TEXT("와드"), FLinearColor::White, WardLeft + WardSize * 0.5f, WardTop + WardSize * 0.5f, Font, 1.0f);
+	}
+
+	// 와드 칸 위에 물약 칸. 마시는 중이면 밝은 초록.
+	if (const AMobaPlayerState* PotionOwner = Character->GetPlayerState<AMobaPlayerState>())
+	{
+		const float PotionTop = WardTop - WardSize - 6.0f;
+		const int32 Potions = PotionOwner->GetPotions();
+		const bool bDrinking = Character->GetPotionHealRemaining() > 0.0f;
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), WardLeft - 2.0f, PotionTop - 2.0f, WardSize + 4.0f, WardSize + 4.0f);
+		DrawRect(bDrinking ? FLinearColor(0.3f, 0.75f, 0.35f) : (Potions > 0 ? FLinearColor(0.55f, 0.15f, 0.15f) : FLinearColor(0.15f, 0.1f, 0.1f)), WardLeft, PotionTop, WardSize, WardSize);
+		DrawText(TEXT("1"), FLinearColor::White, WardLeft + 4.0f, PotionTop + 2.0f, Font, 1.2f);
+		DrawCenteredText(FString::Printf(TEXT("물약 %d"), Potions), FLinearColor::White, WardLeft + WardSize * 0.5f, PotionTop + WardSize * 0.5f, Font, 0.9f);
 	}
 
 	// 가지고 있는 정글 버프를 스킬 칸 왼쪽에 적는다.

@@ -131,7 +131,8 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 		const FMobaItemDefinition& Item = Items[Index];
 		TestTrue(FString::Printf(TEXT("%s 가격"), Item.Name), Item.Cost > 0);
 		const bool bHasStat = Item.AttackDamage > 0.0f || Item.AbilityPower > 0.0f || Item.MaxHealth > 0.0f || Item.MaxMana > 0.0f
-			|| Item.Armor > 0.0f || Item.MagicResist > 0.0f || Item.MoveSpeed > 0.0f || Item.AttackSpeedFraction > 0.0f;
+			|| Item.Armor > 0.0f || Item.MagicResist > 0.0f || Item.MoveSpeed > 0.0f || Item.AttackSpeedFraction > 0.0f
+			|| Item.LifeSteal > 0.0f || Item.AbilityHaste > 0.0f || (Item.bConsumable && Item.HealAmount > 0.0f && Item.HealDuration > 0.0f);
 		TestTrue(FString::Printf(TEXT("%s 능력치"), Item.Name), bHasStat);
 		BasicCount += Item.IsBasic() ? 1 : 0;
 
@@ -148,6 +149,15 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s 조합 가격"), Item.Name), Item.IsBasic() || Item.Cost > ComponentCost);
 	}
 	TestTrue(TEXT("상점 왼쪽 열에 다 들어간다"), BasicCount <= 12);
+
+	// 소모품은 하나(체력 물약)이고 재료가 없으며 다른 아이템의 재료로 쓰이지 않는다.
+	const int32 Potion = MobaItems::GetPotionItemIndex();
+	TestTrue(TEXT("체력 물약이 있다"), Potion != INDEX_NONE);
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
+	{
+		TestFalse(FString::Printf(TEXT("%s 재료에 물약 없음"), Items[Index].Name), Items[Index].Components.Contains(Potion));
+		TestTrue(FString::Printf(TEXT("%s 소모품은 기본 아이템"), Items[Index].Name), !Items[Index].bConsumable || Items[Index].IsBasic());
+	}
 	TestTrue(TEXT("상점 오른쪽 열에 다 들어간다"), Items.Num() - BasicCount <= 10);
 	return true;
 }

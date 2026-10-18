@@ -94,6 +94,7 @@ void AMobaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AMobaCharacter, HomeLocation);
 	DOREPLIFETIME(AMobaCharacter, RecallEndServerTime);
 	DOREPLIFETIME(AMobaCharacter, PassiveStacks);
+	DOREPLIFETIME(AMobaCharacter, PotionHealRemaining);
 }
 
 void AMobaCharacter::BeginPlay()
@@ -439,6 +440,7 @@ void AMobaCharacter::Respawn(const FVector& Location, const FRotator& Rotation)
 	AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute(), AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute()));
 	AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute(), AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxManaAttribute()));
 	AbilitySystem->RemoveLooseGameplayTag(MobaTags::State_Dead, 1, EGameplayTagReplicationState::TagOnly);
+	PotionHealRemaining = 0.0f;
 
 	if (PassiveInstance)
 	{
@@ -601,6 +603,19 @@ void AMobaCharacter::TickRegen()
 	if (PassiveInstance)
 	{
 		PassiveInstance->Tick(DeltaSeconds);
+	}
+
+	// 물약 회복. 체력이 가득 차 있어도 시간은 흐른다.
+	if (PotionHealRemaining > 0.0f)
+	{
+		const float Heal = FMath::Min(PotionHealPerSecond * DeltaSeconds, PotionHealRemaining);
+		PotionHealRemaining -= Heal;
+		const float Health = AbilitySystem->GetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute());
+		AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute(), FMath::Min(Health + Heal, MaxHealth));
+		if (PotionHealRemaining < 0.01f)
+		{
+			PotionHealRemaining = 0.0f;
+		}
 	}
 
 	Regenerate(UMobaAttributeSet::GetHealthAttribute(), UMobaAttributeSet::GetMaxHealthAttribute(), Stats.HealthRegenPerSecond + BonusHealthRegen);
@@ -823,9 +838,16 @@ bool AMobaCharacter::IsInFountain() const
 bool AMobaCharacter::CanBuyItem(int32 ItemIndex) const
 {
 	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
-	if (!MobaItems::GetItem(ItemIndex) || !MobaPlayerState || !CanShop())
+	const FMobaItemDefinition* Item = MobaItems::GetItem(ItemIndex);
+	if (!Item || !MobaPlayerState || !CanShop())
 	{
 		return false;
+	}
+
+	// 소모품은 가방 칸 대신 개수로 쌓인다.
+	if (Item->bConsumable)
+	{
+		return MobaPlayerState->GetGold() >= Item->Cost && MobaPlayerState->GetPotions() < MobaItems::MaxPotions;
 	}
 
 	const FMobaPurchasePlan Plan = MobaItems::PlanPurchase(ItemIndex, MobaPlayerState->GetItems());
@@ -861,6 +883,15 @@ void AMobaCharacter::ServerBuyItem_Implementation(int32 ItemIndex)
 		return;
 	}
 
+	if (Item->bConsumable)
+	{
+		if (MobaPlayerState->SpendGold(Item->Cost))
+		{
+			MobaPlayerState->SetPotions(MobaPlayerState->GetPotions() + 1);
+		}
+		return;
+	}
+
 	const FMobaPurchasePlan Plan = MobaItems::PlanPurchase(ItemIndex, MobaPlayerState->GetItems());
 	if (!MobaPlayerState->SpendGold(Plan.Cost))
 	{
@@ -893,6 +924,31 @@ void AMobaCharacter::ServerBuyItem_Implementation(int32 ItemIndex)
 		AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute(), FMath::Clamp(OldHealth + FMath::Max(NewMaxHealth - OldMaxHealth, 0.0f), 1.0f, NewMaxHealth));
 		AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute(), FMath::Clamp(OldMana + FMath::Max(NewMaxMana - OldMaxMana, 0.0f), 0.0f, NewMaxMana));
 	}
+}
+
+void AMobaCharacter::UsePotion()
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	if (MobaPlayerState && MobaPlayerState->GetPotions() > 0 && !IsDead())
+	{
+		ServerUsePotion();
+	}
+}
+
+void AMobaCharacter::ServerUsePotion_Implementation()
+{
+	AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	const FMobaItemDefinition* Potion = MobaItems::GetItem(MobaItems::GetPotionItemIndex());
+	if (!MobaPlayerState || !Potion || MobaPlayerState->GetPotions() <= 0 || IsDead() || MobaCombat::IsMatchOver(this))
+	{
+		return;
+	}
+
+	MobaPlayerState->SetPotions(MobaPlayerState->GetPotions() - 1);
+
+	// 마시는 중에 또 마시면 남은 회복에 더해 같은 속도로 이어진다.
+	PotionHealPerSecond = Potion->HealAmount / FMath::Max(Potion->HealDuration, 0.1f);
+	PotionHealRemaining += Potion->HealAmount;
 }
 
 void AMobaCharacter::SellItem(int32 Slot)

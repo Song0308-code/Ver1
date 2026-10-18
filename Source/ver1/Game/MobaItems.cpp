@@ -75,6 +75,12 @@ namespace
 		Items[Bulwark].MagicResist = 50.0f;
 		Items[Bulwark].MaxHealth = 450.0f;
 
+		// 소모품. 가방 칸을 쓰지 않으므로 맨 뒤에 둔다(상점에서는 기본 열에 보인다).
+		const int32 Potion = Add(TEXT("체력 물약"), TEXT("15초 동안 체력 120 회복 (최대 5개, 키 1)"), 50);
+		Items[Potion].bConsumable = true;
+		Items[Potion].HealAmount = 120.0f;
+		Items[Potion].HealDuration = 15.0f;
+
 		return Items;
 	}
 
@@ -125,6 +131,19 @@ const FMobaItemDefinition* MobaItems::GetItem(int32 ItemIndex)
 {
 	const TArray<FMobaItemDefinition>& Items = GetItems();
 	return Items.IsValidIndex(ItemIndex) ? &Items[ItemIndex] : nullptr;
+}
+
+int32 MobaItems::GetPotionItemIndex()
+{
+	const TArray<FMobaItemDefinition>& Items = GetItems();
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
+	{
+		if (Items[Index].bConsumable)
+		{
+			return Index;
+		}
+	}
+	return INDEX_NONE;
 }
 
 FMobaPurchasePlan MobaItems::PlanPurchase(int32 ItemIndex, const TArray<uint8>& Owned)

@@ -82,6 +82,12 @@ public:
 	/** 해당 칸의 남은 재사용 대기 시간과 전체 시간. 대기 중이 아니면 false. */
 	bool GetCooldownRemaining(EMobaAbilitySlot Slot, float& OutRemaining, float& OutDuration) const;
 
+	/** 조종하는 클라이언트 또는 서버에서 호출한다. 체력 물약을 하나 마신다. 이미 마시는 중이면 회복이 이어진다. */
+	void UsePotion();
+
+	/** 물약으로 아직 회복할 양. 0보다 크면 마시는 중이다. */
+	float GetPotionHealRemaining() const { return PotionHealRemaining; }
+
 	/** 조종하는 클라이언트 또는 서버에서 호출한다. 지정한 위치(멀면 놓을 수 있는 거리까지)에 와드를 놓는다. */
 	void PlaceWard(const FVector& Location);
 
@@ -168,6 +174,15 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerPlaceWard(FVector_NetQuantize Location);
+
+	UFUNCTION(Server, Reliable)
+	void ServerUsePotion();
+
+	/** 물약으로 남은 회복량과 초당 회복량. 남은 양은 화면 표시용으로 복제된다. */
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")
+	float PotionHealRemaining = 0.0f;
+
+	float PotionHealPerSecond = 0.0f;
 
 	UFUNCTION(Server, Reliable)
 	void ServerBuyItem(int32 ItemIndex);

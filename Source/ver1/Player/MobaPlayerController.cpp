@@ -87,6 +87,7 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(ConfirmTargetAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnConfirmTarget);
 		EnhancedInput->BindAction(ReturnToMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnReturnToMenu);
 		EnhancedInput->BindAction(PlaceWardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnPlaceWard);
+		EnhancedInput->BindAction(UsePotionAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnUsePotion);
 		EnhancedInput->BindAction(RecallAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnRecall);
 		EnhancedInput->BindAction(ShopAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnToggleShop);
 		EnhancedInput->BindAction(GameMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnToggleGameMenu);
@@ -117,6 +118,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	ConfirmTargetAction = NewObject<UInputAction>(this, TEXT("IA_ConfirmTarget"));
 	ReturnToMenuAction = NewObject<UInputAction>(this, TEXT("IA_ReturnToMenu"));
 	PlaceWardAction = NewObject<UInputAction>(this, TEXT("IA_PlaceWard"));
+	UsePotionAction = NewObject<UInputAction>(this, TEXT("IA_UsePotion"));
 	RecallAction = NewObject<UInputAction>(this, TEXT("IA_Recall"));
 	ShopAction = NewObject<UInputAction>(this, TEXT("IA_Shop"));
 	ScoreboardAction = NewObject<UInputAction>(this, TEXT("IA_Scoreboard"));
@@ -140,6 +142,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	DefaultMappingContext->MapKey(ConfirmTargetAction, EKeys::LeftMouseButton);
 	DefaultMappingContext->MapKey(ReturnToMenuAction, EKeys::Enter);
 	DefaultMappingContext->MapKey(PlaceWardAction, EKeys::Four);
+	DefaultMappingContext->MapKey(UsePotionAction, EKeys::One);
 	DefaultMappingContext->MapKey(RecallAction, EKeys::B);
 	DefaultMappingContext->MapKey(ShopAction, EKeys::P);
 	DefaultMappingContext->MapKey(ScoreboardAction, EKeys::Tab);
@@ -311,6 +314,12 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		bDebugBuyItem = false;
 		bDebugSellItem = false;
 		bDebugRecall = false;
+	}
+
+	if (bDebugUsePotion)
+	{
+		bDebugUsePotion = false;
+		OnUsePotion();
 	}
 
 	if (bDebugPlaceWard)
@@ -654,6 +663,14 @@ void AMobaPlayerController::OnConfirmTarget()
 			bCameraLocked = false;
 			CameraRig->SetFocusLocation(MapLocation);
 		}
+	}
+}
+
+void AMobaPlayerController::OnUsePotion()
+{
+	if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
+	{
+		MobaCharacter->UsePotion();
 	}
 }
 

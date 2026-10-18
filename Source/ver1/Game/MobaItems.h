@@ -33,6 +33,11 @@ struct FMobaItemDefinition
 
 	float AbilityHaste = 0.0f;
 
+	/** 소모품은 가방 칸을 쓰지 않고 개수로 쌓인다(최대 MaxPotions). 키 1로 써서 HealAmount를 HealDuration초에 걸쳐 회복한다. */
+	bool bConsumable = false;
+	float HealAmount = 0.0f;
+	float HealDuration = 0.0f;
+
 	/** 같은 묶음 이름의 아이템은 하나만 가질 수 있다(예: 장화 계열). 비어 있으면 제한 없음. */
 	const TCHAR* UniqueGroup = TEXT("");
 
@@ -52,6 +57,12 @@ namespace MobaItems
 {
 	/** 가방 칸 수. */
 	constexpr int32 MaxInventorySlots = 6;
+
+	/** 체력 물약을 들고 있을 수 있는 최대 개수. */
+	constexpr int32 MaxPotions = 5;
+
+	/** 소모품(체력 물약)의 아이템 번호. 없으면 INDEX_NONE. */
+	VER1_API int32 GetPotionItemIndex();
 
 	/** 팔 때 돌려받는 비율. */
 	constexpr float SellRefundFraction = 0.7f;

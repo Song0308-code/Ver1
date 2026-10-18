@@ -70,6 +70,12 @@ public:
 	/** 서버 전용. 다른 칸에 같은 주문이 있으면 두 칸을 맞바꾼다. */
 	void SetSummonerSpell(int32 Index, EMobaSummonerSpell Spell);
 
+	/** 들고 있는 체력 물약 수. */
+	int32 GetPotions() const { return Potions; }
+
+	/** 서버 전용. */
+	void SetPotions(int32 NewPotions) { Potions = NewPotions; }
+
 	/** 가방에 든 아이템 번호들(MobaItems::GetItems의 인덱스). */
 	const TArray<uint8>& GetItems() const { return Items; }
 
@@ -183,6 +189,9 @@ protected:
 
 	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")
 	TArray<uint8> Items;
+
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")
+	int32 Potions = 0;
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	int32 MinionKills = 0;
