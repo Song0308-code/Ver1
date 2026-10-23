@@ -48,6 +48,10 @@ public:
 	/** 드래곤 캠프의 이번(또는 다음) 원소. 드래곤이 아니면 의미 없음. */
 	EMobaDragonElement GetDragonElement() const { return DragonElement; }
 
+	/** 서버 전용. 다음부터 장로 드래곤을 내보낸다(드래곤 캠프만). */
+	void SetElder(bool bInElder) { bElder = bInElder; }
+	bool IsElder() const { return bElder; }
+
 	/** "화염 드래곤"처럼 원소를 붙인 이름. 드래곤이 아니면 캠프 이름. */
 	FString GetDisplayName() const;
 
@@ -98,6 +102,10 @@ protected:
 	/** 드래곤 캠프의 원소. 처음에 정하고, 처치될 때마다 다음 원소를 미리 정한다(타이머 옆에 보인다). */
 	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Camp")
 	EMobaDragonElement DragonElement = EMobaDragonElement::Infernal;
+
+	/** 어느 팀이 드래곤의 영혼을 얻은 뒤에는 장로 드래곤이 나온다. */
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Camp")
+	bool bElder = false;
 
 	void PickNextDragonElement();
 

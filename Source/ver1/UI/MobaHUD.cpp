@@ -370,7 +370,7 @@ void AMobaHUD::DrawWorldTimers()
 			const FVector Screen = Project(It->GetActorLocation());
 			if (Screen.Z > 0.0)
 			{
-				DrawCenteredText(FString::Printf(TEXT("%s 드래곤"), MobaDragon::GetElementName(It->GetDragonElement())), FLinearColor(1.0f, 0.8f, 0.3f), Screen.X, Screen.Y - 28.0f, GEngine->GetSmallFont(), 1.1f);
+				DrawCenteredText(It->GetDisplayName(), FLinearColor(1.0f, 0.8f, 0.3f), Screen.X, Screen.Y - 28.0f, GEngine->GetSmallFont(), 1.1f);
 			}
 		}
 	}
@@ -1780,6 +1780,8 @@ void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
 		{ MobaTags::Buff_Dragon_Mountain, TEXT("대지 용"), FLinearColor(0.8f, 0.65f, 0.4f) },
 		{ MobaTags::Buff_Dragon_Cloud, TEXT("바람 용"), FLinearColor(0.75f, 0.9f, 1.0f) },
 		{ MobaTags::Buff_Dragon_Ocean, TEXT("바다 용"), FLinearColor(0.3f, 0.75f, 0.9f) },
+		{ MobaTags::Buff_Soul, TEXT("용의 영혼"), FLinearColor(1.0f, 0.9f, 0.5f) },
+		{ MobaTags::Buff_Elder, TEXT("장로"), FLinearColor(0.85f, 0.95f, 1.0f) },
 	};
 
 	float LabelTop = BoxTop;

@@ -63,6 +63,20 @@ public:
 	/** 서버 전용. 로비에서 소환사 주문을 바꾼다. Index 0이 D, 1이 F. */
 	void RequestSummonerSpell(APlayerController* Player, int32 Index, EMobaSummonerSpell Spell);
 
+	/** 드래곤의 영혼(마지막 원소)을 팀 전원에게 영구히 준다. */
+	void GrantDragonSoulToTeam(EMobaTeam Team, EMobaDragonElement Element);
+
+	/** 팀별로 잡은 드래곤 수(장로 제외). */
+	TMap<EMobaTeam, int32> DragonsTaken;
+
+	/** 영혼을 얻는 데 필요한 드래곤 수. */
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	int32 DragonsForSoul = 4;
+
+	/** 장로 드래곤 보상 지속 시간(초). */
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float ElderBuffDuration = 150.0f;
+
 	/** 원소 드래곤 보상을 팀 전원(죽어 있는 팀원 포함)에게 영구히 준다. */
 	void GrantDragonToTeam(EMobaTeam Team, EMobaDragonElement Element);
 

@@ -23,6 +23,9 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon_Mountain, "Buff.Dragon.Mountain", "대지 드래곤: 방어력·마법 저항력.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon_Cloud, "Buff.Dragon.Cloud", "바람 드래곤: 이동 속도.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon_Ocean, "Buff.Dragon.Ocean", "바다 드래곤: 체력 재생.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Soul, "Buff.Soul", "드래곤의 영혼(드래곤 4마리).");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Soul_Ocean, "Buff.Soul.Ocean", "바다의 영혼: 큰 체력 재생.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Elder, "Buff.Elder", "장로 드래곤: 체력 20% 아래의 적 챔피언을 바로 처치.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Baron, "Buff.Baron", "내셔 남작 처치 보상.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Unit_Ward, "Unit.Ward", "와드. 기본 공격 한 번에 체력 1씩만 깎인다.");
 

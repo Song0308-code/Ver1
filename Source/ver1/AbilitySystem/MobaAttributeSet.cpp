@@ -1,4 +1,5 @@
 #include "AbilitySystem/MobaAttributeSet.h"
+#include "Character/MobaCharacter.h"
 #include "Combat/MobaCombatEvents.h"
 #include "Game/MobaGameplayTags.h"
 #include "GameplayEffectExtension.h"
@@ -99,6 +100,14 @@ void UMobaAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 			// 방어력 계산의 부동소수 오차로 체력이 0에 못 미치는 극소량 남는 것을 막는다.
 			float NewHealth = FMath::Clamp(GetHealth() - (Damage - Absorbed), 0.0f, GetMaxHealth());
 			if (NewHealth < 0.01f)
+			{
+				NewHealth = 0.0f;
+			}
+
+			// 장로 드래곤의 힘: 적 챔피언을 체력 20% 아래로 깎으면 바로 처치한다.
+			const UAbilitySystemComponent* ExecuteSource = Data.EffectSpec.GetContext().GetInstigatorAbilitySystemComponent();
+			if (NewHealth > 0.0f && NewHealth < GetMaxHealth() * 0.2f && ExecuteSource && ExecuteSource->HasMatchingGameplayTag(MobaTags::Buff_Elder)
+				&& Cast<AMobaCharacter>(GetOwningAbilitySystemComponentChecked()->GetAvatarActor()))
 			{
 				NewHealth = 0.0f;
 			}

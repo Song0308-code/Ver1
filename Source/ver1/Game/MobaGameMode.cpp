@@ -807,7 +807,28 @@ void AMobaGameMode::HandleCampCleared(AMobaJungleCamp* Camp, AActor* Killer)
 		break;
 
 	case EMobaCampType::Dragon:
-		GrantDragonToTeam(Team, Camp->GetDragonElement());
+		if (Camp->IsElder())
+		{
+			ApplyBuffToTeam(Team, MobaTags::Buff_Elder, ElderBuffDuration, 0.0f, 0.0f);
+		}
+		else
+		{
+			GrantDragonToTeam(Team, Camp->GetDragonElement());
+			int32& Taken = DragonsTaken.FindOrAdd(Team);
+			if (++Taken == DragonsForSoul)
+			{
+				GrantDragonSoulToTeam(Team, Camp->GetDragonElement());
+
+				// 영혼이 나온 뒤로는 장로 드래곤만 나온다.
+				for (TActorIterator<AMobaJungleCamp> It(GetWorld()); It; ++It)
+				{
+					if (It->GetCampType() == EMobaCampType::Dragon)
+					{
+						It->SetElder(true);
+					}
+				}
+			}
+		}
 		break;
 
 	case EMobaCampType::Baron:
@@ -849,6 +870,41 @@ void AMobaGameMode::ApplyBuff(AMobaCharacter* Champion, const FGameplayTag& Buff
 	}
 
 	MobaAbility::ApplySpecToTarget(MobaAbility::MakeBuffSpec(AbilitySystem, Champion, Duration, BonusAttackDamage, BonusAbilityPower, BuffTag), Champion);
+}
+
+void AMobaGameMode::GrantDragonSoulToTeam(EMobaTeam Team, EMobaDragonElement Element)
+{
+	FMobaStatBonus Bonus;
+	FGameplayTagContainer SoulTags(MobaTags::Buff_Soul);
+	switch (Element)
+	{
+	case EMobaDragonElement::Mountain:
+		Bonus.Armor = 20.0f;
+		Bonus.MagicResist = 20.0f;
+		break;
+	case EMobaDragonElement::Cloud:
+		Bonus.MoveSpeed = 30.0f;
+		break;
+	case EMobaDragonElement::Ocean:
+		// 큰 체력 재생은 챔피언의 재생 틱이 Buff_Soul_Ocean을 보고 더한다.
+		SoulTags.AddTag(MobaTags::Buff_Soul_Ocean);
+		break;
+	default:
+		Bonus.AttackDamage = 30.0f;
+		Bonus.AbilityPower = 45.0f;
+		break;
+	}
+
+	const float PermanentDuration = 1000000.0f;
+	for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+	{
+		if (UAbilitySystemComponent* AbilitySystem = It->GetTeam() == Team ? It->GetAbilitySystemComponent() : nullptr)
+		{
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatBuffSpec(AbilitySystem, *It, PermanentDuration, Bonus, SoulTags), *It);
+		}
+	}
+
+	Announce(FString::Printf(TEXT("%s 팀이 %s의 영혼을 얻었습니다. 이제 장로 드래곤이 나옵니다"), *MobaTeam::GetTeamDisplayName(Team), MobaDragon::GetElementName(Element)), Team);
 }
 
 void AMobaGameMode::GrantDragonToTeam(EMobaTeam Team, EMobaDragonElement Element)

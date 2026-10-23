@@ -599,7 +599,8 @@ void AMobaCharacter::TickRegen()
 	const float MaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
 	// 바다 드래곤은 중첩마다 초당 최대 체력의 0.4%를 더 회복한다.
 	const float BonusHealthRegen = (AbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Red) ? MaxHealth * RedBuffHealFractionPerSecond : 0.0f)
-		+ MaxHealth * 0.004f * AbilitySystem->GetTagCount(MobaTags::Buff_Dragon_Ocean);
+		+ MaxHealth * 0.004f * AbilitySystem->GetTagCount(MobaTags::Buff_Dragon_Ocean)
+		+ (AbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Soul_Ocean) ? MaxHealth * 0.008f : 0.0f);
 	const float BonusManaRegen = AbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Blue) ? BlueBuffManaRegenPerSecond : 0.0f;
 
 	if (PassiveInstance)

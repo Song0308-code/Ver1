@@ -131,6 +131,7 @@ void AMobaJungleCamp::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AMobaJungleCamp, AliveCount);
 	DOREPLIFETIME(AMobaJungleCamp, bExpired);
 	DOREPLIFETIME(AMobaJungleCamp, DragonElement);
+	DOREPLIFETIME(AMobaJungleCamp, bElder);
 }
 
 void AMobaJungleCamp::BeginPlay()
@@ -214,7 +215,19 @@ void AMobaJungleCamp::SpawnMonsters()
 		return;
 	}
 
-	const FMobaCampDefinition Definition = GetDefinition(CampType);
+	FMobaCampDefinition Definition = GetDefinition(CampType);
+
+	// 장로 드래곤은 일반 드래곤보다 훨씬 단단하고 아프다.
+	if (CampType == EMobaCampType::Dragon && bElder)
+	{
+		for (FMobaMonsterConfig& Config : Definition.Monsters)
+		{
+			Config.Stats.MaxHealth = 6000.0f;
+			Config.Stats.AttackDamage = 130.0f;
+			Config.VisualScale *= 1.25f;
+		}
+	}
+
 	for (const FMobaMonsterConfig& Config : Definition.Monsters)
 	{
 		const FVector Home = GetActorLocation() + GetActorRotation().RotateVector(FVector(Config.Offset.X, Config.Offset.Y, 0.0));
@@ -268,5 +281,9 @@ void AMobaJungleCamp::PickNextDragonElement()
 FString AMobaJungleCamp::GetDisplayName() const
 {
 	const FString Name = GetDefinition(CampType).DisplayName;
+	if (CampType == EMobaCampType::Dragon && bElder)
+	{
+		return TEXT("장로 드래곤");
+	}
 	return CampType == EMobaCampType::Dragon ? FString::Printf(TEXT("%s %s"), MobaDragon::GetElementName(DragonElement), *Name) : Name;
 }

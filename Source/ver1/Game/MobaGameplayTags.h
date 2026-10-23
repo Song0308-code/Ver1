@@ -36,6 +36,13 @@ namespace MobaTags
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Dragon_Mountain);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Dragon_Cloud);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Dragon_Ocean);
+
+	/** 드래곤 4마리를 잡은 팀의 영혼. 원소 태그(Buff_Soul_*)가 함께 붙는다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Soul);
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Soul_Ocean);
+
+	/** 장로 드래곤 처치 보상. 적 챔피언을 체력 20% 아래로 깎으면 바로 처치한다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Elder);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Baron);
 
 	/** 와드. 피해량과 상관없이 기본 공격 한 번에 체력 1씩만 깎인다. */
