@@ -57,6 +57,9 @@ protected:
 	/** 이 PC의 플레이어에게 보이는 유닛인지. */
 	bool IsSeen(const AActor* Actor) const;
 
+	/** MaxWidth 안에 들어가게 글자 크기를 줄여(최대 30%) 그리고, 그래도 넘치면 뒤를 잘라 "…"을 붙인다. */
+	void DrawTextFit(const FString& Text, const FLinearColor& Color, float X, float Y, float MaxWidth, UFont* Font, float Scale);
+
 	/** 화면 오른쪽 위의 알림(처치, 건물 파괴 등). */
 	void DrawAnnouncements();
 

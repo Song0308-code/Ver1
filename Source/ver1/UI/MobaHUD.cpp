@@ -141,6 +141,38 @@ void AMobaHUD::DrawGroundCircle(const FVector& Center, float Radius, const FLine
 	}
 }
 
+void AMobaHUD::DrawTextFit(const FString& Text, const FLinearColor& Color, float X, float Y, float MaxWidth, UFont* Font, float Scale)
+{
+	float Width = 0.0f;
+	float Height = 0.0f;
+	GetTextSize(Text, Width, Height, Font, Scale);
+
+	float FitScale = Scale;
+	if (Width > MaxWidth && Width > 0.0f)
+	{
+		FitScale = FMath::Max(Scale * MaxWidth / Width, Scale * 0.7f);
+	}
+
+	FString Shown = Text;
+	GetTextSize(Shown, Width, Height, Font, FitScale);
+	if (Width > MaxWidth)
+	{
+		// 줄여도 넘치면 한 글자씩 덜어 내며 "…"을 붙여 맞춘다.
+		while (Shown.Len() > 1)
+		{
+			Shown.LeftChopInline(1);
+			GetTextSize(Shown + TEXT("…"), Width, Height, Font, FitScale);
+			if (Width <= MaxWidth)
+			{
+				break;
+			}
+		}
+		Shown += TEXT("…");
+	}
+
+	DrawText(Shown, Color, X, Y, Font, FitScale);
+}
+
 bool AMobaHUD::IsSeen(const AActor* Actor) const
 {
 	const UMobaVisionSubsystem* Vision = UMobaVisionSubsystem::Get(this);
@@ -1295,7 +1327,7 @@ void AMobaHUD::DrawInventory(const AMobaCharacter* Character)
 		DrawRect(Item ? FLinearColor(0.25f, 0.2f, 0.1f) : FLinearColor(0.08f, 0.08f, 0.08f), SlotLeft, SlotTop, SlotWidth, SlotHeight);
 		if (Item)
 		{
-			DrawText(Item->Name, FLinearColor(1.0f, 0.9f, 0.6f), SlotLeft + 4.0f, SlotTop + 6.0f, Font, 1.0f);
+			DrawTextFit(Item->Name, FLinearColor(1.0f, 0.9f, 0.6f), SlotLeft + 4.0f, SlotTop + 6.0f, SlotWidth - 8.0f, Font, 1.0f);
 		}
 	}
 }
@@ -1364,7 +1396,8 @@ void AMobaHUD::DrawShop(const AMobaCharacter* Character)
 		const FLinearColor TextColor = bCanBuy ? FLinearColor::White : FLinearColor(0.5f, 0.5f, 0.5f);
 		const FLinearColor CostColor = bCanBuy ? FLinearColor(1.0f, 0.85f, 0.3f) : FLinearColor(0.5f, 0.45f, 0.3f);
 		DrawText(Item.Name, TextColor, ColumnLeft + 8.0f, RowTop + 6.0f, Font, 1.1f);
-		DrawText(Item.Description, TextColor, ColumnLeft + (bBasic ? 100.0f : 130.0f), RowTop + 6.0f, Font, 1.0f);
+		const float DescriptionOffset = bBasic ? 100.0f : 130.0f;
+		DrawTextFit(Item.Description, TextColor, ColumnLeft + DescriptionOffset, RowTop + 6.0f, ColumnWidth - DescriptionOffset - 60.0f, Font, 1.0f);
 
 		// 재료가 있어 싸졌으면 원래 가격을 작게 함께 적는다.
 		DrawText(FString::FromInt(Cost), CostColor, ColumnLeft + ColumnWidth - 52.0f, RowTop + 6.0f, Font, 1.1f);
@@ -1404,10 +1437,25 @@ void AMobaHUD::DrawGameMenu()
 	const float Width = 320.0f;
 	const float ButtonHeight = 46.0f;
 	const float Left = (Canvas->ClipX - Width) * 0.5f;
-	float Top = Canvas->ClipY * 0.28f;
+
+	// 조작 안내.
+	const TCHAR* Help[] = {
+		TEXT("우클릭 이동·공격   A+좌클릭 공격 이동"),
+		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기"),
+		TEXT("D·F 소환사 주문   1 물약   2 전령의 눈"),
+		TEXT("3 제어 와드   4 와드   B 귀환"),
+		TEXT("P 상점   Tab 점수판   Alt+좌클릭 핑"),
+		TEXT("Y 카메라 고정   Space 내 챔피언 보기"),
+		TEXT("미니맵 좌클릭 카메라 이동"),
+	};
+	const float HelpLineHeight = 19.0f;
+
+	// 내용 전체 높이에 맞춰 세로 가운데에 둔다(낮은 창에서도 잘리지 않게).
+	const float ContentHeight = 40.0f + (ButtonHeight + 12.0f) * 2.0f + ButtonHeight + 24.0f + (ButtonHeight + 12.0f) + ButtonHeight + 20.0f + HelpLineHeight * UE_ARRAY_COUNT(Help);
+	float Top = FMath::Max((Canvas->ClipY - ContentHeight) * 0.5f, 24.0f);
 
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.5f), 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY);
-	DrawRect(FLinearColor(0.03f, 0.04f, 0.07f, 0.95f), Left - 20.0f, Top - 20.0f, Width + 40.0f, ButtonHeight * 5.0f + 330.0f);
+	DrawRect(FLinearColor(0.03f, 0.04f, 0.07f, 0.95f), Left - 20.0f, Top - 20.0f, Width + 40.0f, ContentHeight + 36.0f);
 	DrawCenteredText(TEXT("게임 메뉴  [F10]"), FLinearColor::White, Canvas->ClipX * 0.5f, Top, Font, 1.4f);
 	Top += 40.0f;
 
@@ -1447,18 +1495,10 @@ void AMobaHUD::DrawGameMenu()
 	GameMenuResolutionRect = DrawButton(Top, FString::Printf(TEXT("해상도: %s"), *MobaDisplaySettings::DescribeResolution()), true, FLinearColor(0.18f, 0.2f, 0.28f));
 	Top += ButtonHeight + 20.0f;
 
-	// 조작 안내.
-	const TCHAR* Help[] = {
-		TEXT("우클릭 이동·공격   A+좌클릭 공격 이동"),
-		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기   D·F 소환사 주문   1 물약   2 전령의 눈   3 제어 와드"),
-		TEXT("4 와드   B 귀환   P 상점   Tab 점수판"),
-		TEXT("Y 카메라 고정   Space 내 챔피언 보기"),
-		TEXT("Alt+좌클릭 핑   미니맵 좌클릭 카메라 이동"),
-	};
 	for (const TCHAR* Line : Help)
 	{
-		DrawText(Line, FLinearColor(0.75f, 0.78f, 0.85f), Left, Top, Font, 1.05f);
-		Top += 19.0f;
+		DrawTextFit(Line, FLinearColor(0.75f, 0.78f, 0.85f), Left, Top, Width, Font, 1.05f);
+		Top += HelpLineHeight;
 	}
 }
 
@@ -1591,7 +1631,7 @@ void AMobaHUD::DrawPlayerTable(float Top)
 	UFont* Font = GEngine->GetSmallFont();
 
 	// 창이 좁으면 표를 화면 폭에 맞춰 줄인다.
-	const float FullWidth = 860.0f;
+	const float FullWidth = 1060.0f;
 	const float Width = FMath::Min(FullWidth, Canvas->ClipX - 24.0f);
 	const float ColumnScale = Width / FullWidth;
 	const float RowHeight = 30.0f;
@@ -1633,7 +1673,7 @@ void AMobaHUD::DrawPlayerTable(float Top)
 		DrawText(FString::Printf(TEXT("%d / %d / %d"), Player->GetKills(), Player->GetDeaths(), Player->GetAssists()), FLinearColor::White, Left + Columns[3], RowTop, Font, 1.2f);
 		DrawText(FString::FromInt(Player->GetMinionKills()), FLinearColor::White, Left + Columns[4], RowTop, Font, 1.2f);
 		DrawText(FString::FromInt(FMath::RoundToInt(Player->GetDamageToChampions())), FLinearColor::White, Left + Columns[5], RowTop, Font, 1.2f);
-		DrawText(ItemNames, FLinearColor(1.0f, 0.9f, 0.6f), Left + Columns[6], RowTop + 2.0f, Font, 1.0f);
+		DrawTextFit(ItemNames, FLinearColor(1.0f, 0.9f, 0.6f), Left + Columns[6], RowTop + 2.0f, Width - Columns[6] - 10.0f, Font, 1.0f);
 	}
 }
 
@@ -1742,7 +1782,8 @@ void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
 		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), WardLeft - 2.0f, PotionTop - 2.0f, WardSize + 4.0f, WardSize + 4.0f);
 		DrawRect(bDrinking ? FLinearColor(0.3f, 0.75f, 0.35f) : (Potions > 0 ? FLinearColor(0.55f, 0.15f, 0.15f) : FLinearColor(0.15f, 0.1f, 0.1f)), WardLeft, PotionTop, WardSize, WardSize);
 		DrawText(TEXT("1"), FLinearColor::White, WardLeft + 4.0f, PotionTop + 2.0f, Font, 1.2f);
-		DrawCenteredText(FString::Printf(TEXT("물약 %d"), Potions), FLinearColor::White, WardLeft + WardSize * 0.5f, PotionTop + WardSize * 0.5f, Font, 0.9f);
+		DrawCenteredText(TEXT("물약"), FLinearColor::White, WardLeft + WardSize * 0.5f + 4.0f, PotionTop + 3.0f, Font, 0.75f);
+		DrawCenteredText(FString::FromInt(Potions), FLinearColor::White, WardLeft + WardSize * 0.5f, PotionTop + 20.0f, Font, 1.1f);
 
 		// 그 오른쪽에 제어 와드 칸.
 		const float ControlLeft = WardLeft + WardSize + 6.0f;
@@ -1750,7 +1791,8 @@ void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
 		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), ControlLeft - 2.0f, PotionTop - 2.0f, WardSize + 4.0f, WardSize + 4.0f);
 		DrawRect(ControlWards > 0 ? FLinearColor(0.5f, 0.2f, 0.35f) : FLinearColor(0.15f, 0.1f, 0.12f), ControlLeft, PotionTop, WardSize, WardSize);
 		DrawText(TEXT("3"), FLinearColor::White, ControlLeft + 4.0f, PotionTop + 2.0f, Font, 1.2f);
-		DrawCenteredText(FString::Printf(TEXT("제어 %d"), ControlWards), FLinearColor::White, ControlLeft + WardSize * 0.5f, PotionTop + WardSize * 0.5f, Font, 0.9f);
+		DrawCenteredText(TEXT("제어"), FLinearColor::White, ControlLeft + WardSize * 0.5f + 4.0f, PotionTop + 3.0f, Font, 0.75f);
+		DrawCenteredText(FString::FromInt(ControlWards), FLinearColor::White, ControlLeft + WardSize * 0.5f, PotionTop + 20.0f, Font, 1.1f);
 
 		// 전령의 눈을 들고 있으면 그 오른쪽에 남은 시간과 함께 보인다.
 		const AGameStateBase* EyeGameState = GetWorld()->GetGameState();
@@ -1761,7 +1803,8 @@ void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
 			DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f), EyeLeft - 2.0f, PotionTop - 2.0f, WardSize + 4.0f, WardSize + 4.0f);
 			DrawRect(FLinearColor(0.45f, 0.25f, 0.6f), EyeLeft, PotionTop, WardSize, WardSize);
 			DrawText(TEXT("2"), FLinearColor::White, EyeLeft + 4.0f, PotionTop + 2.0f, Font, 1.2f);
-			DrawCenteredText(FString::Printf(TEXT("전령 %d"), FMath::CeilToInt(EyeRemaining)), FLinearColor::White, EyeLeft + WardSize * 0.5f, PotionTop + WardSize * 0.5f, Font, 0.85f);
+			DrawCenteredText(TEXT("전령"), FLinearColor::White, EyeLeft + WardSize * 0.5f + 4.0f, PotionTop + 3.0f, Font, 0.75f);
+			DrawCenteredText(FString::FromInt(FMath::CeilToInt(EyeRemaining)), FLinearColor::White, EyeLeft + WardSize * 0.5f, PotionTop + 20.0f, Font, 1.0f);
 		}
 	}
 

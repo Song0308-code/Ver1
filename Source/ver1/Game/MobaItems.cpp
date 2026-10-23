@@ -76,12 +76,12 @@ namespace
 		Items[Bulwark].MaxHealth = 450.0f;
 
 		// 소모품. 가방 칸을 쓰지 않으므로 맨 뒤에 둔다(상점에서는 기본 열에 보인다).
-		const int32 Potion = Add(TEXT("체력 물약"), TEXT("15초 동안 체력 120 회복 (최대 5개, 키 1)"), 50);
+		const int32 Potion = Add(TEXT("체력 물약"), TEXT("15초간 체력 120 (최대 5, 키 1)"), 50);
 		Items[Potion].bConsumable = true;
 		Items[Potion].HealAmount = 120.0f;
 		Items[Potion].HealDuration = 15.0f;
 
-		const int32 ControlWard = Add(TEXT("제어 와드"), TEXT("근처 적 와드를 드러내고 끔 (최대 2개, 키 3)"), 75);
+		const int32 ControlWard = Add(TEXT("제어 와드"), TEXT("적 와드 노출·차단 (최대 2, 키 3)"), 75);
 		Items[ControlWard].bConsumable = true;
 		Items[ControlWard].bControlWard = true;
 
