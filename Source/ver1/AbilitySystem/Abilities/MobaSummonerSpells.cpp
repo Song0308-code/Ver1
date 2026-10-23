@@ -119,36 +119,8 @@ UMobaSummoner_Targeted::UMobaSummoner_Targeted()
 
 bool UMobaSummoner_Targeted::ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const
 {
-	PendingTarget.Reset();
-
 	// 커서가 사거리 밖을 가리켜도 그 근처의 대상은 고를 수 있게, 사거리로 당기기 전의 위치를 쓴다.
-	const FVector Cursor = InOutTargetLocation;
-	TArray<AActor*> Candidates;
-	MobaAbility::FindEnemiesInRadius(Caster, Cursor, TargetPickRadius, Candidates);
-
-	const UMobaVisionSubsystem* Vision = UMobaVisionSubsystem::Get(Caster);
-	const EMobaTeam CasterTeam = MobaCombat::GetTeam(Caster);
-	float BestDistance = TNumericLimits<float>::Max();
-
-	for (AActor* Candidate : Candidates)
-	{
-		if (!IsAllowedTarget(Candidate) || MobaCombat::GetDistanceToTargetEdge(Caster, Candidate) > CastRange)
-		{
-			continue;
-		}
-		if (Vision && Vision->IsHiddenFromTeam(Candidate, CasterTeam))
-		{
-			continue;
-		}
-
-		const float Distance = FVector::DistSquared2D(Candidate->GetActorLocation(), Cursor);
-		if (Distance < BestDistance)
-		{
-			BestDistance = Distance;
-			PendingTarget = Candidate;
-		}
-	}
-
+	PendingTarget = MobaAbility::PickEnemyNearCursor(Caster, InOutTargetLocation, TargetPickRadius, CastRange, [this](const AActor* Candidate) { return IsAllowedTarget(Candidate); });
 	if (!PendingTarget.IsValid())
 	{
 		return false;

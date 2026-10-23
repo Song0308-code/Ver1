@@ -240,8 +240,8 @@ AActor* AMobaMinion::FindBestTarget() const
 
 	for (AActor* Enemy : Enemies)
 	{
-		// 전령은 건물만 노린다.
-		if (MinionType == EMobaMinionType::Herald && (Enemy->IsA<AMobaMinion>() || Enemy->IsA<AMobaCharacter>()))
+		// 전령은 건물만 노린다. 은신한 적은 노리지 않는다.
+		if ((MinionType == EMobaMinionType::Herald && (Enemy->IsA<AMobaMinion>() || Enemy->IsA<AMobaCharacter>())) || MobaCombat::IsStealthedFrom(Enemy, Team))
 		{
 			continue;
 		}

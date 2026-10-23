@@ -293,7 +293,7 @@ AActor* AMobaTower::FindBestTarget(float Range) const
 	for (AActor* Enemy : Enemies)
 	{
 		const float Distance = MobaCombat::GetDistanceToTargetEdge(this, Enemy);
-		if (Distance > Range)
+		if (Distance > Range || MobaCombat::IsStealthedFrom(Enemy, Team))
 		{
 			continue;
 		}

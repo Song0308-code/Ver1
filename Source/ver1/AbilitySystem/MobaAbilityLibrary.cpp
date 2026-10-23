@@ -7,6 +7,7 @@
 #include "Engine/World.h"
 #include "Game/MobaGameplayTags.h"
 #include "GameFramework/Actor.h"
+#include "Vision/MobaVisionSubsystem.h"
 
 namespace
 {
@@ -167,4 +168,35 @@ void MobaAbility::FindEnemiesInRadius(const AActor* Source, const FVector& Cente
 			OutEnemies.AddUnique(Actor);
 		}
 	}
+}
+
+AActor* MobaAbility::PickEnemyNearCursor(const AActor* Caster, const FVector& Cursor, float PickRadius, float Range, TFunctionRef<bool(const AActor*)> Filter)
+{
+	TArray<AActor*> Candidates;
+	FindEnemiesInRadius(Caster, Cursor, PickRadius, Candidates);
+
+	const UMobaVisionSubsystem* Vision = UMobaVisionSubsystem::Get(Caster);
+	const EMobaTeam CasterTeam = MobaCombat::GetTeam(Caster);
+	AActor* Best = nullptr;
+	float BestDistance = TNumericLimits<float>::Max();
+
+	for (AActor* Candidate : Candidates)
+	{
+		if (!Filter(Candidate) || MobaCombat::GetDistanceToTargetEdge(Caster, Candidate) > Range)
+		{
+			continue;
+		}
+		if ((Vision && Vision->IsHiddenFromTeam(Candidate, CasterTeam)) || MobaCombat::IsStealthedFrom(Candidate, CasterTeam))
+		{
+			continue;
+		}
+
+		const float Distance = FVector::DistSquared2D(Candidate->GetActorLocation(), Cursor);
+		if (Distance < BestDistance)
+		{
+			BestDistance = Distance;
+			Best = Candidate;
+		}
+	}
+	return Best;
 }

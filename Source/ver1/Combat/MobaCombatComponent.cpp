@@ -228,7 +228,7 @@ AActor* UMobaCombatComponent::FindNearestEnemy(float Range, bool bIncludeStructu
 		}
 
 		const float Distance = MobaCombat::GetDistanceToTargetEdge(GetOwner(), Enemy);
-		if (Distance <= NearestDistance && CanSeeTarget(Enemy))
+		if (Distance <= NearestDistance && CanSeeTarget(Enemy) && !MobaCombat::IsStealthedFrom(Enemy, MobaCombat::GetTeam(GetOwner())))
 		{
 			Nearest = Enemy;
 			NearestDistance = Distance;
@@ -332,7 +332,7 @@ void UMobaCombatComponent::UpdateChase(AController* Controller)
 	}
 
 	// 자동으로 잡은 대상은 사거리를 벗어나면 쫓아가지 않고 놓는다. 부쉬나 벽 뒤로 사라진 대상도 놓는다.
-	if ((bTargetAutoAcquired && Distance > Range) || !CanSeeTarget(AttackTarget))
+	if ((bTargetAutoAcquired && Distance > Range) || !CanSeeTarget(AttackTarget) || MobaCombat::IsStealthedFrom(AttackTarget, MobaCombat::GetTeam(GetOwner())))
 	{
 		if (bChasing)
 		{
@@ -471,6 +471,7 @@ void UMobaCombatComponent::FireAttack(AActor* Target)
 	if (AMobaCharacter* Champion = Cast<AMobaCharacter>(GetOwner()))
 	{
 		PassiveBonus = Champion->ApplyPassiveOnBasicAttack(Target);
+		Champion->BreakStealth();
 	}
 	if (PassiveBonus.ManaRestore > 0.0f)
 	{

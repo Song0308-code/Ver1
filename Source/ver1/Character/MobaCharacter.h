@@ -102,6 +102,9 @@ public:
 
 	float GetWardPlaceRange() const { return WardPlaceRange; }
 
+	/** 서버 전용. 은신 중이면 푼다. 기본 공격을 쏘거나 스킬을 쓸 때 부른다. */
+	void BreakStealth();
+
 	/** 서버 전용. Duration초 동안 Amount만큼 피해를 먼저 흡수하는 보호막을 더한다. 여러 개면 먼저 사라질 것부터 깎인다. */
 	void AddShield(float Amount, float Duration);
 

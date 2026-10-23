@@ -8,6 +8,7 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Hasted, "State.Hasted", "이동·공격 속도 증가 중.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Rooted, "State.Rooted", "속박. 이동과 이동 스킬만 막힌다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Silenced, "State.Silenced", "침묵. 스킬만 막힌다.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Stealthed, "State.Stealthed", "은신. 적에게 보이지 않는다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Airborne, "State.Airborne", "에어본. 기절과 같이 모든 행동이 막힌다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Damage_BasicAttack, "Damage.BasicAttack", "기본 공격으로 준 피해.");
 

@@ -10,6 +10,8 @@
 #include "Game/MobaGameplayTags.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
+#include "EngineUtils.h"
+#include "Vision/MobaWard.h"
 
 UAbilitySystemComponent* MobaCombat::GetAbilitySystem(const AActor* Actor)
 {
@@ -80,6 +82,26 @@ float MobaCombat::GetDistanceToTargetEdge(const AActor* Source, const AActor* Ta
 {
 	const float CenterDistance = FVector::Dist2D(Source->GetActorLocation(), Target->GetActorLocation());
 	return FMath::Max(CenterDistance - Target->GetSimpleCollisionRadius(), 0.0f);
+}
+
+bool MobaCombat::IsStealthedFrom(const AActor* Target, EMobaTeam ViewerTeam)
+{
+	const UAbilitySystemComponent* AbilitySystem = GetAbilitySystem(Target);
+	if (!AbilitySystem || !AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Stealthed) || GetTeam(Target) == ViewerTeam)
+	{
+		return false;
+	}
+
+	// 보는 쪽 팀의 제어 와드 근처에서는 드러난다.
+	for (TActorIterator<AMobaWard> It(Target->GetWorld()); It; ++It)
+	{
+		if (It->IsControlWard() && It->GetTeam() == ViewerTeam
+			&& FVector::DistSquared2D(It->GetActorLocation(), Target->GetActorLocation()) <= FMath::Square(AMobaWard::RevealRadius))
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 void MobaCombat::BindUnitMovement(ACharacter* Unit, UAbilitySystemComponent* AbilitySystem, UMobaAttributeSet* AttributeSet)

@@ -363,7 +363,8 @@ void UMobaVisionSubsystem::ComputeHiddenForTeam(EMobaTeam LocalTeam, TSet<TWeakO
 
 		for (AActor* Target : Targets)
 		{
-			if (!CanAnySourceSee(Sources, Target->GetActorLocation()))
+			// 은신한 적은 시야 안이어도 보이지 않는다(내 제어 와드 근처 제외).
+			if (MobaCombat::IsStealthedFrom(Target, LocalTeam) || !CanAnySourceSee(Sources, Target->GetActorLocation()))
 			{
 				NewHidden.Add(Target);
 			}

@@ -261,6 +261,10 @@ void AMobaHUD::DrawChampionBars()
 		{
 			Status = TEXT("침묵");
 		}
+		else if (AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Stealthed))
+		{
+			Status = TEXT("은신");
+		}
 		if (Status)
 		{
 			const FVector ScreenLocation = Project(BarLocation);

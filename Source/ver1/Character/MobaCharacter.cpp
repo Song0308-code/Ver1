@@ -859,8 +859,9 @@ void AMobaCharacter::NotifyAbilityCast(EMobaAbilitySlot Slot)
 		return;
 	}
 
-	// 스킬을 쓰면 귀환이 끊긴다.
+	// 스킬을 쓰면 귀환과 은신이 끊긴다(은신을 거는 스킬은 이 뒤에 다시 건다).
 	CancelRecall();
+	BreakStealth();
 	MulticastAbilityCast(Slot);
 
 	// 소환사 주문은 패시브의 "스킬을 쓰면" 효과를 일으키지 않는다.
@@ -1200,6 +1201,18 @@ void AMobaCharacter::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim,
 bool AMobaCharacter::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
 {
 	return UMobaVisionSubsystem::IsRelevantToViewer(this, RealViewer) && Super::IsNetRelevantFor(RealViewer, ViewTarget, SrcLocation);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 은신
+
+void AMobaCharacter::BreakStealth()
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (HasAuthority() && AbilitySystem && AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Stealthed))
+	{
+		AbilitySystem->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(MobaTags::State_Stealthed));
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

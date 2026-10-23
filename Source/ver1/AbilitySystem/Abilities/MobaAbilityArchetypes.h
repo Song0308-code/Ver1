@@ -263,3 +263,96 @@ class VER1_API UMobaAbility_Meteor : public UMobaAbility_GroundAoE
 public:
 	UMobaAbility_Meteor();
 };
+
+/** 섀도우 Q. 커서 근처의 적 등 뒤로 순간이동해 물리 피해를 준다. */
+UCLASS()
+class VER1_API UMobaAbility_ShadowStep : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_ShadowStep();
+
+	virtual float GetIndicatorRadius() const override { return TargetPickRadius; }
+
+protected:
+	virtual bool ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const override;
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Target")
+	float TargetPickRadius = 250.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 70.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 35.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 0.7f;
+
+	mutable TWeakObjectPtr<AActor> PendingTarget;
+};
+
+/** 섀도우 W. 잠시 은신하고 빨라진다. */
+UCLASS()
+class VER1_API UMobaAbility_ShadowCloak : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_ShadowCloak();
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float StealthDuration = 3.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float MoveSpeedMultiplier = 1.2f;
+};
+
+/** 섀도우 E. 지정한 곳에 연막을 터뜨려 피해와 둔화를 준다. */
+UCLASS()
+class VER1_API UMobaAbility_SmokeBomb : public UMobaAbility_GroundAoE
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_SmokeBomb();
+};
+
+/** 섀도우 R. 커서 근처의 적 챔피언에게 큰 물리 피해와 잃은 체력에 비례한 추가 피해를 준다. */
+UCLASS()
+class VER1_API UMobaAbility_Execute : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_Execute();
+
+	virtual float GetIndicatorRadius() const override { return TargetPickRadius; }
+
+protected:
+	virtual bool ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const override;
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Target")
+	float TargetPickRadius = 250.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 150.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 100.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 0.6f;
+
+	/** 대상이 잃은 체력에 곱해 더하는 물리 피해 비율. */
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float MissingHealthRatio = 0.3f;
+
+	mutable TWeakObjectPtr<AActor> PendingTarget;
+};

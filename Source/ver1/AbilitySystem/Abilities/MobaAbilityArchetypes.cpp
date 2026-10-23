@@ -8,6 +8,7 @@
 #include "Combat/MobaSkillshotProjectile.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
+#include "Game/MobaEffects.h"
 #include "Game/MobaGameplayTags.h"
 #include "NavigationSystem.h"
 #include "TimerManager.h"
@@ -400,4 +401,137 @@ UMobaAbility_Meteor::UMobaAbility_Meteor()
 	DamagePerLevel = 125.0f;
 	AbilityPowerRatio = 0.9f;
 	StunDuration = 1.0f;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 섀도우
+
+UMobaAbility_ShadowStep::UMobaAbility_ShadowStep()
+{
+	DisplayName = NSLOCTEXT("Moba", "ShadowStepName", "그림자 찌르기");
+	Description = NSLOCTEXT("Moba", "ShadowStepDesc", "커서 근처의 적 등 뒤로 순간이동해 물리 피해를 줍니다.");
+	TargetingMode = EMobaTargetingMode::Location;
+	CastRange = 600.0f;
+	ManaCost = 40.0f;
+	CooldownDuration = 8.0f;
+	bMovementAbility = true;
+}
+
+bool UMobaAbility_ShadowStep::ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const
+{
+	PendingTarget = MobaAbility::PickEnemyNearCursor(Caster, InOutTargetLocation, TargetPickRadius, CastRange, [](const AActor*) { return true; });
+	if (!PendingTarget.IsValid())
+	{
+		return false;
+	}
+	InOutTargetLocation = PendingTarget->GetActorLocation();
+	return true;
+}
+
+void UMobaAbility_ShadowStep::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	AActor* Target = PendingTarget.Get();
+	PendingTarget.Reset();
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	if (Target && AbilitySystem)
+	{
+		// 시전자에서 대상 쪽으로 대상을 지나 조금 더 간 곳(등 뒤)에 내린다. 걸을 수 없는 곳이면 대상 위치 근처로.
+		FVector Direction = Target->GetActorLocation() - Caster->GetActorLocation();
+		Direction.Z = 0.0;
+		Direction = Direction.GetSafeNormal();
+		FVector Destination = Target->GetActorLocation() + Direction * 90.0f;
+		Destination.Z = Caster->GetActorLocation().Z;
+
+		if (const UNavigationSystemV1* NavSystem = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Caster->GetWorld()))
+		{
+			FNavLocation NavLocation;
+			if (NavSystem->ProjectPointToNavigation(Destination, NavLocation, FVector(150.0, 150.0, 300.0)))
+			{
+				Destination = NavLocation.Location + FVector(0.0, 0.0, Caster->GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+			}
+		}
+
+		Caster->TeleportChampion(Destination, (-Direction).Rotation());
+
+		const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAttackDamage(AbilitySystem) * AttackDamageRatio;
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(AbilitySystem, Caster, Damage, 0.0f, 0.0f), Target);
+	}
+
+	FinishCast();
+}
+
+UMobaAbility_ShadowCloak::UMobaAbility_ShadowCloak()
+{
+	DisplayName = NSLOCTEXT("Moba", "ShadowCloakName", "그림자 숨기");
+	Description = NSLOCTEXT("Moba", "ShadowCloakDesc", "3초 동안 은신하고 이동 속도가 20% 오릅니다. 공격하거나 스킬을 쓰면 풀립니다. 적 제어 와드 근처에서는 드러납니다.");
+	TargetingMode = EMobaTargetingMode::None;
+	ManaCost = 60.0f;
+	CooldownDuration = 18.0f;
+}
+
+void UMobaAbility_ShadowCloak::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatModSpec(AbilitySystem, Caster, StealthDuration, MoveSpeedMultiplier, 1.0f, MobaTags::State_Stealthed), Caster);
+	FinishCast();
+}
+
+UMobaAbility_SmokeBomb::UMobaAbility_SmokeBomb()
+{
+	DisplayName = NSLOCTEXT("Moba", "SmokeBombName", "연막탄");
+	Description = NSLOCTEXT("Moba", "SmokeBombDesc", "지정한 곳에 연막을 터뜨려 범위 안의 적에게 물리 피해를 주고 1.5초 동안 40% 둔화시킵니다.");
+	CastRange = 700.0f;
+	ManaCost = 50.0f;
+	CooldownDuration = 10.0f;
+	bUltimate = false;
+
+	Radius = 250.0f;
+	Delay = 0.0f;
+	BaseDamage = 50.0f;
+	DamagePerLevel = 30.0f;
+	AbilityPowerRatio = 0.0f;
+	AttackDamageRatio = 0.4f;
+	bPhysicalDamage = true;
+	StunDuration = 0.0f;
+	SlowMoveSpeedMultiplier = 0.6f;
+	SlowDuration = 1.5f;
+}
+
+UMobaAbility_Execute::UMobaAbility_Execute()
+{
+	DisplayName = NSLOCTEXT("Moba", "ExecuteName", "처형");
+	Description = NSLOCTEXT("Moba", "ExecuteDesc", "커서 근처의 적 챔피언에게 큰 물리 피해를 주고, 대상이 잃은 체력의 30%만큼 추가 물리 피해를 줍니다.");
+	TargetingMode = EMobaTargetingMode::Location;
+	CastRange = 400.0f;
+	ManaCost = 100.0f;
+	CooldownDuration = 60.0f;
+	bUltimate = true;
+}
+
+bool UMobaAbility_Execute::ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const
+{
+	PendingTarget = MobaAbility::PickEnemyNearCursor(Caster, InOutTargetLocation, TargetPickRadius, CastRange, [](const AActor* Candidate) { return Candidate && Candidate->IsA<AMobaCharacter>(); });
+	if (!PendingTarget.IsValid())
+	{
+		return false;
+	}
+	InOutTargetLocation = PendingTarget->GetActorLocation();
+	return true;
+}
+
+void UMobaAbility_Execute::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	AActor* Target = PendingTarget.Get();
+	PendingTarget.Reset();
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	const UAbilitySystemComponent* TargetAbilitySystem = MobaCombat::GetAbilitySystem(Target);
+	if (Target && AbilitySystem && TargetAbilitySystem)
+	{
+		const float MissingHealth = TargetAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute()) - TargetAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetHealthAttribute());
+		const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAttackDamage(AbilitySystem) * AttackDamageRatio + FMath::Max(MissingHealth, 0.0f) * MissingHealthRatio;
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(AbilitySystem, Caster, Damage, 0.0f, 0.0f), Target);
+		MobaEffects::Play(Caster, EMobaEffect::Hit, MobaCombat::GetAimLocation(Target), 2.0f, Target);
+	}
+
+	FinishCast();
 }

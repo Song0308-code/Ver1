@@ -135,3 +135,23 @@ protected:
 
 	bool bCharged = false;
 };
+
+/** 섀도우: 그림자 숨기(W)를 쓴 뒤 첫 기본 공격이 공격력의 일부만큼 추가 물리 피해를 준다. */
+UCLASS()
+class VER1_API UMobaPassive_Ambush : public UMobaPassive
+{
+	GENERATED_BODY()
+
+public:
+	UMobaPassive_Ambush();
+
+	virtual FMobaAttackBonus OnBasicAttack(AActor* Target) override;
+	virtual void OnAbilityCast(EMobaAbilitySlot Slot) override;
+	virtual void OnRespawned() override;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float BonusAttackDamageRatio = 0.5f;
+
+	bool bReady = false;
+};

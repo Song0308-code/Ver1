@@ -25,6 +25,9 @@ namespace MobaCombat
 	/** 투사체가 날아가 맞을 지점. 건물처럼 원점이 바닥에 있는 대상은 몸통 높이로 올려 준다. */
 	VER1_API FVector GetAimLocation(const AActor* Target);
 
+	/** Target이 은신 중이고, ViewerTeam의 제어 와드 근처가 아니어서 그 팀에게 보이지 않는지. */
+	VER1_API bool IsStealthedFrom(const AActor* Target, EMobaTeam ViewerTeam);
+
 	/**
 	 * 서버 전용. 챔피언이 아닌 유닛(미니언·몬스터)의 이동을 능력치와 상태에 맞춘다.
 	 * 이동 속도 능력치(둔화·가속 포함)를 걷는 속도에 반영하고, 기절·에어본·속박 중에는 멈춰 세운다.

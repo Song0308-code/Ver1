@@ -33,6 +33,12 @@ namespace MobaAbility
 	/** 서버 전용. 스펙이 유효하고 대상에게 능력 시스템이 있으면 적용한다. */
 	VER1_API void ApplySpecToTarget(const FGameplayEffectSpecHandle& Spec, AActor* Target);
 
+	/**
+	 * 커서(Cursor) 근처 PickRadius 안의 적 중, Caster에게서 Range 안에 있고 Caster 팀에게 보이며 Filter를 통과하는 것 중
+	 * 커서에 가장 가까운 대상을 고른다. 없으면 nullptr.
+	 */
+	VER1_API AActor* PickEnemyNearCursor(const AActor* Caster, const FVector& Cursor, float PickRadius, float Range, TFunctionRef<bool(const AActor*)> Filter);
+
 	/** Source의 적 중 Center에서 Radius 안에 있는 살아 있는 대상을 모은다. 건물은 bIncludeStructures가 true일 때만 포함한다. */
 	VER1_API void FindEnemiesInRadius(const AActor* Source, const FVector& Center, float Radius, TArray<AActor*>& OutEnemies, bool bIncludeStructures = false);
 }

@@ -15,6 +15,9 @@ namespace MobaTags
 	/** 침묵: 스킬을 못 쓴다. 이동·공격·소환사 주문은 된다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Silenced);
 
+	/** 은신: 적에게 보이지 않는다(적 제어 와드 근처에서는 드러난다). 공격하거나 스킬을 쓰면 풀린다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Stealthed);
+
 	/** 에어본: 공중에 떠 있는 동안 아무것도 못 한다. 함께 State_Stunned가 붙어 기절처럼 막힌다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Airborne);
 

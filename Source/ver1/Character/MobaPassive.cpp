@@ -118,3 +118,39 @@ FMobaAttackBonus UMobaPassive_Charge::OnBasicAttack(AActor* Target)
 	}
 	return Bonus;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 섀도우
+
+UMobaPassive_Ambush::UMobaPassive_Ambush()
+{
+	DisplayName = NSLOCTEXT("Moba", "AmbushName", "암습");
+	Description = NSLOCTEXT("Moba", "AmbushDesc", "그림자 숨기(W)를 쓴 뒤 첫 기본 공격이 공격력의 50%만큼 추가 물리 피해를 줍니다.");
+}
+
+void UMobaPassive_Ambush::OnAbilityCast(EMobaAbilitySlot Slot)
+{
+	if (Slot == EMobaAbilitySlot::W)
+	{
+		bReady = true;
+		SetStacks(1);
+	}
+}
+
+void UMobaPassive_Ambush::OnRespawned()
+{
+	bReady = false;
+	SetStacks(0);
+}
+
+FMobaAttackBonus UMobaPassive_Ambush::OnBasicAttack(AActor* Target)
+{
+	FMobaAttackBonus Bonus;
+	if (bReady)
+	{
+		bReady = false;
+		SetStacks(0);
+		Bonus.BonusPhysicalDamage = GetAttribute(Owner, UMobaAttributeSet::GetAttackDamageAttribute()) * BonusAttackDamageRatio;
+	}
+	return Bonus;
+}
