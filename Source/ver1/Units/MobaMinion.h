@@ -90,6 +90,9 @@ protected:
 	AActor* FindBestTarget() const;
 	void AdvanceAlongLane();
 
+	/** 근처에 바론 버프를 가진 아군 챔피언이 있으면 1초짜리 강화를 걸어 둔다(계속 갱신). */
+	void UpdateBaronAura();
+
 	void HandleOutOfHealth(AActor* DamageInstigator);
 	void HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, float Damage);
 
@@ -132,6 +135,10 @@ protected:
 	/** 대상이 이 거리보다 멀어지면 포기한다. */
 	UPROPERTY(EditDefaultsOnly, Category = "AI")
 	float LeashRange = 1000.0f;
+
+	/** 바론 버프를 가진 아군 챔피언이 이 거리 안에 있으면 강해진다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Minion")
+	float BaronAuraRange = 900.0f;
 
 	/** 라인 위에서 한 번에 내다보는 거리. */
 	UPROPERTY(EditDefaultsOnly, Category = "AI")

@@ -117,6 +117,18 @@ public:
 	/** 서버 전용. 남은 방패를 모두 없앤다(골드 없이). */
 	void RemovePlates() { PlatesRemaining = 0; }
 
+	/**
+	 * 서버 전용. Target에게 기본 공격을 쏠 때 곱할 피해 배율을 돌려주고 연속 타격 수를 센다.
+	 * 같은 챔피언을 연속으로 칠수록 커지고(타격당 +RampPerHit, 최대 MaxRamp), 대상이 바뀌거나 챔피언이 아니면 1.
+	 */
+	float ConsumeDamageMultiplier(const AActor* Target);
+
+	/** 연속 타격 수에 해당하는 배율. */
+	static float GetRampMultiplier(int32 PreviousHits);
+
+	static constexpr float RampPerHit = 0.4f;
+	static constexpr float MaxRamp = 2.2f;
+
 	/** 외곽 포탑이 처음 가지는 방패 수. 방패 하나는 최대 체력의 1/TotalPlates다. */
 	static constexpr int32 TotalPlates = 5;
 
@@ -141,6 +153,10 @@ protected:
 
 	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Tower")
 	int32 PlatesRemaining = 0;
+
+	/** 연속으로 친 챔피언과 그 횟수. */
+	TWeakObjectPtr<const AActor> RampTarget;
+	int32 RampHits = 0;
 
 	FTimerHandle TargetingTimer;
 	FDelegateHandle DamageDealtHandle;

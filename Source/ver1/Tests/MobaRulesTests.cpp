@@ -204,6 +204,17 @@ bool FMobaTeamSlotTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaTowerRampTest, "Moba.Rules.TowerRamp", MobaTestFlags)
+bool FMobaTowerRampTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("첫 타격"), AMobaTower::GetRampMultiplier(0), 1.0f);
+	TestNearlyEqual(TEXT("두 번째"), AMobaTower::GetRampMultiplier(1), 1.4f, 0.0001f);
+	TestNearlyEqual(TEXT("세 번째"), AMobaTower::GetRampMultiplier(2), 1.8f, 0.0001f);
+	TestNearlyEqual(TEXT("네 번째 이후 최대"), AMobaTower::GetRampMultiplier(3), 2.2f, 0.0001f);
+	TestNearlyEqual(TEXT("계속 최대"), AMobaTower::GetRampMultiplier(10), 2.2f, 0.0001f);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaTowerPlateTest, "Moba.Rules.TowerPlates", MobaTestFlags)
 bool FMobaTowerPlateTest::RunTest(const FString& Parameters)
 {

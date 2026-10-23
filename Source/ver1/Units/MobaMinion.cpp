@@ -9,6 +9,7 @@
 #include "Combat/MobaCombatComponent.h"
 #include "Combat/MobaCombatEvents.h"
 #include "Combat/MobaCombatLibrary.h"
+#include "EngineUtils.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SplineComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -207,6 +208,8 @@ void AMobaMinion::UpdateAI()
 		return;
 	}
 
+	UpdateBaronAura();
+
 	AActor* CurrentTarget = CombatComponent->GetAttackTarget();
 	if (CurrentTarget)
 	{
@@ -257,6 +260,37 @@ AActor* AMobaMinion::FindBestTarget() const
 	}
 
 	return Best;
+}
+
+void AMobaMinion::UpdateBaronAura()
+{
+	// 아직 넉넉히 남아 있으면 그대로 둔다. 끝나기 직전이면 지우고 바로 새로 걸어 끊기는 틈이 없게 한다.
+	const FGameplayTagContainer AuraTags(MobaTags::Buff_BaronAura);
+	float Remaining = 0.0f;
+	for (const float Time : AbilitySystemComponent->GetActiveEffectsTimeRemaining(FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(AuraTags)))
+	{
+		Remaining = FMath::Max(Remaining, Time);
+	}
+	if (Remaining > 0.35f)
+	{
+		return;
+	}
+	AbilitySystemComponent->RemoveActiveEffectsWithGrantedTags(AuraTags);
+
+	for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+	{
+		const UAbilitySystemComponent* ChampionAbilitySystem = It->GetAbilitySystemComponent();
+		if (It->GetTeam() == Team && !It->IsDead() && ChampionAbilitySystem && ChampionAbilitySystem->HasMatchingGameplayTag(MobaTags::Buff_Baron)
+			&& FVector::DistSquared2D(It->GetActorLocation(), GetActorLocation()) <= FMath::Square(BaronAuraRange))
+		{
+			FMobaStatBonus Bonus;
+			Bonus.AttackDamage = 30.0f;
+			Bonus.Armor = 30.0f;
+			Bonus.MagicResist = 30.0f;
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatBuffSpec(AbilitySystemComponent, this, 1.0f, Bonus, FGameplayTagContainer(MobaTags::Buff_BaronAura)), this);
+			return;
+		}
+	}
 }
 
 void AMobaMinion::AdvanceAlongLane()

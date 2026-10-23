@@ -8,6 +8,7 @@
 #include "Combat/MobaCombatLibrary.h"
 #include "Combat/MobaProjectile.h"
 #include "Game/MobaGameplayTags.h"
+#include "Structures/MobaStructure.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PawnMovementComponent.h"
@@ -480,7 +481,13 @@ void UMobaCombatComponent::FireAttack(AActor* Target)
 		SourceAbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute(), FMath::Min(Mana + PassiveBonus.ManaRestore, MaxMana));
 	}
 
-	const float AttackDamage = SourceAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackDamageAttribute());
+	float AttackDamage = SourceAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackDamageAttribute());
+
+	// 포탑은 같은 챔피언을 연속으로 칠수록 아프다.
+	if (AMobaTower* Tower = Cast<AMobaTower>(GetOwner()))
+	{
+		AttackDamage *= Tower->ConsumeDamageMultiplier(Target);
+	}
 	const FGameplayEffectSpecHandle Spec = MobaAbility::MakeDamageSpec(SourceAbilitySystem, GetOwner(), AttackDamage + PassiveBonus.BonusPhysicalDamage, PassiveBonus.BonusMagicDamage, bRedBuff ? RedBuffTrueDamage : 0.0f);
 	if (!Spec.IsValid())
 	{

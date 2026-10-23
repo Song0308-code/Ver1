@@ -45,6 +45,9 @@ namespace MobaTags
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Elder);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Baron);
 
+	/** 바론 버프를 가진 아군 챔피언 근처에서 강해진 미니언. 1초짜리로 계속 갱신된다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_BaronAura);
+
 	/** 와드. 피해량과 상관없이 기본 공격 한 번에 체력 1씩만 깎인다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Unit_Ward);
 

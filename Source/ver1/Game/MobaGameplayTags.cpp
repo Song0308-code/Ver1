@@ -27,6 +27,7 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Soul_Ocean, "Buff.Soul.Ocean", "바다의 영혼: 큰 체력 재생.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Elder, "Buff.Elder", "장로 드래곤: 체력 20% 아래의 적 챔피언을 바로 처치.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Baron, "Buff.Baron", "내셔 남작 처치 보상.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_BaronAura, "Buff.BaronAura", "바론 버프 챔피언 근처의 강화된 미니언.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Unit_Ward, "Unit.Ward", "와드. 기본 공격 한 번에 체력 1씩만 깎인다.");
 
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Slot_Q, "Ability.Slot.Q");

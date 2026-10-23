@@ -317,6 +317,28 @@ void AMobaTower::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AMobaTower, PlatesRemaining);
 }
 
+float AMobaTower::GetRampMultiplier(int32 PreviousHits)
+{
+	return FMath::Min(1.0f + RampPerHit * FMath::Max(PreviousHits, 0), MaxRamp);
+}
+
+float AMobaTower::ConsumeDamageMultiplier(const AActor* Target)
+{
+	if (!Target || !Target->IsA<AMobaCharacter>())
+	{
+		RampTarget.Reset();
+		RampHits = 0;
+		return 1.0f;
+	}
+
+	if (RampTarget.Get() != Target)
+	{
+		RampTarget = Target;
+		RampHits = 0;
+	}
+	return GetRampMultiplier(RampHits++);
+}
+
 int32 AMobaTower::GetPlatesForHealthFraction(float HealthFraction)
 {
 	// 경계 바로 아래 부동소수 오차를 흡수한다(0.8 → 4개).
