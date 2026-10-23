@@ -161,6 +161,16 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s 제어 와드는 소모품"), Item.Name), !Item.bControlWard || Item.bConsumable);
 	}
 	TestEqual(TEXT("제어 와드 아이템 하나"), ControlWardItems, 1);
+
+	// 툴팁용: 모든 아이템은 능력치 줄이 하나 이상 있고, 재료인 아이템은 상위 아이템 목록에 그 완성품이 들어 있다.
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
+	{
+		TestTrue(FString::Printf(TEXT("%s 능력치 줄"), Items[Index].Name), MobaItems::DescribeStats(Items[Index]).Num() > 0);
+		for (const int32 Component : Items[Index].Components)
+		{
+			TestTrue(FString::Printf(TEXT("%s 상위 목록"), Items[Index].Name), MobaItems::GetItemsBuiltFrom(Component).Contains(Index));
+		}
+	}
 	for (int32 Index = 0; Index < Items.Num(); ++Index)
 	{
 		TestFalse(FString::Printf(TEXT("%s 재료에 물약 없음"), Items[Index].Name), Items[Index].Components.Contains(Potion));

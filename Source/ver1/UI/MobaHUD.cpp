@@ -100,6 +100,7 @@ void AMobaHUD::DrawHUD()
 	if (LocalCharacter)
 	{
 		DrawAbilityTooltip(LocalCharacter);
+		DrawItemTooltip(LocalCharacter);
 	}
 
 	DrawGameMenu();
@@ -626,6 +627,125 @@ void AMobaHUD::DrawDamageNumbers()
 		const float Alpha = FMath::Clamp(1.0f - Age / 1.1f, 0.0f, 1.0f);
 		DrawCenteredText(Number.Text, FLinearColor(0.0f, 0.0f, 0.0f, Alpha), Screen.X + 1.5f, Screen.Y + 1.5f, Font, 1.5f);
 		DrawCenteredText(Number.Text, Number.Color.CopyWithNewOpacity(Alpha), Screen.X, Screen.Y, Font, 1.5f);
+	}
+}
+
+void AMobaHUD::DrawItemTooltip(const AMobaCharacter* Character)
+{
+	float MouseX = 0.0f;
+	float MouseY = 0.0f;
+	const AMobaPlayerController* PointerController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+	const AMobaPlayerState* PlayerState = Character->GetPlayerState<AMobaPlayerState>();
+	if (!PointerController || !PlayerState || !PointerController->GetPointerPosition(MouseX, MouseY))
+	{
+		return;
+	}
+	const FVector2D Mouse(MouseX, MouseY);
+
+	// 상점 줄(아이템 번호 순서) 또는 가방 칸.
+	int32 ItemIndex = INDEX_NONE;
+	bool bFromInventory = false;
+	for (int32 Index = 0; Index < ShopItemRects.Num(); ++Index)
+	{
+		if (ShopItemRects[Index].IsInsideOrOn(Mouse))
+		{
+			ItemIndex = Index;
+		}
+	}
+	const TArray<uint8>& Owned = PlayerState->GetItems();
+	for (int32 Slot = 0; ItemIndex == INDEX_NONE && Slot < InventoryRects.Num(); ++Slot)
+	{
+		if (InventoryRects[Slot].IsInsideOrOn(Mouse) && Owned.IsValidIndex(Slot))
+		{
+			ItemIndex = Owned[Slot];
+			bFromInventory = true;
+		}
+	}
+
+	const FMobaItemDefinition* Item = MobaItems::GetItem(ItemIndex);
+	if (!Item)
+	{
+		return;
+	}
+
+	struct FLine
+	{
+		FString Text;
+		FLinearColor Color;
+	};
+	TArray<FLine> Lines;
+	const FLinearColor Gold(1.0f, 0.85f, 0.3f);
+	const FLinearColor Dim(0.65f, 0.68f, 0.75f);
+
+	Lines.Add({ Item->Name, FLinearColor(1.0f, 0.9f, 0.55f) });
+	if (bFromInventory)
+	{
+		Lines.Add({ FString::Printf(TEXT("판매 %dG (우물에서 클릭)"), FMath::FloorToInt(Item->Cost * MobaItems::SellRefundFraction)), Gold });
+	}
+	else
+	{
+		const int32 Cost = Character->GetItemPurchaseCost(ItemIndex);
+		Lines.Add({ Cost != Item->Cost ? FString::Printf(TEXT("가격 %dG (원래 %dG, 가진 재료만큼 할인)"), Cost, Item->Cost) : FString::Printf(TEXT("가격 %dG"), Item->Cost), Gold });
+	}
+
+	for (const FString& Stat : MobaItems::DescribeStats(*Item))
+	{
+		Lines.Add({ Stat, FLinearColor::White });
+	}
+
+	if (!Item->IsBasic())
+	{
+		Lines.Add({ TEXT("재료"), Dim });
+		TArray<uint8> Remaining = Owned;
+		for (const int32 ComponentIndex : Item->Components)
+		{
+			const FMobaItemDefinition* Component = MobaItems::GetItem(ComponentIndex);
+			if (!Component)
+			{
+				continue;
+			}
+			// 같은 재료가 두 번 필요하면 가진 개수만큼만 체크한다.
+			const int32 Found = Remaining.Find(static_cast<uint8>(ComponentIndex));
+			if (Found != INDEX_NONE)
+			{
+				Remaining.RemoveAt(Found);
+			}
+			Lines.Add({ FString::Printf(TEXT("  %s %s (%dG)"), Found != INDEX_NONE ? TEXT("✓") : TEXT("·"), Component->Name, Component->Cost),
+				Found != INDEX_NONE ? FLinearColor(0.5f, 1.0f, 0.55f) : FLinearColor(0.85f, 0.85f, 0.85f) });
+		}
+	}
+
+	const TArray<int32> BuildsInto = MobaItems::GetItemsBuiltFrom(ItemIndex);
+	if (BuildsInto.Num() > 0)
+	{
+		TArray<FString> Names;
+		for (const int32 Index : BuildsInto)
+		{
+			Names.Add(MobaItems::GetItem(Index)->Name);
+		}
+		Lines.Add({ FString::Printf(TEXT("상위: %s"), *FString::Join(Names, TEXT(", "))), Dim });
+	}
+
+	UFont* Font = GEngine->GetSmallFont();
+	const float LineHeight = 19.0f;
+	float Width = 0.0f;
+	for (const FLine& Line : Lines)
+	{
+		float LineWidth = 0.0f;
+		float LineHeightOut = 0.0f;
+		GetTextSize(Line.Text, LineWidth, LineHeightOut, Font, 1.05f);
+		Width = FMath::Max(Width, LineWidth);
+	}
+	Width = FMath::Min(Width, 380.0f);
+	const float Height = LineHeight * Lines.Num() + 12.0f;
+
+	// 커서 오른쪽 아래에 두되 화면 밖으로 나가지 않게 한다.
+	const float Left = FMath::Clamp(MouseX + 18.0f, 8.0f, Canvas->ClipX - Width - 24.0f);
+	const float Top = FMath::Clamp(MouseY + 18.0f, 8.0f, Canvas->ClipY - Height - 8.0f);
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.92f), Left, Top, Width + 16.0f, Height);
+	for (int32 Index = 0; Index < Lines.Num(); ++Index)
+	{
+		DrawTextFit(Lines[Index].Text, Lines[Index].Color, Left + 8.0f, Top + 6.0f + LineHeight * Index, Width, Font, 1.05f);
 	}
 }
 

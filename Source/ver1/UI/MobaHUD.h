@@ -91,6 +91,9 @@ protected:
 	void UpdateDamageNumbers();
 	void DrawDamageNumbers();
 
+	/** 마우스를 올린 상점 줄이나 가방 칸의 아이템 설명(능력치, 재료, 상위 아이템, 가격). */
+	void DrawItemTooltip(const AMobaCharacter* Character);
+
 	/** 마우스를 올린 스킬 칸의 설명. */
 	void DrawAbilityTooltip(const AMobaCharacter* Character);
 

@@ -196,6 +196,55 @@ bool MobaItems::CanPurchase(int32 ItemIndex, const TArray<uint8>& Owned, const F
 	return true;
 }
 
+TArray<FString> MobaItems::DescribeStats(const FMobaItemDefinition& Item)
+{
+	TArray<FString> Lines;
+	const auto Add = [&Lines](float Value, const TCHAR* Label, const TCHAR* Suffix)
+	{
+		if (Value != 0.0f)
+		{
+			Lines.Add(FString::Printf(TEXT("%s +%d%s"), Label, FMath::RoundToInt(Value), Suffix));
+		}
+	};
+	Add(Item.AttackDamage, TEXT("공격력"), TEXT(""));
+	Add(Item.AbilityPower, TEXT("주문력"), TEXT(""));
+	Add(Item.MaxHealth, TEXT("체력"), TEXT(""));
+	Add(Item.MaxMana, TEXT("마나"), TEXT(""));
+	Add(Item.Armor, TEXT("방어력"), TEXT(""));
+	Add(Item.MagicResist, TEXT("마법 저항력"), TEXT(""));
+	Add(Item.AttackSpeedFraction * 100.0f, TEXT("공격 속도"), TEXT("%"));
+	Add(Item.MoveSpeed, TEXT("이동 속도"), TEXT(""));
+	Add(Item.LifeSteal * 100.0f, TEXT("생명력 흡수"), TEXT("%"));
+	Add(Item.AbilityHaste, TEXT("스킬 가속"), TEXT(""));
+	if (Item.bConsumable && Item.HealAmount > 0.0f)
+	{
+		Lines.Add(FString::Printf(TEXT("사용: %d초 동안 체력 %d 회복 (키 1, 최대 %d개)"), FMath::RoundToInt(Item.HealDuration), FMath::RoundToInt(Item.HealAmount), MaxPotions));
+	}
+	if (Item.bControlWard)
+	{
+		Lines.Add(FString::Printf(TEXT("사용: 근처 적 와드를 드러내고 끈다 (키 3, 최대 %d개)"), MaxControlWards));
+	}
+	if (*Item.UniqueGroup)
+	{
+		Lines.Add(TEXT("장화 계열은 하나만 가질 수 있습니다"));
+	}
+	return Lines;
+}
+
+TArray<int32> MobaItems::GetItemsBuiltFrom(int32 ItemIndex)
+{
+	TArray<int32> Result;
+	const TArray<FMobaItemDefinition>& Items = GetItems();
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
+	{
+		if (Items[Index].Components.Contains(ItemIndex))
+		{
+			Result.Add(Index);
+		}
+	}
+	return Result;
+}
+
 FString MobaItems::DescribeComponents(int32 ItemIndex)
 {
 	const FMobaItemDefinition* Item = GetItem(ItemIndex);

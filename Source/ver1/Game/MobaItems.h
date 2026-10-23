@@ -89,6 +89,12 @@ namespace MobaItems
 	/** 칸 수와 하나만 가질 수 있는 묶음 규칙상 살 수 있는지. 골드는 보지 않는다. */
 	VER1_API bool CanPurchase(int32 ItemIndex, const TArray<uint8>& Owned, const FMobaPurchasePlan& Plan);
 
+	/** 아이템의 능력치를 "공격력 +20"처럼 한 줄씩 적은 목록. */
+	VER1_API TArray<FString> DescribeStats(const FMobaItemDefinition& Item);
+
+	/** ItemIndex를 재료로 쓰는 아이템 번호들. */
+	VER1_API TArray<int32> GetItemsBuiltFrom(int32 ItemIndex);
+
 	/** "긴 검 + 붉은 수정"처럼 재료 이름을 이은 문자열. 재료가 없으면 빈 문자열. */
 	VER1_API FString DescribeComponents(int32 ItemIndex);
 }
