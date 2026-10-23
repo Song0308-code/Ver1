@@ -8,6 +8,16 @@
 class AActor;
 class UAbilitySystemComponent;
 
+/** 버프로 더하는 능력치. */
+struct FMobaStatBonus
+{
+	float AttackDamage = 0.0f;
+	float AbilityPower = 0.0f;
+	float Armor = 0.0f;
+	float MagicResist = 0.0f;
+	float MoveSpeed = 0.0f;
+};
+
 namespace MobaAbility
 {
 	VER1_API FGameplayTag GetSlotTag(EMobaAbilitySlot Slot);
@@ -23,6 +33,9 @@ namespace MobaAbility
 	VER1_API FGameplayEffectSpecHandle MakeStatModSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, float MoveSpeedMultiplier, float AttackSpeedMultiplier, const FGameplayTag& StateTag);
 
 	/** 일정 시간 공격력·주문력을 더하고 BuffTag를 부여하는 스펙을 만든다. 수치 없이 태그만 주려면 보너스를 0으로 넘긴다. */
+	/** 일정 시간 Bonus만큼 능력치를 더하고 Tags를 모두 부여하는 스펙. */
+	VER1_API FGameplayEffectSpecHandle MakeStatBuffSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, const FMobaStatBonus& Bonus, const FGameplayTagContainer& Tags);
+
 	VER1_API FGameplayEffectSpecHandle MakeBuffSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, float BonusAttackDamage, float BonusAbilityPower, const FGameplayTag& BuffTag);
 
 	VER1_API FGameplayEffectSpecHandle MakeStunSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration);

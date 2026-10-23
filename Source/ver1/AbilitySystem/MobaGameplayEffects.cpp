@@ -53,4 +53,7 @@ UMobaAttributeBuffEffect::UMobaAttributeBuffEffect()
 	DurationMagnitude = MakeSetByCaller(MobaTags::Data_Duration);
 	Modifiers.Add(MakeModifier(UMobaAttributeSet::GetAttackDamageAttribute(), EGameplayModOp::Additive, MobaTags::Data_Bonus_AttackDamage));
 	Modifiers.Add(MakeModifier(UMobaAttributeSet::GetAbilityPowerAttribute(), EGameplayModOp::Additive, MobaTags::Data_Bonus_AbilityPower));
+	Modifiers.Add(MakeModifier(UMobaAttributeSet::GetArmorAttribute(), EGameplayModOp::Additive, MobaTags::Data_Bonus_Armor));
+	Modifiers.Add(MakeModifier(UMobaAttributeSet::GetMagicResistAttribute(), EGameplayModOp::Additive, MobaTags::Data_Bonus_MagicResist));
+	Modifiers.Add(MakeModifier(UMobaAttributeSet::GetMoveSpeedAttribute(), EGameplayModOp::Additive, MobaTags::Data_Bonus_MoveSpeed));
 }

@@ -91,20 +91,33 @@ FGameplayEffectSpecHandle MobaAbility::MakeStatModSpec(UAbilitySystemComponent* 
 	return Spec;
 }
 
-FGameplayEffectSpecHandle MobaAbility::MakeBuffSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, float BonusAttackDamage, float BonusAbilityPower, const FGameplayTag& BuffTag)
+FGameplayEffectSpecHandle MobaAbility::MakeStatBuffSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, const FMobaStatBonus& Bonus, const FGameplayTagContainer& Tags)
 {
 	const FGameplayEffectSpecHandle Spec = MakeSpec(Source, Instigator, UMobaAttributeBuffEffect::StaticClass());
 	if (Spec.IsValid())
 	{
 		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Duration, Duration);
-		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Bonus_AttackDamage, BonusAttackDamage);
-		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Bonus_AbilityPower, BonusAbilityPower);
-		if (BuffTag.IsValid())
-		{
-			Spec.Data->DynamicGrantedTags.AddTag(BuffTag);
-		}
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Bonus_AttackDamage, Bonus.AttackDamage);
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Bonus_AbilityPower, Bonus.AbilityPower);
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Bonus_Armor, Bonus.Armor);
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Bonus_MagicResist, Bonus.MagicResist);
+		Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Bonus_MoveSpeed, Bonus.MoveSpeed);
+		Spec.Data->DynamicGrantedTags.AppendTags(Tags);
 	}
 	return Spec;
+}
+
+FGameplayEffectSpecHandle MobaAbility::MakeBuffSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration, float BonusAttackDamage, float BonusAbilityPower, const FGameplayTag& BuffTag)
+{
+	FMobaStatBonus Bonus;
+	Bonus.AttackDamage = BonusAttackDamage;
+	Bonus.AbilityPower = BonusAbilityPower;
+	FGameplayTagContainer Tags;
+	if (BuffTag.IsValid())
+	{
+		Tags.AddTag(BuffTag);
+	}
+	return MakeStatBuffSpec(Source, Instigator, Duration, Bonus, Tags);
 }
 
 FGameplayEffectSpecHandle MobaAbility::MakeStunSpec(UAbilitySystemComponent* Source, AActor* Instigator, float Duration)

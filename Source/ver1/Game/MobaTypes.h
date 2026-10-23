@@ -35,6 +35,32 @@ enum class EMobaAbilitySlot : uint8
 	F
 };
 
+/** 드래곤의 원소. 나올 때마다 정해지고 처치 보상이 달라진다. */
+UENUM()
+enum class EMobaDragonElement : uint8
+{
+	Infernal,
+	Mountain,
+	Cloud,
+	Ocean,
+	Count UMETA(Hidden)
+};
+
+namespace MobaDragon
+{
+	/** "화염" 같은 원소 이름. */
+	inline const TCHAR* GetElementName(EMobaDragonElement Element)
+	{
+		switch (Element)
+		{
+		case EMobaDragonElement::Mountain: return TEXT("대지");
+		case EMobaDragonElement::Cloud: return TEXT("바람");
+		case EMobaDragonElement::Ocean: return TEXT("바다");
+		default: return TEXT("화염");
+		}
+	}
+}
+
 /** 개발 빌드의 콘솔 명령(Moba*)이 서버에 요청하는 일. */
 UENUM()
 enum class EMobaDevCommand : uint8

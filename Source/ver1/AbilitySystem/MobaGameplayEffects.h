@@ -51,8 +51,8 @@ public:
 };
 
 /**
- * 일정 시간 동안 공격력과 주문력을 더하고 버프 태그를 부여한다. 정글 보상에 쓴다.
- * Data_Duration, Data_Bonus_AttackDamage, Data_Bonus_AbilityPower를 모두 넘겨야 하고, 태그는 DynamicGrantedTags로 넘긴다.
+ * 일정 시간 동안 공격력·주문력·방어력·마법 저항력·이동 속도를 더하고 버프 태그를 부여한다. 정글 보상에 쓴다.
+ * Data_Duration과 Data_Bonus_*를 모두 넘겨야 하고(MobaAbility::MakeStatBuffSpec), 태그는 DynamicGrantedTags로 넘긴다.
  */
 UCLASS()
 class VER1_API UMobaAttributeBuffEffect : public UGameplayEffect

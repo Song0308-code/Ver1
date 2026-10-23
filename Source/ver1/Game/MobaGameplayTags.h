@@ -30,6 +30,12 @@ namespace MobaTags
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Blue);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Red);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Dragon);
+
+	/** 원소별 드래곤 보상. Buff_Dragon과 함께 붙고, 개수가 그 원소를 잡은 횟수다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Dragon_Infernal);
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Dragon_Mountain);
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Dragon_Cloud);
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Dragon_Ocean);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Baron);
 
 	/** 와드. 피해량과 상관없이 기본 공격 한 번에 체력 1씩만 깎인다. */
@@ -64,4 +70,7 @@ namespace MobaTags
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Multiplier_AttackSpeed);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Bonus_AttackDamage);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Bonus_AbilityPower);
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Bonus_Armor);
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Bonus_MagicResist);
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Bonus_MoveSpeed);
 }

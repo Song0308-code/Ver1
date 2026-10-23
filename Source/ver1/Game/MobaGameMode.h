@@ -63,6 +63,9 @@ public:
 	/** 서버 전용. 로비에서 소환사 주문을 바꾼다. Index 0이 D, 1이 F. */
 	void RequestSummonerSpell(APlayerController* Player, int32 Index, EMobaSummonerSpell Spell);
 
+	/** 원소 드래곤 보상을 팀 전원(죽어 있는 팀원 포함)에게 영구히 준다. */
+	void GrantDragonToTeam(EMobaTeam Team, EMobaDragonElement Element);
+
 	/** 서버 전용. 포탑 방패가 하나 깨졌다. 깬 챔피언(미니언이면 근처의 상대 챔피언들)에게 골드를 준다. */
 	void HandleTowerPlateDestroyed(class AMobaTower* Tower, AActor* DamageInstigator);
 
@@ -273,6 +276,14 @@ protected:
 	/** 드래곤을 잡을 때마다 팀 전원이 경기 끝까지 얻는 공격력·주문력. */
 	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
 	float DragonBonusAttackDamage = 10.0f;
+
+	/** 대지 드래곤 1회당 방어력·마법 저항력. */
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float DragonBonusResists = 6.0f;
+
+	/** 바람 드래곤 1회당 이동 속도. */
+	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
+	float DragonBonusMoveSpeed = 10.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
 	float DragonBonusAbilityPower = 15.0f;

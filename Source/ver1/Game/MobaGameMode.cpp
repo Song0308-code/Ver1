@@ -792,9 +792,6 @@ void AMobaGameMode::HandleCampCleared(AMobaJungleCamp* Camp, AActor* Killer)
 
 	const EMobaTeam Team = KillerChampion->GetTeam();
 
-	// 다시 잡기 전에는 끝나지 않을 만큼 긴 시간. 드래곤 보상은 경기 끝까지 간다.
-	const float PermanentDuration = 1000000.0f;
-
 	switch (Camp->GetCampType())
 	{
 	case EMobaCampType::BlueBuff:
@@ -810,7 +807,7 @@ void AMobaGameMode::HandleCampCleared(AMobaJungleCamp* Camp, AActor* Killer)
 		break;
 
 	case EMobaCampType::Dragon:
-		ApplyBuffToTeam(Team, MobaTags::Buff_Dragon, PermanentDuration, DragonBonusAttackDamage, DragonBonusAbilityPower);
+		GrantDragonToTeam(Team, Camp->GetDragonElement());
 		break;
 
 	case EMobaCampType::Baron:
@@ -831,7 +828,7 @@ void AMobaGameMode::HandleCampCleared(AMobaJungleCamp* Camp, AActor* Killer)
 
 	if (Camp->GetCampType() == EMobaCampType::Dragon || Camp->GetCampType() == EMobaCampType::Baron || Camp->GetCampType() == EMobaCampType::Herald)
 	{
-		Announce(FString::Printf(TEXT("%s 팀이 %s 처치"), *MobaTeam::GetTeamDisplayName(Team), *AMobaJungleCamp::GetDefinition(Camp->GetCampType()).DisplayName), Team);
+		Announce(FString::Printf(TEXT("%s 팀이 %s 처치"), *MobaTeam::GetTeamDisplayName(Team), *Camp->GetDisplayName()), Team);
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("캠프 정리: %s (%s 팀)"), *AMobaJungleCamp::GetDefinition(Camp->GetCampType()).DisplayName, *MobaTeam::GetTeamTag(Team).ToString());
@@ -852,6 +849,43 @@ void AMobaGameMode::ApplyBuff(AMobaCharacter* Champion, const FGameplayTag& Buff
 	}
 
 	MobaAbility::ApplySpecToTarget(MobaAbility::MakeBuffSpec(AbilitySystem, Champion, Duration, BonusAttackDamage, BonusAbilityPower, BuffTag), Champion);
+}
+
+void AMobaGameMode::GrantDragonToTeam(EMobaTeam Team, EMobaDragonElement Element)
+{
+	FMobaStatBonus Bonus;
+	FGameplayTagContainer BuffTags(MobaTags::Buff_Dragon);
+	switch (Element)
+	{
+	case EMobaDragonElement::Mountain:
+		Bonus.Armor = DragonBonusResists;
+		Bonus.MagicResist = DragonBonusResists;
+		BuffTags.AddTag(MobaTags::Buff_Dragon_Mountain);
+		break;
+	case EMobaDragonElement::Cloud:
+		Bonus.MoveSpeed = DragonBonusMoveSpeed;
+		BuffTags.AddTag(MobaTags::Buff_Dragon_Cloud);
+		break;
+	case EMobaDragonElement::Ocean:
+		// 체력 재생은 챔피언의 재생 틱이 원소 중첩 수를 보고 더한다.
+		BuffTags.AddTag(MobaTags::Buff_Dragon_Ocean);
+		break;
+	default:
+		Bonus.AttackDamage = DragonBonusAttackDamage;
+		Bonus.AbilityPower = DragonBonusAbilityPower;
+		BuffTags.AddTag(MobaTags::Buff_Dragon_Infernal);
+		break;
+	}
+
+	// 다시 잡기 전에는 끝나지 않을 만큼 긴 시간. 드래곤 보상은 경기 끝까지 가고, 죽어 있는 팀원도 받는다.
+	const float PermanentDuration = 1000000.0f;
+	for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+	{
+		if (UAbilitySystemComponent* AbilitySystem = It->GetTeam() == Team ? It->GetAbilitySystemComponent() : nullptr)
+		{
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatBuffSpec(AbilitySystem, *It, PermanentDuration, Bonus, BuffTags), *It);
+		}
+	}
 }
 
 void AMobaGameMode::ApplyBuffToTeam(EMobaTeam Team, const FGameplayTag& BuffTag, float Duration, float BonusAttackDamage, float BonusAbilityPower)

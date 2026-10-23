@@ -363,6 +363,16 @@ void AMobaHUD::DrawWorldTimers()
 	for (TActorIterator<AMobaJungleCamp> It(GetWorld()); It; ++It)
 	{
 		DrawTimer(It->GetActorLocation(), It->GetSecondsUntilSpawn(), FLinearColor(1.0f, 0.8f, 0.3f));
+
+		// 드래곤은 다음에 나올 원소를 타이머 위에 적는다.
+		if (It->GetCampType() == EMobaCampType::Dragon && It->GetSecondsUntilSpawn() > 0.0f)
+		{
+			const FVector Screen = Project(It->GetActorLocation());
+			if (Screen.Z > 0.0)
+			{
+				DrawCenteredText(FString::Printf(TEXT("%s 드래곤"), MobaDragon::GetElementName(It->GetDragonElement())), FLinearColor(1.0f, 0.8f, 0.3f), Screen.X, Screen.Y - 28.0f, GEngine->GetSmallFont(), 1.1f);
+			}
+		}
 	}
 
 	for (TActorIterator<AMobaInhibitor> It(GetWorld()); It; ++It)
@@ -1766,7 +1776,10 @@ void AMobaHUD::DrawBuffsAndWard(const AMobaCharacter* Character)
 		{ MobaTags::Buff_Blue, TEXT("블루"), FLinearColor(0.35f, 0.6f, 1.0f) },
 		{ MobaTags::Buff_Red, TEXT("레드"), FLinearColor(1.0f, 0.4f, 0.3f) },
 		{ MobaTags::Buff_Baron, TEXT("바론"), FLinearColor(0.75f, 0.45f, 1.0f) },
-		{ MobaTags::Buff_Dragon, TEXT("드래곤"), FLinearColor(1.0f, 0.75f, 0.3f) },
+		{ MobaTags::Buff_Dragon_Infernal, TEXT("화염 용"), FLinearColor(1.0f, 0.5f, 0.25f) },
+		{ MobaTags::Buff_Dragon_Mountain, TEXT("대지 용"), FLinearColor(0.8f, 0.65f, 0.4f) },
+		{ MobaTags::Buff_Dragon_Cloud, TEXT("바람 용"), FLinearColor(0.75f, 0.9f, 1.0f) },
+		{ MobaTags::Buff_Dragon_Ocean, TEXT("바다 용"), FLinearColor(0.3f, 0.75f, 0.9f) },
 	};
 
 	float LabelTop = BoxTop;

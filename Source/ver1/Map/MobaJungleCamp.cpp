@@ -130,6 +130,7 @@ void AMobaJungleCamp::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AMobaJungleCamp, NextSpawnMatchTime);
 	DOREPLIFETIME(AMobaJungleCamp, AliveCount);
 	DOREPLIFETIME(AMobaJungleCamp, bExpired);
+	DOREPLIFETIME(AMobaJungleCamp, DragonElement);
 }
 
 void AMobaJungleCamp::BeginPlay()
@@ -139,6 +140,7 @@ void AMobaJungleCamp::BeginPlay()
 	if (HasAuthority())
 	{
 		NextSpawnMatchTime = InitialSpawnTimeOverride >= 0.0f ? InitialSpawnTimeOverride : GetDefinition(CampType).InitialSpawnTime;
+		PickNextDragonElement();
 		GetWorldTimerManager().SetTimer(SpawnTimer, this, &AMobaJungleCamp::UpdateSpawn, 0.5f, true);
 	}
 }
@@ -250,4 +252,21 @@ void AMobaJungleCamp::HandleMonsterKilled(AMobaMonster* Monster, AActor* Killer)
 	{
 		GameMode->HandleCampCleared(this, Killer);
 	}
+
+	// 보상을 준 뒤에 다음 드래곤의 원소를 정한다.
+	PickNextDragonElement();
+}
+
+void AMobaJungleCamp::PickNextDragonElement()
+{
+	if (CampType == EMobaCampType::Dragon)
+	{
+		DragonElement = static_cast<EMobaDragonElement>(FMath::RandRange(0, static_cast<int32>(EMobaDragonElement::Count) - 1));
+	}
+}
+
+FString AMobaJungleCamp::GetDisplayName() const
+{
+	const FString Name = GetDefinition(CampType).DisplayName;
+	return CampType == EMobaCampType::Dragon ? FString::Printf(TEXT("%s %s"), MobaDragon::GetElementName(DragonElement), *Name) : Name;
 }

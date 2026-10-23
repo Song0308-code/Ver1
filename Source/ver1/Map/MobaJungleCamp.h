@@ -45,6 +45,12 @@ public:
 	/** 몬스터가 한 마리라도 살아 있는지. */
 	bool IsAlive() const { return AliveCount > 0; }
 
+	/** 드래곤 캠프의 이번(또는 다음) 원소. 드래곤이 아니면 의미 없음. */
+	EMobaDragonElement GetDragonElement() const { return DragonElement; }
+
+	/** "화염 드래곤"처럼 원소를 붙인 이름. 드래곤이 아니면 캠프 이름. */
+	FString GetDisplayName() const;
+
 	/** 사라지는 시각이 지나 더는 나오지 않는지. */
 	bool IsExpired() const { return bExpired; }
 
@@ -88,6 +94,12 @@ protected:
 
 	UPROPERTY(Replicated)
 	bool bExpired = false;
+
+	/** 드래곤 캠프의 원소. 처음에 정하고, 처치될 때마다 다음 원소를 미리 정한다(타이머 옆에 보인다). */
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Camp")
+	EMobaDragonElement DragonElement = EMobaDragonElement::Infernal;
+
+	void PickNextDragonElement();
 
 	/** 서버 전용. 지금 살아 있는 이 캠프의 몬스터. 사라지는 시각에 지운다. */
 	TArray<TWeakObjectPtr<AMobaMonster>> SpawnedMonsters;

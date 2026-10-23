@@ -19,6 +19,10 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Blue, "Buff.Blue", "푸른 파수꾼 버프. 마나 재생이 늘고 재사용 대기 시간이 줄어든다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Red, "Buff.Red", "붉은 덩굴정령 버프. 체력 재생이 늘고 기본 공격이 둔화와 추가 피해를 준다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon, "Buff.Dragon", "드래곤 처치 보상. 경기 끝까지 유지되고 잡을 때마다 겹친다.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon_Infernal, "Buff.Dragon.Infernal", "화염 드래곤: 공격력·주문력.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon_Mountain, "Buff.Dragon.Mountain", "대지 드래곤: 방어력·마법 저항력.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon_Cloud, "Buff.Dragon.Cloud", "바람 드래곤: 이동 속도.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Dragon_Ocean, "Buff.Dragon.Ocean", "바다 드래곤: 체력 재생.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Baron, "Buff.Baron", "내셔 남작 처치 보상.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Unit_Ward, "Unit.Ward", "와드. 기본 공격 한 번에 체력 1씩만 깎인다.");
 
@@ -46,5 +50,8 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Multiplier_MoveSpeed, "Data.Multiplier.MoveSpeed", "이동 속도 배율. 1이면 변화 없음.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Bonus_AttackDamage, "Data.Bonus.AttackDamage", "더해 줄 공격력.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Bonus_AbilityPower, "Data.Bonus.AbilityPower", "더해 줄 주문력.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Bonus_Armor, "Data.Bonus.Armor", "더해 줄 방어력.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Bonus_MagicResist, "Data.Bonus.MagicResist", "더해 줄 마법 저항력.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Bonus_MoveSpeed, "Data.Bonus.MoveSpeed", "더해 줄 이동 속도.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Multiplier_AttackSpeed, "Data.Multiplier.AttackSpeed", "공격 속도 배율. 1이면 변화 없음.");
 }
