@@ -1133,7 +1133,9 @@ void AMobaHUD::DrawAnnouncements()
 
 		const float Left = Canvas->ClipX - TextWidth - 20.0f;
 		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.55f), Left - 6.0f, Top - 2.0f, TextWidth + 12.0f, TextHeight + 4.0f);
-		DrawText(Announcement.Message, GetRelationColor(Announcement.Team, false), Left, Top, Font, 1.2f);
+		// 특정 팀의 일이 아닌 알림(포탑 방패 소멸, 개발 명령 등)은 흰색.
+		const FLinearColor Color = Announcement.Team == EMobaTeam::None ? FLinearColor(0.9f, 0.9f, 0.9f) : GetRelationColor(Announcement.Team, false);
+		DrawText(Announcement.Message, Color, Left, Top, Font, 1.2f);
 		Top += TextHeight + 8.0f;
 	}
 }

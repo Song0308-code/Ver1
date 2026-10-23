@@ -35,6 +35,17 @@ enum class EMobaAbilitySlot : uint8
 	F
 };
 
+/** 개발 빌드의 콘솔 명령(Moba*)이 서버에 요청하는 일. */
+UENUM()
+enum class EMobaDevCommand : uint8
+{
+	Gold,
+	Level,
+	SkipTime,
+	Refresh,
+	SpawnCamps
+};
+
 /** 로비에서 고르는 소환사 주문. */
 UENUM(BlueprintType)
 enum class EMobaSummonerSpell : uint8

@@ -331,6 +331,13 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		}
 	}
 
+	if (!DebugConsoleCommand.IsEmpty())
+	{
+		const FString Command = DebugConsoleCommand;
+		DebugConsoleCommand.Reset();
+		ConsoleCommand(Command);
+	}
+
 	if (bDebugUseHeraldEye)
 	{
 		bDebugUseHeraldEye = false;
@@ -753,6 +760,39 @@ void AMobaPlayerController::LeaveMatch()
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		GameInstance->ReturnToMainMenu();
+	}
+}
+
+void AMobaPlayerController::MobaGold(float Amount)
+{
+	ServerDevCommand(EMobaDevCommand::Gold, Amount);
+}
+
+void AMobaPlayerController::MobaLevel(int32 Level)
+{
+	ServerDevCommand(EMobaDevCommand::Level, static_cast<float>(Level));
+}
+
+void AMobaPlayerController::MobaSkipTime(float Seconds)
+{
+	ServerDevCommand(EMobaDevCommand::SkipTime, Seconds);
+}
+
+void AMobaPlayerController::MobaRefresh()
+{
+	ServerDevCommand(EMobaDevCommand::Refresh, 0.0f);
+}
+
+void AMobaPlayerController::MobaSpawnCamps()
+{
+	ServerDevCommand(EMobaDevCommand::SpawnCamps, 0.0f);
+}
+
+void AMobaPlayerController::ServerDevCommand_Implementation(EMobaDevCommand Command, float Value)
+{
+	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
+	{
+		GameMode->HandleDevCommand(this, Command, Value);
 	}
 }
 

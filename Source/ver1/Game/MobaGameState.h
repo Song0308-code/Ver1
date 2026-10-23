@@ -55,6 +55,9 @@ public:
 	/** 경기 시작부터 흐른 시간(초). 시작 전에는 0, 끝난 뒤에는 멈춘다. */
 	float GetMatchTimeSeconds() const;
 
+	/** 서버 전용(개발 명령). 경기 시간을 Seconds만큼 앞당긴다. */
+	void AdvanceMatchTime(float Seconds) { MatchStartServerTime -= Seconds; }
+
 	/** 서버에서 호출하면 모든 PC에 알림이 뜬다. */
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastAnnounce(const FString& Message, EMobaTeam Team);

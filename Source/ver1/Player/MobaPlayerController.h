@@ -78,6 +78,28 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientShowDeathRecap(const FString& Killer, const TArray<FMobaDeathRecapEntry>& Entries);
 
+	// 개발 빌드 콘솔(` 키) 명령. 배포 빌드에서는 동작하지 않는다. 결과는 모두에게 "[개발]" 알림으로 보인다.
+
+	/** MobaGold 1000: 골드를 준다. */
+	UFUNCTION(Exec)
+	void MobaGold(float Amount);
+
+	/** MobaLevel 11: 그 레벨까지 올린다. */
+	UFUNCTION(Exec)
+	void MobaLevel(int32 Level);
+
+	/** MobaSkipTime 600: 경기 시간을 앞당긴다(정글·포탑 방패·미니언 성장 반영). */
+	UFUNCTION(Exec)
+	void MobaSkipTime(float Seconds);
+
+	/** MobaRefresh: 체력·마나를 채우고 재사용 대기를 없앤다. */
+	UFUNCTION(Exec)
+	void MobaRefresh();
+
+	/** MobaSpawnCamps: 비어 있는 정글 캠프를 바로 내보낸다. */
+	UFUNCTION(Exec)
+	void MobaSpawnCamps();
+
 	/** 로비에서 챔피언을 바꾼다. 고른 것은 다음 경기를 위해 저장해 둔다. */
 	void RequestChampion(const FString& AssetName);
 
@@ -133,6 +155,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerRequestSurrender();
+
+	UFUNCTION(Server, Reliable)
+	void ServerDevCommand(EMobaDevCommand Command, float Value);
 
 	UFUNCTION(Client, Reliable)
 	void ClientShowPing(FVector_NetQuantize Location);
@@ -313,6 +338,10 @@ protected:
 	/** 에디터 자동 검증용. 켜면 다음 틱에 DebugCastLocation에 제어 와드를 놓는다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugPlaceControlWard = false;
+
+	/** 에디터 자동 검증용. 비어 있지 않으면 다음 틱에 콘솔 명령으로 실행한다(예: "MobaSkipTime 600"). */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	FString DebugConsoleCommand;
 
 	/** 에디터 자동 검증용. 켜면 다음 틱에 전령의 눈을 쓴다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")

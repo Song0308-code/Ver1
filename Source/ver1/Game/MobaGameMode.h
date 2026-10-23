@@ -66,6 +66,9 @@ public:
 	/** 서버 전용. 포탑 방패가 하나 깨졌다. 깬 챔피언(미니언이면 근처의 상대 챔피언들)에게 골드를 준다. */
 	void HandleTowerPlateDestroyed(class AMobaTower* Tower, AActor* DamageInstigator);
 
+	/** 서버 전용. 개발 빌드의 콘솔 명령을 처리한다. 배포 빌드에서는 아무것도 하지 않는다. */
+	void HandleDevCommand(APlayerController* Player, EMobaDevCommand Command, float Value);
+
 	/** 서버 전용. 로비에서 준비 상태를 바꾼다. */
 	void RequestReady(APlayerController* Player, bool bReady);
 

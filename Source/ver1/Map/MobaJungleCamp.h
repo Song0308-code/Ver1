@@ -54,6 +54,9 @@ public:
 	/** 서버 전용. 이 캠프의 몬스터가 죽었을 때 몬스터가 호출한다. */
 	void HandleMonsterKilled(AMobaMonster* Monster, AActor* Killer);
 
+	/** 서버 전용(개발 명령). 비어 있고 사라지지 않았다면 다음 확인 때 바로 내보낸다. */
+	void SpawnSoon() { if (!IsAlive() && !bExpired) { NextSpawnMatchTime = 0.0f; } }
+
 	/** 서버 전용. 경기가 끝났을 때 더 나오지 않게 한다. */
 	void StopSpawning();
 

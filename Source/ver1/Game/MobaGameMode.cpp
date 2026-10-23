@@ -1,5 +1,6 @@
 #include "Game/MobaGameMode.h"
 #include "AbilitySystem/MobaAbilityLibrary.h"
+#include "AbilitySystem/MobaAttributeSet.h"
 #include "AbilitySystemComponent.h"
 #include "Combat/MobaCombatEvents.h"
 #include "Character/MobaChampionData.h"
@@ -343,6 +344,90 @@ void AMobaGameMode::RequestSummonerSpell(APlayerController* Player, int32 Index,
 	}
 
 	MobaPlayerState->SetSummonerSpell(Index, Spell);
+}
+
+void AMobaGameMode::HandleDevCommand(APlayerController* Player, EMobaDevCommand Command, float Value)
+{
+#if !UE_BUILD_SHIPPING
+	AMobaPlayerState* MobaPlayerState = Player ? Player->GetPlayerState<AMobaPlayerState>() : nullptr;
+	AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	AMobaCharacter* Champion = Player ? Cast<AMobaCharacter>(Player->GetPawn()) : nullptr;
+	if (!MobaPlayerState || !MobaGameState)
+	{
+		return;
+	}
+
+	FString Description;
+	switch (Command)
+	{
+	case EMobaDevCommand::Gold:
+		MobaPlayerState->AddGold(FMath::Clamp(Value, 0.0f, 100000.0f));
+		Description = FString::Printf(TEXT("골드 +%d"), FMath::RoundToInt(Value));
+		break;
+
+	case EMobaDevCommand::Level:
+	{
+		const int32 Target = FMath::Clamp(FMath::RoundToInt(Value), 1, AMobaPlayerState::MaxChampionLevel);
+		for (int32 Guard = 0; Guard < AMobaPlayerState::MaxChampionLevel && MobaPlayerState->GetChampionLevel() < Target; ++Guard)
+		{
+			const float Needed = AMobaPlayerState::GetExperienceForNextLevel(MobaPlayerState->GetChampionLevel()) - MobaPlayerState->GetExperience();
+			MobaPlayerState->AddExperience(FMath::Max(Needed, 1.0f));
+		}
+		Description = FString::Printf(TEXT("레벨 %d"), MobaPlayerState->GetChampionLevel());
+		break;
+	}
+
+	case EMobaDevCommand::SkipTime:
+	{
+		if (!MobaGameState->HasMatchStarted() || Value <= 0.0f)
+		{
+			return;
+		}
+		MobaGameState->AdvanceMatchTime(Value);
+
+		// 경기 시간 기준이 아닌 타이머(포탑 방패)도 같이 당긴다.
+		if (GetWorldTimerManager().IsTimerActive(PlatingTimer))
+		{
+			const float Remaining = GetWorldTimerManager().GetTimerRemaining(PlatingTimer) - Value;
+			GetWorldTimerManager().SetTimer(PlatingTimer, this, &AMobaGameMode::EndTowerPlating, FMath::Max(Remaining, 0.01f), false);
+		}
+		const int32 Seconds = FMath::RoundToInt(MobaGameState->GetMatchTimeSeconds());
+		Description = FString::Printf(TEXT("경기 시간 → %d:%02d"), Seconds / 60, Seconds % 60);
+		break;
+	}
+
+	case EMobaDevCommand::Refresh:
+		if (UAbilitySystemComponent* AbilitySystem = Champion ? Champion->GetAbilitySystemComponent() : nullptr)
+		{
+			AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute(), AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute()));
+			AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute(), AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxManaAttribute()));
+
+			FGameplayTagContainer CooldownTags;
+			for (const EMobaAbilitySlot Slot : { EMobaAbilitySlot::Q, EMobaAbilitySlot::W, EMobaAbilitySlot::E, EMobaAbilitySlot::R, EMobaAbilitySlot::D, EMobaAbilitySlot::F })
+			{
+				CooldownTags.AddTag(MobaAbility::GetCooldownTag(Slot));
+			}
+			AbilitySystem->RemoveActiveEffectsWithGrantedTags(CooldownTags);
+			Description = TEXT("체력·마나·재사용 대기 초기화");
+		}
+		break;
+
+	case EMobaDevCommand::SpawnCamps:
+		for (TActorIterator<AMobaJungleCamp> It(GetWorld()); It; ++It)
+		{
+			It->SpawnSoon();
+		}
+		Description = TEXT("정글 캠프 생성");
+		break;
+	}
+
+	if (!Description.IsEmpty())
+	{
+		// 다른 플레이어도 알 수 있게 모두에게 알린다.
+		Announce(FString::Printf(TEXT("[개발] %s: %s"), *MobaTeam::GetTeamDisplayName(MobaPlayerState->GetTeam()), *Description), EMobaTeam::None);
+		UE_LOG(LogTemp, Log, TEXT("개발 명령: %s"), *Description);
+	}
+#endif
 }
 
 void AMobaGameMode::RequestReady(APlayerController* Player, bool bReady)
