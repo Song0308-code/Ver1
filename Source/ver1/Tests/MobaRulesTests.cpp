@@ -74,7 +74,7 @@ bool FMobaMinionGrowthTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("상한 20회"), Mode->GetMinionUpgradeCount(100000.0f), 20);
 
 	// 미니언 기본 수치가 말이 되는지.
-	for (const EMobaMinionType Type : { EMobaMinionType::Melee, EMobaMinionType::Caster, EMobaMinionType::Super })
+	for (const EMobaMinionType Type : { EMobaMinionType::Melee, EMobaMinionType::Caster, EMobaMinionType::Super, EMobaMinionType::Siege })
 	{
 		const FMobaMinionConfig& Config = Mode->GetMinionConfig(Type);
 		TestTrue(TEXT("미니언 체력"), Config.Stats.MaxHealth > 0.0f);
@@ -82,6 +82,30 @@ bool FMobaMinionGrowthTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("미니언 골드"), Config.GoldReward > 0.0f);
 	}
 	TestTrue(TEXT("원거리 미니언이 근접보다 사거리가 길다"), Mode->GetMinionConfig(EMobaMinionType::Caster).Stats.AttackRange > Mode->GetMinionConfig(EMobaMinionType::Melee).Stats.AttackRange);
+	TestTrue(TEXT("대포 미니언은 원거리"), Mode->GetMinionConfig(EMobaMinionType::Siege).bRanged);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaSiegeWaveTest, "Moba.Rules.SiegeWaves", MobaTestFlags)
+bool FMobaSiegeWaveTest::RunTest(const FString& Parameters)
+{
+	const AMobaGameMode* Mode = GetDefault<AMobaGameMode>();
+
+	// 처음에는 세 웨이브마다.
+	TestEqual(TEXT("1웨이브"), Mode->GetSiegeMinionCount(1, 10.0f, 0), 0);
+	TestEqual(TEXT("2웨이브"), Mode->GetSiegeMinionCount(2, 40.0f, 0), 0);
+	TestEqual(TEXT("3웨이브"), Mode->GetSiegeMinionCount(3, 70.0f, 0), 1);
+	TestEqual(TEXT("6웨이브"), Mode->GetSiegeMinionCount(6, 160.0f, 0), 1);
+	TestEqual(TEXT("7웨이브"), Mode->GetSiegeMinionCount(7, 190.0f, 0), 0);
+
+	// 15분부터 두 웨이브마다, 25분부터 매 웨이브.
+	TestEqual(TEXT("15분 짝수 웨이브"), Mode->GetSiegeMinionCount(30, 900.0f, 0), 1);
+	TestEqual(TEXT("15분 홀수 웨이브"), Mode->GetSiegeMinionCount(31, 930.0f, 0), 0);
+	TestEqual(TEXT("25분 홀수 웨이브"), Mode->GetSiegeMinionCount(51, 1500.0f, 0), 1);
+
+	// 슈퍼 미니언이 나오는 라인에는 대포 미니언이 없다.
+	TestEqual(TEXT("슈퍼 미니언 라인"), Mode->GetSiegeMinionCount(3, 70.0f, 1), 0);
+	TestEqual(TEXT("0번 웨이브"), Mode->GetSiegeMinionCount(0, 0.0f, 0), 0);
 	return true;
 }
 

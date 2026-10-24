@@ -184,6 +184,10 @@ void AMobaMinion::ApplyAppearance()
 	{
 		Scale = FVector(1.3f, 1.3f, 1.4f);
 	}
+	else if (MinionType == EMobaMinionType::Siege)
+	{
+		Scale = FVector(0.8f, 0.8f, 0.7f);
+	}
 	PlaceholderMesh->SetRelativeScale3D(Scale);
 
 	const FLinearColor TeamColor = MobaTeam::GetTeamColor(Team);

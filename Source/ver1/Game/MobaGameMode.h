@@ -186,6 +186,16 @@ protected:
 	/** 해당 팀이 이 라인에 내보낼 슈퍼 미니언 수. 그 라인의 적 억제기가 파괴돼 있으면 1, 적 억제기가 전부 파괴돼 있으면 2. */
 	int32 GetSuperMinionCount(EMobaTeam Team, EMobaLane Lane) const;
 
+public:
+	/**
+	 * WaveNumber번째 웨이브(1부터)에 나올 대포 미니언 수. 처음에는 세 웨이브마다,
+	 * SiegeEveryOtherWaveTime부터 두 웨이브마다, SiegeEveryWaveTime부터 매 웨이브 1마리.
+	 * 그 라인에 슈퍼 미니언이 나오면 대포 미니언은 나오지 않는다.
+	 */
+	int32 GetSiegeMinionCount(int32 WaveNumber, float MatchSeconds, int32 SuperMinionCount) const;
+
+protected:
+
 
 	/** 해당 팀의 살아 있는 챔피언 전원에게 버프를 건다. */
 	void ApplyBuffToTeam(EMobaTeam Team, const FGameplayTag& BuffTag, float Duration, float BonusAttackDamage, float BonusAbilityPower);
@@ -214,6 +224,18 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Minions")
 	FMobaMinionConfig SuperMinion;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Minions")
+	FMobaMinionConfig SiegeMinion;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Minions")
+	float SiegeEveryOtherWaveTime = 900.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Minions")
+	float SiegeEveryWaveTime = 1500.0f;
+
+	/** 지금까지 나온 웨이브 수. */
+	int32 WaveCount = 0;
 
 	/** 전령의 눈으로 소환하는 협곡의 전령. */
 	UPROPERTY(EditDefaultsOnly, Category = "Minions")

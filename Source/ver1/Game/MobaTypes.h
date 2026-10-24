@@ -155,7 +155,10 @@ enum class EMobaMinionType : uint8
 	Super,
 
 	/** 전령의 눈으로 소환한 협곡의 전령. 라인을 따라가며 건물만 공격한다. */
-	Herald
+	Herald,
+
+	/** 대포 미니언. 몇 웨이브마다 한 마리씩 근접과 원거리 사이에 나온다. */
+	Siege
 };
 
 UENUM(BlueprintType)

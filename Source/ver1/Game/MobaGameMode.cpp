@@ -72,6 +72,20 @@ AMobaGameMode::AMobaGameMode()
 	SuperMinion.GoldReward = 60.0f;
 	SuperMinion.ExperienceReward = 95.0f;
 
+	// 대포 미니언: 체력이 많고 사거리가 중간인 원거리 유닛.
+	SiegeMinion.Stats.MaxHealth = 900.0f;
+	SiegeMinion.Stats.MaxMana = 0.0f;
+	SiegeMinion.Stats.AttackDamage = 40.0f;
+	SiegeMinion.Stats.Armor = 0.0f;
+	SiegeMinion.Stats.MagicResist = 0.0f;
+	SiegeMinion.Stats.AttackSpeed = 1.0f;
+	SiegeMinion.Stats.MoveSpeed = 325.0f;
+	SiegeMinion.Stats.AttackRange = 300.0f;
+	SiegeMinion.bRanged = true;
+	SiegeMinion.ProjectileSpeed = 1200.0f;
+	SiegeMinion.GoldReward = 60.0f;
+	SiegeMinion.ExperienceReward = 93.0f;
+
 	// 임시 아트: Epic 마네킹을 작게 줄여 쓴다. 근접은 Manny, 원거리는 Quinn, 슈퍼 미니언은 큰 Manny.
 	const TCHAR* AnimRoot = TEXT("/Game/Characters/Mannequins/Anims/");
 	const auto AnimPath = [AnimRoot](const TCHAR* Relative, const TCHAR* Name)
@@ -103,6 +117,11 @@ AMobaGameMode::AMobaGameMode()
 	SuperMinion.MeshScale = 0.85f;
 	SuperMinion.Animations = MinionAnimations;
 	SuperMinion.Animations.LocomotionSpeedScale = 1.1f;
+
+	SiegeMinion.Mesh = TSoftObjectPtr<USkeletalMesh>(Manny);
+	SiegeMinion.MeshScale = 0.72f;
+	SiegeMinion.Animations = MinionAnimations;
+	SiegeMinion.Animations.LocomotionSpeedScale = 1.25f;
 
 	// 전령: 체력이 많고 건물에 큰 피해를 주는 느린 공성 유닛.
 	HeraldMinion.Stats.MaxHealth = 3000.0f;
@@ -544,6 +563,10 @@ void AMobaGameMode::SpawnWave()
 		return;
 	}
 
+	++WaveCount;
+	const AMobaGameState* WaveGameState = GetGameState<AMobaGameState>();
+	const float MatchSeconds = WaveGameState ? WaveGameState->GetMatchTimeSeconds() : 0.0f;
+
 	for (TActorIterator<AMobaLanePath> It(GetWorld()); It; ++It)
 	{
 		AMobaLanePath* LanePath = *It;
@@ -554,15 +577,20 @@ void AMobaGameMode::SpawnWave()
 
 		for (const EMobaTeam Team : { EMobaTeam::Blue, EMobaTeam::Red })
 		{
-			// 근접이 앞장서고, 슈퍼 미니언이 있으면 그 뒤에, 원거리가 맨 뒤에 서도록 한 마리씩 간격을 두고 내보낸다.
+			// 근접이 앞장서고, 슈퍼·대포 미니언이 있으면 그 뒤에, 원거리가 맨 뒤에 서도록 한 마리씩 간격을 두고 내보낸다.
 			TArray<EMobaMinionType> Order;
 			for (int32 Index = 0; Index < MinionsPerType; ++Index)
 			{
 				Order.Add(EMobaMinionType::Melee);
 			}
-			for (int32 Index = 0; Index < GetSuperMinionCount(Team, LanePath->GetLane()); ++Index)
+			const int32 SuperCount = GetSuperMinionCount(Team, LanePath->GetLane());
+			for (int32 Index = 0; Index < SuperCount; ++Index)
 			{
 				Order.Add(EMobaMinionType::Super);
+			}
+			for (int32 Index = 0; Index < GetSiegeMinionCount(WaveCount, MatchSeconds, SuperCount); ++Index)
+			{
+				Order.Add(EMobaMinionType::Siege);
 			}
 			for (int32 Index = 0; Index < MinionsPerType; ++Index)
 			{
@@ -613,12 +641,24 @@ int32 AMobaGameMode::GetSuperMinionCount(EMobaTeam Team, EMobaLane Lane) const
 	return bAllInhibitorsDown ? 2 : (bLaneInhibitorDown ? 1 : 0);
 }
 
+int32 AMobaGameMode::GetSiegeMinionCount(int32 WaveNumber, float MatchSeconds, int32 SuperMinionCount) const
+{
+	if (SuperMinionCount > 0 || WaveNumber <= 0)
+	{
+		return 0;
+	}
+
+	const int32 Every = MatchSeconds >= SiegeEveryWaveTime ? 1 : (MatchSeconds >= SiegeEveryOtherWaveTime ? 2 : 3);
+	return WaveNumber % Every == 0 ? 1 : 0;
+}
+
 const FMobaMinionConfig& AMobaGameMode::GetMinionConfig(EMobaMinionType Type) const
 {
 	switch (Type)
 	{
 	case EMobaMinionType::Caster: return CasterMinion;
 	case EMobaMinionType::Super: return SuperMinion;
+	case EMobaMinionType::Siege: return SiegeMinion;
 	case EMobaMinionType::Herald: return HeraldMinion;
 	default: return MeleeMinion;
 	}
