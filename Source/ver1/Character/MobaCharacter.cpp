@@ -691,6 +691,7 @@ void AMobaCharacter::ServerPlaceControlWard_Implementation(FVector_NetQuantize L
 	}
 
 	MobaPlayerState->SetControlWards(MobaPlayerState->GetControlWards() - 1);
+	MobaPlayerState->AddWardPlaced();
 
 	// 한 사람당 하나만 남는다.
 	if (AMobaWard* Previous = ActiveControlWard.Get())
@@ -724,6 +725,7 @@ void AMobaCharacter::ServerPlaceWard_Implementation(FVector_NetQuantize Location
 	}
 
 	MobaPlayerState->SetNextWardServerTime(static_cast<float>(GameState->GetServerWorldTimeSeconds()) + WardCooldown);
+	MobaPlayerState->AddWardPlaced();
 
 	ActiveWards.RemoveAll([](const TWeakObjectPtr<AMobaWard>& Existing) { return !Existing.IsValid(); });
 	ActiveWards.Add(Ward);
@@ -1041,7 +1043,7 @@ void AMobaCharacter::ServerSellItem_Implementation(int32 Slot)
 	MobaPlayerState->RemoveItemAt(Slot);
 	if (Item)
 	{
-		MobaPlayerState->AddGold(FMath::FloorToFloat(Item->Cost * MobaItems::SellRefundFraction));
+		MobaPlayerState->AddGold(FMath::FloorToFloat(Item->Cost * MobaItems::SellRefundFraction), false);
 		ApplyItemStats(*Item, -1.0f);
 	}
 }

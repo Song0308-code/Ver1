@@ -79,7 +79,11 @@ protected:
 	void DrawScoreboard();
 
 	/** 플레이어별 챔피언·레벨·K/D·CS·피해량·아이템 표. 점수판과 결과 화면이 같이 쓴다. */
-	void DrawPlayerTable(float Top);
+	/** bDetailed면 결과 화면용으로 받은 피해·획득 골드·와드 열을 더한다. 표 아래 끝 Y를 돌려준다. */
+	float DrawPlayerTable(float Top, bool bDetailed = false);
+
+	/** "블루  처치 5 · 포탑 3 · 드래곤 2 · 바론 1 · 전령 0" 두 팀 요약 한 줄. */
+	void DrawTeamSummary(float Top);
 
 	/** 경기 전 챔피언 선택 화면. 챔피언 버튼과 준비 버튼을 누를 수 있다. */
 	void DrawLobby();

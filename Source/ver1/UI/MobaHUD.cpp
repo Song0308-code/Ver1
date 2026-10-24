@@ -1323,7 +1323,33 @@ void AMobaHUD::DrawMatchResult()
 	const FString Detail = FString::Printf(TEXT("경기 시간 %02d:%02d%s    Enter: 메뉴로 돌아가기"), TotalSeconds / 60, TotalSeconds % 60, GameState->WasEndedByForfeit() ? TEXT("    상대가 게임을 떠났습니다.") : (GameState->WasEndedBySurrender() ? (bWon ? TEXT("    상대가 항복했습니다.") : TEXT("    항복했습니다.")) : TEXT("")));
 	DrawCenteredText(Detail, FLinearColor::White, Canvas->ClipX * 0.5f, Canvas->ClipY * 0.24f, GEngine->GetSmallFont(), 1.3f);
 
-	DrawPlayerTable(Canvas->ClipY * 0.34f);
+	DrawTeamSummary(Canvas->ClipY * 0.29f);
+	DrawPlayerTable(Canvas->ClipY * 0.34f, true);
+}
+
+void AMobaHUD::DrawTeamSummary(float Top)
+{
+	const AMobaGameState* GameState = GetWorld()->GetGameState<AMobaGameState>();
+	const AMobaPlayerState* LocalState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!GameState)
+	{
+		return;
+	}
+
+	UFont* Font = GEngine->GetSmallFont();
+	const float Width = FMath::Min(1060.0f, Canvas->ClipX - 24.0f);
+	const float Left = (Canvas->ClipX - Width) * 0.5f;
+	const EMobaTeam Teams[] = { EMobaTeam::Blue, EMobaTeam::Red };
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.85f), Left, Top, Width, 30.0f);
+	for (int32 Index = 0; Index < 2; ++Index)
+	{
+		const EMobaTeam Team = Teams[Index];
+		const FMobaTeamObjectives& Objectives = GameState->GetTeamObjectives(Team);
+		const FString Line = FString::Printf(TEXT("%s  처치 %d · 포탑 %d · 드래곤 %d · 바론 %d · 전령 %d"), *MobaTeam::GetTeamDisplayName(Team),
+			GameState->GetTeamKills(Team), Objectives.Towers, Objectives.Dragons, Objectives.Barons, Objectives.Heralds);
+		const bool bMine = LocalState && LocalState->GetTeam() == Team;
+		DrawTextFit(Line, GetRelationColor(Team, bMine), Left + 14.0f + Width * 0.5f * Index, Top + 6.0f, Width * 0.5f - 24.0f, Font, 1.15f);
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1824,15 +1850,16 @@ void AMobaHUD::DrawScoreboard()
 		return;
 	}
 
+	DrawTeamSummary(Canvas->ClipY * 0.2f - 40.0f);
 	DrawPlayerTable(Canvas->ClipY * 0.2f);
 }
 
-void AMobaHUD::DrawPlayerTable(float Top)
+float AMobaHUD::DrawPlayerTable(float Top, bool bDetailed)
 {
 	const AGameStateBase* GameState = GetWorld()->GetGameState();
 	if (!GameState)
 	{
-		return;
+		return Top;
 	}
 
 	TArray<const AMobaPlayerState*> Players;
@@ -1857,15 +1884,22 @@ void AMobaHUD::DrawPlayerTable(float Top)
 
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.85f), Left, Top, Width, Height);
 
-	float Columns[] = { 14.0f, 90.0f, 225.0f, 285.0f, 405.0f, 465.0f, 565.0f };
+	// 결과 화면은 받은 피해·획득 골드·와드 열을 더하고 아이템 열을 줄인다.
+	float Columns[] = { 14.0f, 90.0f, 225.0f, 285.0f, 405.0f, 465.0f, 565.0f, 665.0f, 765.0f, 865.0f };
+	const int32 ItemColumn = bDetailed ? 9 : 6;
 	for (float& Column : Columns)
 	{
 		Column *= ColumnScale;
 	}
-	const TCHAR* Headers[] = { TEXT("팀"), TEXT("챔피언"), TEXT("레벨"), TEXT("K / D / A"), TEXT("CS"), TEXT("피해량"), TEXT("아이템") };
-	for (int32 Index = 0; Index < 7; ++Index)
+	const TCHAR* Headers[] = { TEXT("팀"), TEXT("챔피언"), TEXT("레벨"), TEXT("K / D / A"), TEXT("CS"), TEXT("준 피해"), TEXT("받은 피해"), TEXT("획득 골드"), TEXT("와드 설치/파괴"), TEXT("아이템") };
+	for (int32 Index = 0; Index <= 9; ++Index)
 	{
-		DrawText(Headers[Index], FLinearColor(0.7f, 0.7f, 0.7f), Left + Columns[Index], Top + 12.0f, Font, 1.1f);
+		if (!bDetailed && Index >= 6)
+		{
+			DrawText(Headers[9], FLinearColor(0.7f, 0.7f, 0.7f), Left + Columns[ItemColumn], Top + 12.0f, Font, 1.1f);
+			break;
+		}
+		DrawTextFit(Headers[Index], FLinearColor(0.7f, 0.7f, 0.7f), Left + Columns[Index], Top + 12.0f, Index < 9 ? Columns[Index + 1] - Columns[Index] - 6.0f : Width - Columns[Index] - 10.0f, Font, 1.1f);
 	}
 
 	const AMobaPlayerState* LocalState = GetOwningPlayerController() ? GetOwningPlayerController()->GetPlayerState<AMobaPlayerState>() : nullptr;
@@ -1890,8 +1924,15 @@ void AMobaHUD::DrawPlayerTable(float Top)
 		DrawText(FString::Printf(TEXT("%d / %d / %d"), Player->GetKills(), Player->GetDeaths(), Player->GetAssists()), FLinearColor::White, Left + Columns[3], RowTop, Font, 1.2f);
 		DrawText(FString::FromInt(Player->GetMinionKills()), FLinearColor::White, Left + Columns[4], RowTop, Font, 1.2f);
 		DrawText(FString::FromInt(FMath::RoundToInt(Player->GetDamageToChampions())), FLinearColor::White, Left + Columns[5], RowTop, Font, 1.2f);
-		DrawTextFit(ItemNames, FLinearColor(1.0f, 0.9f, 0.6f), Left + Columns[6], RowTop + 2.0f, Width - Columns[6] - 10.0f, Font, 1.0f);
+		if (bDetailed)
+		{
+			DrawText(FString::FromInt(FMath::RoundToInt(Player->GetDamageTaken())), FLinearColor::White, Left + Columns[6], RowTop, Font, 1.2f);
+			DrawText(FString::FromInt(FMath::RoundToInt(Player->GetGoldEarned())), FLinearColor(1.0f, 0.85f, 0.3f), Left + Columns[7], RowTop, Font, 1.2f);
+			DrawText(FString::Printf(TEXT("%d / %d"), Player->GetWardsPlaced(), Player->GetWardsDestroyed()), FLinearColor::White, Left + Columns[8], RowTop, Font, 1.2f);
+		}
+		DrawTextFit(ItemNames, FLinearColor(1.0f, 0.9f, 0.6f), Left + Columns[ItemColumn], RowTop + 2.0f, Width - Columns[ItemColumn] - 10.0f, Font, 1.0f);
 	}
+	return Top + Height;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

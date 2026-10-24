@@ -55,6 +55,49 @@ enum class EMobaDragonElement : uint8
 	Count UMETA(Hidden)
 };
 
+/** 결과 화면에 세는 팀 오브젝트. */
+UENUM()
+enum class EMobaObjective : uint8
+{
+	Tower,
+	Dragon,
+	Baron,
+	Herald,
+	Count UMETA(Hidden)
+};
+
+/** 한 팀이 잡거나 부순 오브젝트 수. */
+USTRUCT()
+struct FMobaTeamObjectives
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	int32 Towers = 0;
+
+	UPROPERTY()
+	int32 Dragons = 0;
+
+	UPROPERTY()
+	int32 Barons = 0;
+
+	UPROPERTY()
+	int32 Heralds = 0;
+
+	int32& Get(EMobaObjective Objective)
+	{
+		switch (Objective)
+		{
+		case EMobaObjective::Dragon: return Dragons;
+		case EMobaObjective::Baron: return Barons;
+		case EMobaObjective::Herald: return Heralds;
+		default: return Towers;
+		}
+	}
+
+	int32 Get(EMobaObjective Objective) const { return const_cast<FMobaTeamObjectives*>(this)->Get(Objective); }
+};
+
 namespace MobaDragon
 {
 	/** "화염" 같은 원소 이름. */

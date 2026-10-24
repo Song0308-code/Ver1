@@ -38,6 +38,10 @@ void AMobaPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMobaPlayerState, HeraldEyeExpireServerTime);
 	DOREPLIFETIME(AMobaPlayerState, MinionKills);
 	DOREPLIFETIME(AMobaPlayerState, DamageToChampions);
+	DOREPLIFETIME(AMobaPlayerState, DamageTaken);
+	DOREPLIFETIME(AMobaPlayerState, GoldEarned);
+	DOREPLIFETIME(AMobaPlayerState, WardsPlaced);
+	DOREPLIFETIME(AMobaPlayerState, WardsDestroyed);
 	DOREPLIFETIME(AMobaPlayerState, bReady);
 	DOREPLIFETIME(AMobaPlayerState, ChampionLevel);
 	DOREPLIFETIME(AMobaPlayerState, Experience);

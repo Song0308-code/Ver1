@@ -244,6 +244,7 @@ void AMobaGameMode::HandleDamageDealt(AActor* DamageInstigator, AActor* Victim, 
 	{
 		if (AMobaPlayerState* HitState = HitChampion->GetPlayerState<AMobaPlayerState>())
 		{
+			HitState->AddDamageTaken(Damage);
 			const double Now = GetWorld()->GetTimeSeconds();
 			TArray<FRecentHit>& Hits = RecentHitsTaken.FindOrAdd(HitState);
 			Hits.RemoveAll([Now](const FRecentHit& Hit) { return Now - Hit.Time > DeathRecapWindow; });
@@ -361,7 +362,7 @@ void AMobaGameMode::HandleDevCommand(APlayerController* Player, EMobaDevCommand 
 	switch (Command)
 	{
 	case EMobaDevCommand::Gold:
-		MobaPlayerState->AddGold(FMath::Clamp(Value, 0.0f, 100000.0f));
+		MobaPlayerState->AddGold(FMath::Clamp(Value, 0.0f, 100000.0f), false);
 		Description = FString::Printf(TEXT("골드 +%d"), FMath::RoundToInt(Value));
 		break;
 
@@ -792,6 +793,17 @@ void AMobaGameMode::HandleCampCleared(AMobaJungleCamp* Camp, AActor* Killer)
 
 	const EMobaTeam Team = KillerChampion->GetTeam();
 
+	if (AMobaGameState* MobaGameState = GetGameState<AMobaGameState>())
+	{
+		switch (Camp->GetCampType())
+		{
+		case EMobaCampType::Dragon: MobaGameState->RecordObjective(Team, EMobaObjective::Dragon); break;
+		case EMobaCampType::Baron: MobaGameState->RecordObjective(Team, EMobaObjective::Baron); break;
+		case EMobaCampType::Herald: MobaGameState->RecordObjective(Team, EMobaObjective::Herald); break;
+		default: break;
+		}
+	}
+
 	switch (Camp->GetCampType())
 	{
 	case EMobaCampType::BlueBuff:
@@ -965,6 +977,11 @@ void AMobaGameMode::HandleStructureDestroyed(AMobaStructure* Structure, AActor* 
 
 	const EMobaTeam WinningSide = Structure->GetTeam() == EMobaTeam::Blue ? EMobaTeam::Red : EMobaTeam::Blue;
 	GrantGoldToTeam(WinningSide, Structure->GetGoldReward());
+	AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	if (Structure->GetStructureType() == EMobaStructureType::Tower && MobaGameState)
+	{
+		MobaGameState->RecordObjective(WinningSide, EMobaObjective::Tower);
+	}
 
 	Announce(FString::Printf(TEXT("%s 파괴"), *DescribeUnit(Structure)), WinningSide);
 

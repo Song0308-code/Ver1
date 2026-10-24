@@ -325,7 +325,7 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 	{
 		for (TActorIterator<AMobaPlayerState> It(GetWorld()); It; ++It)
 		{
-			It->AddGold(DebugGrantGold);
+			It->AddGold(DebugGrantGold, false);
 		}
 		DebugGrantGold = 0.0f;
 	}

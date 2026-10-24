@@ -14,6 +14,8 @@ void AMobaGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AMobaGameState, bEndedByForfeit);
 	DOREPLIFETIME(AMobaGameState, bEndedBySurrender);
 	DOREPLIFETIME(AMobaGameState, bUsesLobby);
+	DOREPLIFETIME(AMobaGameState, BlueObjectives);
+	DOREPLIFETIME(AMobaGameState, RedObjectives);
 	DOREPLIFETIME(AMobaGameState, RequiredPlayers);
 	DOREPLIFETIME(AMobaGameState, CountdownEndServerTime);
 }
@@ -73,6 +75,14 @@ int32 AMobaGameState::GetTeamKills(EMobaTeam Team) const
 		}
 	}
 	return Total;
+}
+
+void AMobaGameState::RecordObjective(EMobaTeam Team, EMobaObjective Objective)
+{
+	if (Team == EMobaTeam::Blue || Team == EMobaTeam::Red)
+	{
+		++(Team == EMobaTeam::Red ? RedObjectives : BlueObjectives).Get(Objective);
+	}
 }
 
 float AMobaGameState::GetCountdownRemaining() const

@@ -255,6 +255,22 @@ bool FMobaCameraSpeedTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaTeamObjectivesTest, "Moba.Rules.TeamObjectives", MobaTestFlags)
+bool FMobaTeamObjectivesTest::RunTest(const FString& Parameters)
+{
+	// 종류마다 제 칸만 늘어난다.
+	for (int32 Index = 0; Index < static_cast<int32>(EMobaObjective::Count); ++Index)
+	{
+		FMobaTeamObjectives Objectives;
+		const EMobaObjective Objective = static_cast<EMobaObjective>(Index);
+		++Objectives.Get(Objective);
+		++Objectives.Get(Objective);
+		TestEqual(TEXT("늘린 칸"), static_cast<const FMobaTeamObjectives&>(Objectives).Get(Objective), 2);
+		TestEqual(TEXT("합계"), Objectives.Towers + Objectives.Dragons + Objectives.Barons + Objectives.Heralds, 2);
+	}
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaSpellsOptionTest, "Moba.Rules.SpellsOption", MobaTestFlags)
 bool FMobaSpellsOptionTest::RunTest(const FString& Parameters)
 {

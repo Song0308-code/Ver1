@@ -88,6 +88,7 @@ void AMobaWard::HandleOutOfHealth(AActor* DamageInstigator)
 	if (AMobaPlayerState* KillerState = KillerPawn ? KillerPawn->GetPlayerState<AMobaPlayerState>() : nullptr)
 	{
 		KillerState->AddGold(KillGold);
+		KillerState->AddWardDestroyed();
 	}
 
 	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())

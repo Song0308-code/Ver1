@@ -68,6 +68,12 @@ public:
 	/** 해당 팀 챔피언들의 처치 수 합계. */
 	int32 GetTeamKills(EMobaTeam Team) const;
 
+	/** 해당 팀이 부순 포탑, 잡은 드래곤(장로 포함)·바론·전령 수. */
+	const FMobaTeamObjectives& GetTeamObjectives(EMobaTeam Team) const { return Team == EMobaTeam::Red ? RedObjectives : BlueObjectives; }
+
+	/** 서버 전용. Team의 오브젝트 수를 하나 늘린다. */
+	void RecordObjective(EMobaTeam Team, EMobaObjective Objective);
+
 	/** 서버 전용. */
 	void StartMatch();
 
@@ -98,6 +104,12 @@ protected:
 
 	UPROPERTY(Replicated)
 	bool bUsesLobby = false;
+
+	UPROPERTY(Replicated)
+	FMobaTeamObjectives BlueObjectives;
+
+	UPROPERTY(Replicated)
+	FMobaTeamObjectives RedObjectives;
 
 	UPROPERTY(Replicated)
 	int32 RequiredPlayers = 1;

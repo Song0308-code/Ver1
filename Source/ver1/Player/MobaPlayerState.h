@@ -51,8 +51,32 @@ public:
 	void SetVotedSurrender(bool bInVoted) { bVotedSurrender = bInVoted; }
 	void SetRespawnServerTime(float NewTime) { RespawnServerTime = NewTime; }
 
+	/** 서버 전용. bEarned면 결과 화면의 획득 골드에도 더한다(판매 환급·개발 명령은 false). */
+	void AddGold(float Amount, bool bEarned = true)
+	{
+		Gold += Amount;
+		if (bEarned && Amount > 0.0f)
+		{
+			GoldEarned += Amount;
+		}
+	}
+
+	/** 경기 동안 번 골드(시작 골드·판매 환급 제외). */
+	float GetGoldEarned() const { return GoldEarned; }
+
+	/** 챔피언이 받은 피해의 합(보호막에 흡수된 것 포함). */
+	float GetDamageTaken() const { return DamageTaken; }
+
 	/** 서버 전용. */
-	void AddGold(float Amount) { Gold += Amount; }
+	void AddDamageTaken(float Amount) { DamageTaken += Amount; }
+
+	/** 놓은 와드(제어 와드 포함)와 부순 상대 와드 수. */
+	int32 GetWardsPlaced() const { return WardsPlaced; }
+	int32 GetWardsDestroyed() const { return WardsDestroyed; }
+
+	/** 서버 전용. */
+	void AddWardPlaced() { ++WardsPlaced; }
+	void AddWardDestroyed() { ++WardsDestroyed; }
 
 	/** 서버 전용. 골드가 충분하면 쓰고 true를 돌려준다. */
 	bool SpendGold(float Amount);
@@ -212,6 +236,18 @@ protected:
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	float DamageToChampions = 0.0f;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	float DamageTaken = 0.0f;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	float GoldEarned = 0.0f;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 WardsPlaced = 0;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 WardsDestroyed = 0;
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Lobby")
 	bool bReady = false;
