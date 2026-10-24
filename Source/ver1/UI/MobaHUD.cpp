@@ -83,6 +83,7 @@ void AMobaHUD::DrawHUD()
 
 	// 미니맵 위의 핑 표시가 미니맵 배경에 덮이지 않도록 미니맵 다음에 그린다.
 	DrawPings();
+	DrawChat();
 	DrawAnnouncements();
 
 	// 부활 카운트다운과 사망 요약은 능력치 패널·미니맵에 가리지 않게 그 뒤에 그린다(상점은 이보다 위).
@@ -627,6 +628,60 @@ void AMobaHUD::DrawDamageNumbers()
 		const float Alpha = FMath::Clamp(1.0f - Age / 1.1f, 0.0f, 1.0f);
 		DrawCenteredText(Number.Text, FLinearColor(0.0f, 0.0f, 0.0f, Alpha), Screen.X + 1.5f, Screen.Y + 1.5f, Font, 1.5f);
 		DrawCenteredText(Number.Text, Number.Color.CopyWithNewOpacity(Alpha), Screen.X, Screen.Y, Font, 1.5f);
+	}
+}
+
+void AMobaHUD::DrawChat()
+{
+	const AMobaPlayerController* MobaController = Cast<AMobaPlayerController>(GetOwningPlayerController());
+	const AMobaPlayerState* LocalState = MobaController ? MobaController->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!MobaController || !LocalState)
+	{
+		return;
+	}
+
+	const TArray<FMobaChatLine>& Log = MobaController->GetChatLog();
+	const bool bOpen = MobaController->IsChatOpen();
+	const double Now = GetWorld()->GetTimeSeconds();
+	const double Lifetime = 10.0;
+
+	// 보여 줄 줄을 고른다(최근 것부터 최대 8줄).
+	TArray<const FMobaChatLine*> Shown;
+	for (int32 Index = Log.Num() - 1; Index >= 0 && Shown.Num() < 8; --Index)
+	{
+		if (bOpen || Now - Log[Index].Time <= Lifetime)
+		{
+			Shown.Insert(&Log[Index], 0);
+		}
+	}
+	if (Shown.Num() == 0)
+	{
+		return;
+	}
+
+	UFont* Font = GEngine->GetSmallFont();
+	const float LineHeight = 19.0f;
+	const float Width = 420.0f;
+	const float Left = 12.0f;
+	const float Bottom = Canvas->ClipY - 150.0f;
+	const float Top = Bottom - LineHeight * Shown.Num();
+
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, bOpen ? 0.6f : 0.35f), Left - 4.0f, Top - 4.0f, Width + 8.0f, LineHeight * Shown.Num() + 8.0f);
+	for (int32 Index = 0; Index < Shown.Num(); ++Index)
+	{
+		const FMobaChatLine& Line = *Shown[Index];
+		const float Age = static_cast<float>(Now - Line.Time);
+		const float Alpha = bOpen ? 1.0f : FMath::Clamp((Lifetime - Age) / 2.0f, 0.0f, 1.0f);
+		const FLinearColor NameColor = (Line.SenderTeam == LocalState->GetTeam() ? FLinearColor(0.45f, 0.7f, 1.0f) : FLinearColor(1.0f, 0.45f, 0.4f)).CopyWithNewOpacity(Alpha);
+		const FString Prefix = Line.bAll ? TEXT("[전체] ") : TEXT("[팀] ");
+		const FString Head = Prefix + Line.Sender + TEXT(": ");
+
+		float HeadWidth = 0.0f;
+		float HeadHeight = 0.0f;
+		GetTextSize(Head, HeadWidth, HeadHeight, Font, 1.05f);
+		const float Y = Top + LineHeight * Index;
+		DrawText(Head, NameColor, Left, Y, Font, 1.05f);
+		DrawTextFit(Line.Text, FLinearColor::White.CopyWithNewOpacity(Alpha), Left + HeadWidth, Y, Width - HeadWidth, Font, 1.05f);
 	}
 }
 
@@ -1566,7 +1621,7 @@ void AMobaHUD::DrawGameMenu()
 		TEXT("3 제어 와드   4 와드   B 귀환"),
 		TEXT("P 상점   Tab 점수판   Alt+좌클릭 핑"),
 		TEXT("Y 카메라 고정   Space 내 챔피언 보기"),
-		TEXT("미니맵 좌클릭 카메라 이동"),
+		TEXT("미니맵 좌클릭 카메라 이동   Enter 채팅(/all 전체)"),
 	};
 	const float HelpLineHeight = 19.0f;
 

@@ -10,6 +10,20 @@ class UInputAction;
 class UInputMappingContext;
 struct FInputActionValue;
 
+class SMobaChatInput;
+
+/** 받은 채팅 한 줄. */
+struct FMobaChatLine
+{
+	FString Sender;
+	FString Text;
+	bool bAll = false;
+	EMobaTeam SenderTeam = EMobaTeam::None;
+
+	/** 받은 시각(이 PC의 월드 시간). */
+	double Time = 0.0;
+};
+
 /** 팀에게 보내는 위치 신호. */
 struct FMobaPing
 {
@@ -69,6 +83,18 @@ public:
 
 	/** 최근에 받은 핑. 오래된 것부터 들어 있다. */
 	const TArray<FMobaPing>& GetPings() const { return Pings; }
+
+	/** 받은 채팅(오래된 것부터, 최근 20줄). */
+	const TArray<FMobaChatLine>& GetChatLog() const { return ChatLog; }
+
+	/** 채팅 입력창이 열려 있는지. */
+	bool IsChatOpen() const { return ChatWidget.IsValid(); }
+
+	/** 채팅을 보낸다. "/all "로 시작하면 전체, 아니면 팀에게. */
+	void SendChat(const FString& Text);
+
+	UFUNCTION(Client, Reliable)
+	void ClientReceiveChat(const FString& Sender, const FString& Text, bool bAll, EMobaTeam SenderTeam);
 
 	/** 마지막으로 죽었을 때의 요약. 처치한 쪽과, 최근에 피해를 준 쪽별 합계(큰 것부터). */
 	const FString& GetDeathRecapKiller() const { return DeathRecapKiller; }
@@ -158,6 +184,18 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerDevCommand(EMobaDevCommand Command, float Value);
+
+	UFUNCTION(Server, Reliable)
+	void ServerChat(const FString& Text, bool bAll);
+
+	void OpenChat();
+	void CloseChat();
+
+	/** 게임 조작용 입력 모드로 되돌린다. */
+	void RestoreGameInputMode();
+
+	TSharedPtr<SMobaChatInput> ChatWidget;
+	TArray<FMobaChatLine> ChatLog;
 
 	UFUNCTION(Client, Reliable)
 	void ClientShowPing(FVector_NetQuantize Location);
@@ -342,6 +380,14 @@ protected:
 	/** 에디터 자동 검증용. 비어 있지 않으면 다음 틱에 콘솔 명령으로 실행한다(예: "MobaSkipTime 600"). */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	FString DebugConsoleCommand;
+
+	/** 에디터 자동 검증용. 비어 있지 않으면 다음 틱에 채팅으로 보낸다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	FString DebugChatMessage;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 채팅 입력창을 연다(Enter와 같음). */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugOpenChat = false;
 
 	/** 에디터 자동 검증용. 켜면 다음 틱에 전령의 눈을 쓴다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")

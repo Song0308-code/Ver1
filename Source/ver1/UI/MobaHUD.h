@@ -91,6 +91,9 @@ protected:
 	void UpdateDamageNumbers();
 	void DrawDamageNumbers();
 
+	/** 왼쪽 아래 채팅 기록. 입력창이 열려 있으면 최근 8줄, 아니면 10초 안에 받은 것만. */
+	void DrawChat();
+
 	/** 마우스를 올린 상점 줄이나 가방 칸의 아이템 설명(능력치, 재료, 상위 아이템, 가격). */
 	void DrawItemTooltip(const AMobaCharacter* Character);
 

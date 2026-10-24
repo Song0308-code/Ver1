@@ -18,6 +18,10 @@
 #include "Player/MobaCameraRig.h"
 #include "Player/MobaPlayerState.h"
 #include "UI/MobaHUD.h"
+#include "UI/SMobaChatInput.h"
+#include "Engine/UserInterfaceSettings.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/Engine.h"
 #include "Vision/MobaVisionSubsystem.h"
 
 AMobaPlayerController::AMobaPlayerController()
@@ -38,9 +42,7 @@ void AMobaPlayerController::BeginPlay()
 	if (IsLocalController())
 	{
 		// 메뉴가 UI 전용으로 바꿔 둔 입력 모드를 게임용으로 되돌린다.
-		FInputModeGameOnly InputMode;
-		InputMode.SetConsumeCaptureMouseDown(false);
-		SetInputMode(InputMode);
+		RestoreGameInputMode();
 	}
 
 	if (IsLocalController() && CameraRigClass)
@@ -157,14 +159,127 @@ void AMobaPlayerController::CreateDefaultInput()
 
 void AMobaPlayerController::OnReturnToMenu()
 {
-	// 경기가 끝난 뒤에만 메뉴로 돌아갈 수 있다. 호스트가 나가면 접속해 있던 쪽도 메뉴로 돌아간다.
+	// 경기가 끝난 뒤에는 메뉴로 돌아간다. 호스트가 나가면 접속해 있던 쪽도 메뉴로 돌아간다.
 	if (MobaCombat::IsMatchOver(this))
 	{
 		if (UGameInstance* GameInstance = GetGameInstance())
 		{
 			GameInstance->ReturnToMainMenu();
 		}
+		return;
 	}
+
+	// 경기 중에는 채팅 입력창을 연다.
+	OpenChat();
+}
+
+void AMobaPlayerController::RestoreGameInputMode()
+{
+	FInputModeGameOnly InputMode;
+	InputMode.SetConsumeCaptureMouseDown(false);
+	SetInputMode(InputMode);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 채팅
+
+void AMobaPlayerController::OpenChat()
+{
+	if (ChatWidget.IsValid() || !IsLocalController() || !GEngine || !GEngine->GameViewport)
+	{
+		return;
+	}
+
+	// HUD(캔버스)는 실제 픽셀, Slate는 화면 배율이 적용된 단위라 능력치 패널(아래 88픽셀) 바로 위에 오도록 환산한다.
+	FVector2D ViewportSize(1280.0, 720.0);
+	GEngine->GameViewport->GetViewportSize(ViewportSize);
+	const float DPIScale = FMath::Max(GetDefault<UUserInterfaceSettings>()->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y)), 0.1f);
+
+	TWeakObjectPtr<AMobaPlayerController> WeakThis(this);
+	ChatWidget = SNew(SMobaChatInput)
+		.BottomPadding(98.0f / DPIScale)
+		.OnSubmit_Lambda([WeakThis](const FString& Text)
+		{
+			if (AMobaPlayerController* Controller = WeakThis.Get())
+			{
+				Controller->SendChat(Text);
+				Controller->CloseChat();
+			}
+		})
+		.OnCancel_Lambda([WeakThis]()
+		{
+			if (AMobaPlayerController* Controller = WeakThis.Get())
+			{
+				Controller->CloseChat();
+			}
+		});
+	GEngine->GameViewport->AddViewportWidgetContent(ChatWidget.ToSharedRef(), 50);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(ChatWidget->GetFocusTarget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(InputMode);
+}
+
+void AMobaPlayerController::CloseChat()
+{
+	if (!ChatWidget.IsValid())
+	{
+		return;
+	}
+
+	if (GEngine && GEngine->GameViewport)
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(ChatWidget.ToSharedRef());
+	}
+	ChatWidget.Reset();
+	RestoreGameInputMode();
+}
+
+void AMobaPlayerController::SendChat(const FString& Text)
+{
+	FString Message = Text.TrimStartAndEnd();
+	bool bAll = false;
+	if (Message.StartsWith(TEXT("/all"), ESearchCase::IgnoreCase))
+	{
+		bAll = true;
+		Message = Message.RightChop(4).TrimStartAndEnd();
+	}
+
+	if (!Message.IsEmpty())
+	{
+		ServerChat(Message.Left(150), bAll);
+	}
+}
+
+void AMobaPlayerController::ServerChat_Implementation(const FString& Text, bool bAll)
+{
+	const AMobaPlayerState* SenderState = GetPlayerState<AMobaPlayerState>();
+	const FString Message = Text.TrimStartAndEnd().Left(150);
+	if (!SenderState || Message.IsEmpty())
+	{
+		return;
+	}
+
+	const FString Sender = FString::Printf(TEXT("%s %s"), *MobaTeam::GetTeamDisplayName(SenderState->GetTeam()), *SenderState->GetChampionDisplayName());
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AMobaPlayerController* Receiver = Cast<AMobaPlayerController>(It->Get());
+		const AMobaPlayerState* ReceiverState = Receiver ? Receiver->GetPlayerState<AMobaPlayerState>() : nullptr;
+		if (ReceiverState && (bAll || ReceiverState->GetTeam() == SenderState->GetTeam()))
+		{
+			Receiver->ClientReceiveChat(Sender, Message, bAll, SenderState->GetTeam());
+		}
+	}
+}
+
+void AMobaPlayerController::ClientReceiveChat_Implementation(const FString& Sender, const FString& Text, bool bAll, EMobaTeam SenderTeam)
+{
+	if (ChatLog.Num() >= 20)
+	{
+		ChatLog.RemoveAt(0);
+	}
+	ChatLog.Add({ Sender, Text, bAll, SenderTeam, GetWorld()->GetTimeSeconds() });
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -329,6 +444,19 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 		{
 			MobaCharacter->PlaceControlWard(DebugCastLocation);
 		}
+	}
+
+	if (!DebugChatMessage.IsEmpty())
+	{
+		const FString Message = DebugChatMessage;
+		DebugChatMessage.Reset();
+		SendChat(Message);
+	}
+
+	if (bDebugOpenChat)
+	{
+		bDebugOpenChat = false;
+		OnReturnToMenu();
 	}
 
 	if (!DebugConsoleCommand.IsEmpty())
