@@ -209,6 +209,9 @@ protected:
 	FBox2D GameMenuResumeRect = FBox2D(ForceInit);
 	FBox2D GameMenuWindowModeRect = FBox2D(ForceInit);
 	FBox2D GameMenuResolutionRect = FBox2D(ForceInit);
+	FBox2D GameMenuSmartCastRect = FBox2D(ForceInit);
+	FBox2D GameMenuCameraLockRect = FBox2D(ForceInit);
+	FBox2D GameMenuCameraSpeedRect = FBox2D(ForceInit);
 	bool bGameMenuDrawn = false;
 	bool bSurrenderAllowed = false;
 

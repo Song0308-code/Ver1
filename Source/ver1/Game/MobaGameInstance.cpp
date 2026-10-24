@@ -88,6 +88,36 @@ FString UMobaGameInstance::MakeLoadoutOptions() const
 	return Options;
 }
 
+void UMobaGameInstance::SetSmartCastEnabled(bool bEnabled)
+{
+	bSmartCast = bEnabled;
+	SaveProfile();
+}
+
+void UMobaGameInstance::SetCameraLockDefault(bool bLocked)
+{
+	bCameraLockDefault = bLocked;
+	SaveProfile();
+}
+
+void UMobaGameInstance::SetCameraSpeedIndex(int32 Index)
+{
+	CameraSpeedIndex = FMath::Clamp(Index, 0, NumCameraSpeeds - 1);
+	SaveProfile();
+}
+
+float UMobaGameInstance::GetCameraPanSpeed(int32 Index)
+{
+	static const float Speeds[NumCameraSpeeds] = { 1800.0f, 3000.0f, 4500.0f };
+	return Speeds[FMath::Clamp(Index, 0, NumCameraSpeeds - 1)];
+}
+
+FString UMobaGameInstance::GetCameraSpeedName(int32 Index)
+{
+	static const TCHAR* Names[NumCameraSpeeds] = { TEXT("느림"), TEXT("보통"), TEXT("빠름") };
+	return Names[FMath::Clamp(Index, 0, NumCameraSpeeds - 1)];
+}
+
 void UMobaGameInstance::LoadProfile()
 {
 	const UMobaProfileSave* Profile = Cast<UMobaProfileSave>(UGameplayStatics::LoadGameFromSlot(UMobaProfileSave::SlotName, 0));
@@ -98,6 +128,9 @@ void UMobaGameInstance::LoadProfile()
 
 	SelectedChampion = Profile->ChampionAssetName;
 	HostPlayers = Profile->HostPlayers >= 4 ? 4 : 2;
+	bSmartCast = Profile->bSmartCast;
+	bCameraLockDefault = Profile->bCameraLockDefault;
+	CameraSpeedIndex = FMath::Clamp(Profile->CameraSpeedIndex, 0, NumCameraSpeeds - 1);
 	if (Profile->SpellD < EMobaSummonerSpell::Count && Profile->SpellF < EMobaSummonerSpell::Count && Profile->SpellD != Profile->SpellF)
 	{
 		SelectedSpellD = Profile->SpellD;
@@ -118,6 +151,9 @@ void UMobaGameInstance::SaveProfile() const
 	Profile->SpellD = SelectedSpellD;
 	Profile->SpellF = SelectedSpellF;
 	Profile->HostPlayers = HostPlayers;
+	Profile->bSmartCast = bSmartCast;
+	Profile->bCameraLockDefault = bCameraLockDefault;
+	Profile->CameraSpeedIndex = CameraSpeedIndex;
 	UGameplayStatics::SaveGameToSlot(Profile, UMobaProfileSave::SlotName, 0);
 }
 

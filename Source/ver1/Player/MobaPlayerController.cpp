@@ -52,6 +52,20 @@ void AMobaPlayerController::BeginPlay()
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		CameraRig = GetWorld()->SpawnActor<AMobaCameraRig>(CameraRigClass, FTransform::Identity, SpawnParams);
 	}
+
+	// 저장된 조작 설정을 적용한다.
+	if (IsLocalController())
+	{
+		if (const UMobaGameInstance* GameInstance = GetGameInstance<UMobaGameInstance>())
+		{
+			bSmartCast = GameInstance->IsSmartCastEnabled();
+			bCameraLocked = GameInstance->IsCameraLockDefault();
+			if (CameraRig)
+			{
+				CameraRig->SetPanSpeed(UMobaGameInstance::GetCameraPanSpeed(GameInstance->GetCameraSpeedIndex()));
+			}
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1148,6 +1162,50 @@ void AMobaPlayerController::CastAbilityAtCursor(EMobaAbilitySlot Slot)
 
 // ---------------------------------------------------------------------------------------------------------------------
 // 카메라
+
+void AMobaPlayerController::ToggleSmartCast()
+{
+	bSmartCast = !bSmartCast;
+	bTargeting = false;
+	if (UMobaGameInstance* GameInstance = GetGameInstance<UMobaGameInstance>())
+	{
+		GameInstance->SetSmartCastEnabled(bSmartCast);
+	}
+}
+
+bool AMobaPlayerController::IsCameraLockDefault() const
+{
+	const UMobaGameInstance* GameInstance = GetGameInstance<UMobaGameInstance>();
+	return GameInstance ? GameInstance->IsCameraLockDefault() : true;
+}
+
+void AMobaPlayerController::ToggleCameraLockDefault()
+{
+	// 기본값을 바꾸면 지금 카메라도 그 상태로 맞춘다.
+	if (UMobaGameInstance* GameInstance = GetGameInstance<UMobaGameInstance>())
+	{
+		GameInstance->SetCameraLockDefault(!GameInstance->IsCameraLockDefault());
+		bCameraLocked = GameInstance->IsCameraLockDefault();
+	}
+}
+
+int32 AMobaPlayerController::GetCameraSpeedIndex() const
+{
+	const UMobaGameInstance* GameInstance = GetGameInstance<UMobaGameInstance>();
+	return GameInstance ? GameInstance->GetCameraSpeedIndex() : 1;
+}
+
+void AMobaPlayerController::CycleCameraSpeed()
+{
+	if (UMobaGameInstance* GameInstance = GetGameInstance<UMobaGameInstance>())
+	{
+		GameInstance->SetCameraSpeedIndex((GameInstance->GetCameraSpeedIndex() + 1) % UMobaGameInstance::NumCameraSpeeds);
+		if (CameraRig)
+		{
+			CameraRig->SetPanSpeed(UMobaGameInstance::GetCameraPanSpeed(GameInstance->GetCameraSpeedIndex()));
+		}
+	}
+}
 
 void AMobaPlayerController::OnCameraLockToggled()
 {

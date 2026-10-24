@@ -35,6 +35,19 @@ public:
 	int32 GetHostPlayers() const { return HostPlayers; }
 	void SetHostPlayers(int32 Players);
 
+	/** 조작 설정. 바꾸면 저장한다. */
+	bool IsSmartCastEnabled() const { return bSmartCast; }
+	void SetSmartCastEnabled(bool bEnabled);
+	bool IsCameraLockDefault() const { return bCameraLockDefault; }
+	void SetCameraLockDefault(bool bLocked);
+	int32 GetCameraSpeedIndex() const { return CameraSpeedIndex; }
+	void SetCameraSpeedIndex(int32 Index);
+
+	/** 카메라 가장자리 이동 속도 단계 수와 단계별 속도·이름. */
+	static constexpr int32 NumCameraSpeeds = 3;
+	static float GetCameraPanSpeed(int32 Index);
+	static FString GetCameraSpeedName(int32 Index);
+
 	/** 접속 주소 뒤에 붙일 "?Champion=..?Spells=.." 옵션. */
 	FString MakeLoadoutOptions() const;
 
@@ -50,6 +63,9 @@ protected:
 	EMobaSummonerSpell SelectedSpellD = EMobaSummonerSpell::Flash;
 	EMobaSummonerSpell SelectedSpellF = EMobaSummonerSpell::Ignite;
 	int32 HostPlayers = 2;
+	bool bSmartCast = true;
+	bool bCameraLockDefault = true;
+	int32 CameraSpeedIndex = 1;
 
 	FDelegateHandle NetworkFailureHandle;
 	FDelegateHandle TravelFailureHandle;

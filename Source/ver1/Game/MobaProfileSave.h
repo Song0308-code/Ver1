@@ -26,4 +26,14 @@ public:
 	/** 방을 만들 때의 인원. 2(1대1) 또는 4(2대2). */
 	UPROPERTY()
 	int32 HostPlayers = 2;
+
+	/** 조작 설정. 스킬 즉시 시전, 카메라 가장자리 이동 속도 단계, 경기 시작 때 카메라 고정. */
+	UPROPERTY()
+	bool bSmartCast = true;
+
+	UPROPERTY()
+	int32 CameraSpeedIndex = 1;
+
+	UPROPERTY()
+	bool bCameraLockDefault = true;
 };

@@ -10,6 +10,7 @@
 #include "Character/MobaChampionData.h"
 #include "Character/MobaPassive.h"
 #include "AbilitySystem/Abilities/MobaSummonerSpells.h"
+#include "Game/MobaGameInstance.h"
 #include "Game/MobaGameMode.h"
 #include "Game/MobaItems.h"
 #include "Map/MobaJungleCamp.h"
@@ -236,6 +237,21 @@ bool FMobaTowerPlateTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("1%"), AMobaTower::GetPlatesForHealthFraction(0.01f), 1);
 	TestEqual(TEXT("파괴"), AMobaTower::GetPlatesForHealthFraction(0.0f), 0);
 	TestEqual(TEXT("범위 밖"), AMobaTower::GetPlatesForHealthFraction(1.5f), 5);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaCameraSpeedTest, "Moba.Rules.CameraSpeeds", MobaTestFlags)
+bool FMobaCameraSpeedTest::RunTest(const FString& Parameters)
+{
+	// 단계가 오를수록 빨라지고, 기본(1)은 원래 속도 3000이며, 범위 밖 번호는 양 끝으로 맞춘다.
+	for (int32 Index = 1; Index < UMobaGameInstance::NumCameraSpeeds; ++Index)
+	{
+		TestTrue(FString::Printf(TEXT("%d단계가 더 빠름"), Index), UMobaGameInstance::GetCameraPanSpeed(Index) > UMobaGameInstance::GetCameraPanSpeed(Index - 1));
+		TestFalse(TEXT("이름 있음"), UMobaGameInstance::GetCameraSpeedName(Index).IsEmpty());
+	}
+	TestEqual(TEXT("기본 속도"), UMobaGameInstance::GetCameraPanSpeed(1), 3000.0f);
+	TestEqual(TEXT("음수 번호"), UMobaGameInstance::GetCameraPanSpeed(-3), UMobaGameInstance::GetCameraPanSpeed(0));
+	TestEqual(TEXT("큰 번호"), UMobaGameInstance::GetCameraPanSpeed(99), UMobaGameInstance::GetCameraPanSpeed(UMobaGameInstance::NumCameraSpeeds - 1));
 	return true;
 }
 

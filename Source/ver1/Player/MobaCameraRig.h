@@ -24,6 +24,10 @@ public:
 
 	void Zoom(float Amount);
 
+	/** 가장자리 스크롤 속도(초당 거리). */
+	void SetPanSpeed(float InSpeed) { PanSpeed = InSpeed; }
+	float GetPanSpeed() const { return PanSpeed; }
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<USpringArmComponent> CameraBoom;

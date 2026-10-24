@@ -79,6 +79,14 @@ public:
 	bool IsGameMenuOpen() const { return bGameMenuOpen; }
 	void CloseGameMenu() { bGameMenuOpen = false; }
 
+	/** 게임 메뉴의 조작 설정. 바꾸면 바로 적용하고 프로필에 저장한다. */
+	bool IsSmartCastEnabled() const { return bSmartCast; }
+	void ToggleSmartCast();
+	bool IsCameraLockDefault() const;
+	void ToggleCameraLockDefault();
+	int32 GetCameraSpeedIndex() const;
+	void CycleCameraSpeed();
+
 	/** 항복에 동의한다. */
 	void RequestSurrender() { ServerRequestSurrender(); }
 
@@ -256,7 +264,7 @@ protected:
 	TObjectPtr<AMobaCameraRig> CameraRig;
 
 	/** true면 카메라가 챔피언을 따라간다. false면 화면 가장자리로 스크롤한다. */
-	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	UPROPERTY(EditAnywhere, Category = "Camera")
 	bool bCameraLocked = true;
 
 	/** 화면 가장자리에서 이 픽셀 안으로 커서가 들어오면 스크롤한다. */
@@ -267,7 +275,7 @@ protected:
 	 * true면 스킬 키를 누르는 즉시 커서 위치로 시전한다(스마트캐스트).
 	 * false면 범위 표시가 나오고 좌클릭으로 확정, 우클릭으로 취소한다.
 	 */
-	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
+	UPROPERTY(EditAnywhere, Category = "Abilities")
 	bool bSmartCast = true;
 
 	/** 우클릭을 누르고 있을 때 이동 명령을 다시 내리는 간격(초). */

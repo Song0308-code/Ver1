@@ -12,6 +12,7 @@
 #include "TextureResource.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
+#include "Game/MobaGameInstance.h"
 #include "Game/MobaGameState.h"
 #include "Game/MobaDisplaySettings.h"
 #include "Game/MobaGameMode.h"
@@ -1629,7 +1630,7 @@ void AMobaHUD::DrawGameMenu()
 	bGameMenuDrawn = true;
 	UFont* Font = GEngine->GetSmallFont();
 	const float Width = 320.0f;
-	const float ButtonHeight = 46.0f;
+	const float ButtonHeight = 40.0f;
 	const float Left = (Canvas->ClipX - Width) * 0.5f;
 
 	// 조작 안내.
@@ -1646,7 +1647,7 @@ void AMobaHUD::DrawGameMenu()
 	const float HelpLineHeight = 19.0f;
 
 	// 내용 전체 높이에 맞춰 세로 가운데에 둔다(낮은 창에서도 잘리지 않게).
-	const float ContentHeight = 40.0f + (ButtonHeight + 12.0f) * 2.0f + ButtonHeight + 24.0f + (ButtonHeight + 12.0f) + ButtonHeight + 20.0f + HelpLineHeight * UE_ARRAY_COUNT(Help);
+	const float ContentHeight = 40.0f + (ButtonHeight + 12.0f) * 2.0f + ButtonHeight + 24.0f + (ButtonHeight + 12.0f) + ButtonHeight + 24.0f + (ButtonHeight + 12.0f) * 2.0f + ButtonHeight + 20.0f + HelpLineHeight * UE_ARRAY_COUNT(Help);
 	float Top = FMath::Max((Canvas->ClipY - ContentHeight) * 0.5f, 24.0f);
 
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.5f), 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY);
@@ -1674,7 +1675,7 @@ void AMobaHUD::DrawGameMenu()
 	const auto DrawButton = [this, Font, Left, Width, ButtonHeight](float ButtonTop, const FString& Label, bool bEnabled, const FLinearColor& Color) -> FBox2D
 	{
 		DrawRect(bEnabled ? Color : FLinearColor(0.12f, 0.12f, 0.12f), Left, ButtonTop, Width, ButtonHeight);
-		DrawCenteredText(Label, bEnabled ? FLinearColor::White : FLinearColor(0.5f, 0.5f, 0.5f), Left + Width * 0.5f, ButtonTop + 13.0f, Font, 1.3f);
+		DrawCenteredText(Label, bEnabled ? FLinearColor::White : FLinearColor(0.5f, 0.5f, 0.5f), Left + Width * 0.5f, ButtonTop + 10.0f, Font, 1.3f);
 		return FBox2D(FVector2D(Left, ButtonTop), FVector2D(Left + Width, ButtonTop + ButtonHeight));
 	};
 
@@ -1688,6 +1689,15 @@ void AMobaHUD::DrawGameMenu()
 	GameMenuWindowModeRect = DrawButton(Top, FString::Printf(TEXT("화면: %s"), *MobaDisplaySettings::DescribeWindowMode()), true, FLinearColor(0.18f, 0.2f, 0.28f));
 	Top += ButtonHeight + 12.0f;
 	GameMenuResolutionRect = DrawButton(Top, FString::Printf(TEXT("해상도: %s"), *MobaDisplaySettings::DescribeResolution()), true, FLinearColor(0.18f, 0.2f, 0.28f));
+	Top += ButtonHeight + 24.0f;
+
+	// 조작 설정. 프로필에 저장된다.
+	const FLinearColor ControlColor(0.2f, 0.24f, 0.2f);
+	GameMenuSmartCastRect = DrawButton(Top, MobaController->IsSmartCastEnabled() ? TEXT("스킬 시전: 즉시 (키를 누르면 바로)") : TEXT("스킬 시전: 확인 (범위 표시 후 좌클릭)"), true, ControlColor);
+	Top += ButtonHeight + 12.0f;
+	GameMenuCameraLockRect = DrawButton(Top, MobaController->IsCameraLockDefault() ? TEXT("시작 카메라: 챔피언 고정") : TEXT("시작 카메라: 자유 이동"), true, ControlColor);
+	Top += ButtonHeight + 12.0f;
+	GameMenuCameraSpeedRect = DrawButton(Top, FString::Printf(TEXT("카메라 이동 속도: %s"), *UMobaGameInstance::GetCameraSpeedName(MobaController->GetCameraSpeedIndex())), true, ControlColor);
 	Top += ButtonHeight + 20.0f;
 
 	for (const TCHAR* Line : Help)
@@ -1724,6 +1734,18 @@ bool AMobaHUD::HandleClick(const FVector2D& ScreenPosition)
 			else if (GameMenuResolutionRect.IsInsideOrOn(ScreenPosition))
 			{
 				MobaDisplaySettings::CycleResolution();
+			}
+			else if (GameMenuSmartCastRect.IsInsideOrOn(ScreenPosition))
+			{
+				MobaController->ToggleSmartCast();
+			}
+			else if (GameMenuCameraLockRect.IsInsideOrOn(ScreenPosition))
+			{
+				MobaController->ToggleCameraLockDefault();
+			}
+			else if (GameMenuCameraSpeedRect.IsInsideOrOn(ScreenPosition))
+			{
+				MobaController->CycleCameraSpeed();
 			}
 		}
 		return true;
