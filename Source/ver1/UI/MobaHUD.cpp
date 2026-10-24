@@ -1371,7 +1371,6 @@ void AMobaHUD::DrawPings()
 
 	const double Now = GetWorld()->GetTimeSeconds();
 	const double Lifetime = 4.0;
-	const FLinearColor Color(1.0f, 0.9f, 0.2f);
 
 	for (const FMobaPing& Ping : MobaController->GetPings())
 	{
@@ -1379,6 +1378,26 @@ void AMobaHUD::DrawPings()
 		if (Age > Lifetime)
 		{
 			continue;
+		}
+
+		// 종류별 색과 글자.
+		FLinearColor Color(1.0f, 0.9f, 0.2f);
+		const TCHAR* Label = TEXT("여기");
+		if (Ping.Type == EMobaPingType::Danger)
+		{
+			Color = FLinearColor(1.0f, 0.25f, 0.2f);
+			Label = TEXT("위험!");
+		}
+		else if (Ping.Type == EMobaPingType::OnMyWay)
+		{
+			Color = FLinearColor(0.35f, 1.0f, 0.45f);
+			Label = TEXT("가는 중");
+		}
+
+		const FVector Screen = Project(Ping.Location);
+		if (Screen.Z > 0.0)
+		{
+			DrawCenteredText(FString::Printf(TEXT("%s  (%s)"), Label, *Ping.Sender), Color, Screen.X, Screen.Y - 40.0f, GEngine->GetSmallFont(), 1.1f);
 		}
 
 		// 퍼져 나가는 원을 반복해서 그린다.
@@ -1619,7 +1638,8 @@ void AMobaHUD::DrawGameMenu()
 		TEXT("QWER 스킬   Ctrl+QWER 스킬 배우기"),
 		TEXT("D·F 소환사 주문   1 물약   2 전령의 눈"),
 		TEXT("3 제어 와드   4 와드   B 귀환"),
-		TEXT("P 상점   Tab 점수판   Alt+좌클릭 핑"),
+		TEXT("P 상점   Tab 점수판"),
+		TEXT("핑: Alt+좌클릭 여기 · Ctrl+Alt 위험 · Shift+Alt 가는 중"),
 		TEXT("Y 카메라 고정   Space 내 챔피언 보기"),
 		TEXT("미니맵 좌클릭 카메라 이동   Enter 채팅(/all 전체)"),
 	};

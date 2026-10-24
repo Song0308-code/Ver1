@@ -35,6 +35,15 @@ enum class EMobaAbilitySlot : uint8
 	F
 };
 
+/** 핑 종류. Alt+좌클릭 일반, Ctrl+Alt 위험, Shift+Alt 가는 중. */
+UENUM()
+enum class EMobaPingType : uint8
+{
+	Normal,
+	Danger,
+	OnMyWay
+};
+
 /** 드래곤의 원소. 나올 때마다 정해지고 처치 보상이 달라진다. */
 UENUM()
 enum class EMobaDragonElement : uint8

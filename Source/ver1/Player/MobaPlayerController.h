@@ -29,6 +29,11 @@ struct FMobaPing
 {
 	FVector Location = FVector::ZeroVector;
 
+	EMobaPingType Type = EMobaPingType::Normal;
+
+	/** 핑을 찍은 사람("블루 레인저"). */
+	FString Sender;
+
 	/** 받은 시각(이 PC의 월드 시간). */
 	double Time = 0.0;
 };
@@ -165,10 +170,10 @@ protected:
 	void OnScoreboardCompleted();
 
 	/** Alt + 좌클릭. 커서 위치(미니맵 위라면 그 지점)를 같은 팀에게 알린다. */
-	void SendPingAtCursor();
+	void SendPingAtCursor(EMobaPingType Type = EMobaPingType::Normal);
 
 	UFUNCTION(Server, Reliable)
-	void ServerPing(FVector_NetQuantize Location);
+	void ServerPing(FVector_NetQuantize Location, EMobaPingType Type);
 
 	UFUNCTION(Server, Reliable)
 	void ServerRequestChampion(const FString& AssetName);
@@ -198,7 +203,10 @@ protected:
 	TArray<FMobaChatLine> ChatLog;
 
 	UFUNCTION(Client, Reliable)
-	void ClientShowPing(FVector_NetQuantize Location);
+	void ClientShowPing(FVector_NetQuantize Location, EMobaPingType Type, const FString& Sender);
+
+	/** 서버 전용. 최근에 받은 핑 시각(도배 제한용). */
+	TArray<double> RecentPingTimes;
 
 	FString DeathRecapKiller;
 	TArray<FMobaDeathRecapEntry> DeathRecap;
@@ -448,6 +456,10 @@ protected:
 	/** 에디터 자동 검증용. 켜면 다음 틱에 그 위치로 핑을 보낸다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugPing = false;
+
+	/** 에디터 자동 검증용. bDebugPing으로 보낼 핑 종류. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	EMobaPingType DebugPingType = EMobaPingType::Normal;
 
 	/** 에디터 자동 검증용. 켜면 다음 틱에 상점·게임 메뉴를 여닫는다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")

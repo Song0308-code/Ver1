@@ -398,7 +398,7 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 	if (bDebugPing)
 	{
 		bDebugPing = false;
-		SendPingAtCursor();
+		SendPingAtCursor(DebugPingType);
 	}
 
 	if (bDebugSurrender)
@@ -788,7 +788,8 @@ void AMobaPlayerController::OnConfirmTarget()
 {
 	if (IsAltKeyDown())
 	{
-		SendPingAtCursor();
+		const bool bShift = IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift);
+		SendPingAtCursor(IsControlKeyDown() ? EMobaPingType::Danger : (bShift ? EMobaPingType::OnMyWay : EMobaPingType::Normal));
 		return;
 	}
 
@@ -947,16 +948,16 @@ bool AMobaPlayerController::IsAltKeyDown() const
 	return IsInputKeyDown(EKeys::LeftAlt) || IsInputKeyDown(EKeys::RightAlt);
 }
 
-void AMobaPlayerController::SendPingAtCursor()
+void AMobaPlayerController::SendPingAtCursor(EMobaPingType Type)
 {
 	FVector Location;
 	if (GetCursorMinimapLocation(Location) || GetCursorGroundLocation(Location))
 	{
-		ServerPing(Location);
+		ServerPing(Location, Type);
 	}
 }
 
-void AMobaPlayerController::ServerPing_Implementation(FVector_NetQuantize Location)
+void AMobaPlayerController::ServerPing_Implementation(FVector_NetQuantize Location, EMobaPingType Type)
 {
 	const double Now = GetWorld()->GetTimeSeconds();
 	const AMobaPlayerState* MyState = GetPlayerState<AMobaPlayerState>();
@@ -964,7 +965,17 @@ void AMobaPlayerController::ServerPing_Implementation(FVector_NetQuantize Locati
 	{
 		return;
 	}
+
+	// 도배 방지: 5초 동안 6번까지만.
+	RecentPingTimes.RemoveAll([Now](double Time) { return Now - Time > 5.0; });
+	if (RecentPingTimes.Num() >= 6)
+	{
+		return;
+	}
+	RecentPingTimes.Add(Now);
 	LastPingTime = Now;
+
+	const FString Sender = FString::Printf(TEXT("%s %s"), *MobaTeam::GetTeamDisplayName(MyState->GetTeam()), *MyState->GetChampionDisplayName());
 
 	// 같은 팀에게만 보인다.
 	for (TActorIterator<AMobaPlayerController> It(GetWorld()); It; ++It)
@@ -972,7 +983,7 @@ void AMobaPlayerController::ServerPing_Implementation(FVector_NetQuantize Locati
 		const AMobaPlayerState* OtherState = It->GetPlayerState<AMobaPlayerState>();
 		if (OtherState && OtherState->GetTeam() == MyState->GetTeam())
 		{
-			It->ClientShowPing(Location);
+			It->ClientShowPing(Location, Type, Sender);
 		}
 	}
 }
@@ -1037,14 +1048,14 @@ void AMobaPlayerController::ClientShowDeathRecap_Implementation(const FString& K
 	DeathRecap = Entries;
 }
 
-void AMobaPlayerController::ClientShowPing_Implementation(FVector_NetQuantize Location)
+void AMobaPlayerController::ClientShowPing_Implementation(FVector_NetQuantize Location, EMobaPingType Type, const FString& Sender)
 {
 	if (Pings.Num() >= 8)
 	{
 		Pings.RemoveAt(0);
 	}
 
-	Pings.Add({ FVector(Location), GetWorld()->GetTimeSeconds() });
+	Pings.Add({ FVector(Location), Type, Sender, GetWorld()->GetTimeSeconds() });
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
