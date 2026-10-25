@@ -504,6 +504,10 @@ void UMobaCombatComponent::FireAttack(AActor* Target)
 	if (AMobaProjectile* Projectile = GetWorld()->SpawnActor<AMobaProjectile>(ProjectileClass, SpawnLocation, GetOwner()->GetActorRotation(), SpawnParams))
 	{
 		Projectile->InitHoming(Target, Spec, bRangedAttack ? ProjectileSpeed : MeleeProjectileSpeed, ProjectileVisualScale, MobaCombat::GetTeam(GetOwner()));
+		if (PassiveBonus.AirborneDuration > 0.0f)
+		{
+			Projectile->AddOnHitEffect(MobaAbility::MakeCrowdControlSpec(SourceAbilitySystem, GetOwner(), PassiveBonus.AirborneDuration, MobaTags::State_Airborne));
+		}
 		if (bRedBuff)
 		{
 			Projectile->AddOnHitEffect(MobaAbility::MakeStatModSpec(SourceAbilitySystem, GetOwner(), RedBuffSlowDuration, RedBuffSlowMultiplier, 1.0f, MobaTags::State_Slowed));

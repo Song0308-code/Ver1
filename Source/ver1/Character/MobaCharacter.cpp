@@ -1291,7 +1291,23 @@ void AMobaCharacter::UpdateShields()
 
 FMobaAttackBonus AMobaCharacter::ApplyPassiveOnBasicAttack(AActor* Target)
 {
-	return PassiveInstance ? PassiveInstance->OnBasicAttack(Target) : FMobaAttackBonus();
+	FMobaAttackBonus Bonus = PassiveInstance ? PassiveInstance->OnBasicAttack(Target) : FMobaAttackBonus();
+
+	if (GetWorld()->GetTimeSeconds() <= EmpoweredAttackExpireTime)
+	{
+		Bonus.BonusPhysicalDamage += EmpoweredAttack.BonusPhysicalDamage;
+		Bonus.BonusMagicDamage += EmpoweredAttack.BonusMagicDamage;
+		Bonus.ManaRestore += EmpoweredAttack.ManaRestore;
+		Bonus.AirborneDuration = FMath::Max(Bonus.AirborneDuration, EmpoweredAttack.AirborneDuration);
+		EmpoweredAttackExpireTime = 0.0;
+	}
+	return Bonus;
+}
+
+void AMobaCharacter::SetEmpoweredAttack(const FMobaAttackBonus& Bonus, float Duration)
+{
+	EmpoweredAttack = Bonus;
+	EmpoweredAttackExpireTime = GetWorld()->GetTimeSeconds() + Duration;
 }
 
 const UMobaPassive* AMobaCharacter::GetPassiveDefaults() const

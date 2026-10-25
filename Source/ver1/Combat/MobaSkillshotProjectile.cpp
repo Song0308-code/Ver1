@@ -103,6 +103,10 @@ void AMobaSkillshotProjectile::Tick(float DeltaSeconds)
 				{
 					MobaAbility::ApplySpecToTarget(Effect, HitActor);
 				}
+				if (OnHitActor)
+				{
+					OnHitActor(HitActor);
+				}
 				Destroy();
 				return;
 			}

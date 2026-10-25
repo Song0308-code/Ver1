@@ -36,4 +36,10 @@ namespace MobaCombat
 
 	/** 수평 거리에서 대상의 충돌 반지름을 뺀 값. 사거리 판정에 쓴다. */
 	VER1_API float GetDistanceToTargetEdge(const AActor* Source, const AActor* Target);
+
+	/**
+	 * 서버 전용. 대상을 Duration초 동안 Destination까지 일정한 속도로 옮긴다(끌어오기·밀치기).
+	 * 챔피언은 조종하는 PC에도 위치를 맞춰 준다. 그동안 대상이 움직이지 못하게 하는 상태 이상은 호출한 쪽이 건다.
+	 */
+	VER1_API void ForceMove(AActor* Target, const FVector& Destination, float Duration);
 }

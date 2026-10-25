@@ -4,6 +4,7 @@
 #include "AbilitySystem/MobaAttributeSet.h"
 #include "AbilitySystemInterface.h"
 #include "GameFramework/Character.h"
+#include "Character/MobaPassive.h"
 #include "Game/MobaTypes.h"
 #include "GameplayTagContainer.h"
 #include "MobaCharacter.generated.h"
@@ -12,7 +13,6 @@ class AMobaPlayerState;
 class AMobaWard;
 class UMobaAnimationComponent;
 class UMobaPassive;
-struct FMobaAttackBonus;
 class UMobaChampionData;
 struct FMobaItemDefinition;
 class UMobaCombatComponent;
@@ -108,8 +108,11 @@ public:
 	/** 서버 전용. Duration초 동안 Amount만큼 피해를 먼저 흡수하는 보호막을 더한다. 여러 개면 먼저 사라질 것부터 깎인다. */
 	void AddShield(float Amount, float Duration);
 
-	/** 서버 전용. 기본 공격을 쏘기 직전에 패시브가 더할 피해를 받는다. 패시브가 없으면 0. */
+	/** 서버 전용. 기본 공격을 쏘기 직전에 패시브와 강화된 공격(SetEmpoweredAttack)이 더할 것을 받는다. */
 	FMobaAttackBonus ApplyPassiveOnBasicAttack(AActor* Target);
+
+	/** 서버 전용. Duration초 안에 쏘는 다음 기본 공격 한 번에 Bonus를 더한다. */
+	void SetEmpoweredAttack(const FMobaAttackBonus& Bonus, float Duration);
 
 	/** 이 챔피언의 패시브 정의(클래스 기본값). 이름·설명을 화면에 보여 줄 때 쓴다. 없으면 nullptr. */
 	const UMobaPassive* GetPassiveDefaults() const;
@@ -278,6 +281,10 @@ protected:
 	/** 서버에서만 만드는 패시브 인스턴스. */
 	UPROPERTY(Transient)
 	TObjectPtr<UMobaPassive> PassiveInstance;
+
+	/** 서버 전용. 다음 기본 공격 강화와 그 만료 시각(월드 시간). */
+	FMobaAttackBonus EmpoweredAttack;
+	double EmpoweredAttackExpireTime = 0.0;
 
 	UPROPERTY(VisibleInstanceOnly, Replicated, Category = "Passive")
 	int32 PassiveStacks = 0;

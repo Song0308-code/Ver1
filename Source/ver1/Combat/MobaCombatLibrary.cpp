@@ -138,3 +138,61 @@ void MobaCombat::BindUnitMovement(ACharacter* Unit, UAbilitySystemComponent* Abi
 	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Stunned, EGameplayTagEventType::NewOrRemoved).AddWeakLambda(Unit, UpdateLock);
 	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Rooted, EGameplayTagEventType::NewOrRemoved).AddWeakLambda(Unit, UpdateLock);
 }
+
+void MobaCombat::ForceMove(AActor* Target, const FVector& Destination, float Duration)
+{
+	UWorld* World = Target ? Target->GetWorld() : nullptr;
+	if (!World || !Target->HasAuthority())
+	{
+		return;
+	}
+
+	struct FForcedMove
+	{
+		TWeakObjectPtr<AActor> Target;
+		FVector Start;
+		FVector End;
+		double StartTime = 0.0;
+		float Duration = 0.0f;
+		FTimerHandle Timer;
+	};
+
+	TSharedRef<FForcedMove> Move = MakeShared<FForcedMove>();
+	Move->Target = Target;
+	Move->Start = Target->GetActorLocation();
+	Move->End = FVector(Destination.X, Destination.Y, Move->Start.Z);
+	Move->StartTime = World->GetTimeSeconds();
+	Move->Duration = FMath::Max(Duration, 0.01f);
+
+	if (ACharacter* Character = Cast<ACharacter>(Target))
+	{
+		Character->GetCharacterMovement()->StopMovementImmediately();
+	}
+
+	// 0.03초마다 위치를 옮긴다. 챔피언은 TeleportChampion으로 조종하는 PC의 위치도 맞춘다.
+	World->GetTimerManager().SetTimer(Move->Timer, FTimerDelegate::CreateLambda([Move, World]()
+	{
+		AActor* Actor = Move->Target.Get();
+		const float Alpha = FMath::Clamp(static_cast<float>((World->GetTimeSeconds() - Move->StartTime) / Move->Duration), 0.0f, 1.0f);
+		if (!Actor || IsDead(Actor))
+		{
+			World->GetTimerManager().ClearTimer(Move->Timer);
+			return;
+		}
+
+		const FVector Location = FMath::Lerp(Move->Start, Move->End, Alpha);
+		if (AMobaCharacter* Champion = Cast<AMobaCharacter>(Actor))
+		{
+			Champion->TeleportChampion(Location, Champion->GetActorRotation());
+		}
+		else
+		{
+			Actor->SetActorLocation(Location, false, nullptr, ETeleportType::TeleportPhysics);
+		}
+
+		if (Alpha >= 1.0f)
+		{
+			World->GetTimerManager().ClearTimer(Move->Timer);
+		}
+	}), 0.03f, true);
+}

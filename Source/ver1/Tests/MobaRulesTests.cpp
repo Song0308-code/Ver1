@@ -370,6 +370,43 @@ bool FMobaEconomyCurveTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaChampionStatRangeTest, "Moba.Balance.ChampionStats", MobaTestFlags)
+bool FMobaChampionStatRangeTest::RunTest(const FString& Parameters)
+{
+	// 10단계에서 만드는 챔피언과 역할. 새 챔피언을 만들면 여기에 넣는다.
+	const TArray<TPair<FString, MobaBalance::FChampionRoleRange>> Champions = {
+		{ TEXT("DA_Champion_Tin"), MobaBalance::GetTankSupportRange() },
+	};
+
+	for (const TPair<FString, MobaBalance::FChampionRoleRange>& Entry : Champions)
+	{
+		const FString Path = FString::Printf(TEXT("/Game/Data/Champions/%s.%s"), *Entry.Key, *Entry.Key);
+		const UMobaChampionData* Champion = Cast<UMobaChampionData>(FSoftObjectPath(Path).TryLoad());
+		if (!TestNotNull(Entry.Key + TEXT(" 로드"), Champion))
+		{
+			continue;
+		}
+
+		const MobaBalance::FChampionRoleRange& Range = Entry.Value;
+		const FMobaBaseStats& Base = Champion->BaseStats;
+		const FMobaStatGrowth& Growth = Champion->StatGrowth;
+		const auto Check = [this, &Entry, &Range](const TCHAR* Stat, const MobaBalance::FStatRange& Allowed, float Value)
+		{
+			TestTrue(FString::Printf(TEXT("%s(%s) %s %.1f (%.1f~%.1f)"), *Entry.Key, Range.RoleName, Stat, Value, Allowed.Min, Allowed.Max), Allowed.Contains(Value));
+		};
+		Check(TEXT("체력"), Range.Health, Base.MaxHealth);
+		Check(TEXT("공격력"), Range.AttackDamage, Base.AttackDamage);
+		Check(TEXT("방어력"), Range.Armor, Base.Armor);
+		Check(TEXT("마법 저항력"), Range.MagicResist, Base.MagicResist);
+		Check(TEXT("이동 속도"), Range.MoveSpeed, Base.MoveSpeed);
+		Check(TEXT("사거리"), Range.AttackRange, Base.AttackRange);
+		Check(TEXT("레벨당 체력"), Range.HealthGrowth, Growth.MaxHealth);
+		Check(TEXT("레벨당 공격력"), Range.AttackDamageGrowth, Growth.AttackDamage);
+		Check(TEXT("레벨당 방어력"), Range.ArmorGrowth, Growth.Armor);
+	}
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaSpellsOptionTest, "Moba.Rules.SpellsOption", MobaTestFlags)
 bool FMobaSpellsOptionTest::RunTest(const FString& Parameters)
 {

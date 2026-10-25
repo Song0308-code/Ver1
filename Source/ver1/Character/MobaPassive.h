@@ -13,6 +13,9 @@ struct FMobaAttackBonus
 	float BonusPhysicalDamage = 0.0f;
 	float BonusMagicDamage = 0.0f;
 	float ManaRestore = 0.0f;
+
+	/** 0보다 크면 맞은 대상을 이 시간 동안 띄운다. */
+	float AirborneDuration = 0.0f;
 };
 
 /**
@@ -176,4 +179,33 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Passive")
 	float AbilityPowerRatio = 0.15f;
+};
+
+/** 깡통: 체력이 30% 아래로 떨어지면 현재 마나의 40%를 써서 그만큼 보호막을 얻는다(90초마다). */
+UCLASS()
+class VER1_API UMobaPassive_ManaBarrier : public UMobaPassive
+{
+	GENERATED_BODY()
+
+public:
+	UMobaPassive_ManaBarrier();
+
+	virtual void OnDamageTaken(float Damage) override;
+	virtual void Tick(float DeltaSeconds) override;
+	virtual void OnRespawned() override;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float HealthThreshold = 0.3f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float ManaFraction = 0.4f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float ShieldDuration = 6.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float Cooldown = 90.0f;
+
+	double ReadyTime = 0.0;
 };

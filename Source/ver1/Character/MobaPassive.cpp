@@ -193,3 +193,50 @@ void UMobaPassive_Grace::OnAbilityCast(EMobaAbilitySlot Slot)
 		MobaAbility::HealTarget(Lowest, BaseHeal + GetAttribute(Owner, UMobaAttributeSet::GetAbilityPowerAttribute()) * AbilityPowerRatio);
 	}
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 깡통
+
+UMobaPassive_ManaBarrier::UMobaPassive_ManaBarrier()
+{
+	DisplayName = NSLOCTEXT("Moba", "ManaBarrierName", "마나 방벽");
+	Description = NSLOCTEXT("Moba", "ManaBarrierDesc", "체력이 30% 아래로 떨어지면 현재 마나의 40%를 써서 그만큼 6초 동안 보호막을 얻습니다. 재사용 대기 90초.");
+}
+
+void UMobaPassive_ManaBarrier::OnDamageTaken(float Damage)
+{
+	UAbilitySystemComponent* AbilitySystem = Owner ? Owner->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystem || Owner->IsDead() || Owner->GetWorld()->GetTimeSeconds() < ReadyTime)
+	{
+		return;
+	}
+
+	const float MaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
+	const float Health = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetHealthAttribute());
+	if (MaxHealth <= 0.0f || Health / MaxHealth >= HealthThreshold)
+	{
+		return;
+	}
+
+	const float Mana = AbilitySystem->GetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute());
+	const float Spent = Mana * ManaFraction;
+	if (Spent <= 0.0f)
+	{
+		return;
+	}
+
+	AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetManaAttribute(), Mana - Spent);
+	Owner->AddShield(Spent, ShieldDuration);
+	ReadyTime = Owner->GetWorld()->GetTimeSeconds() + Cooldown;
+	SetStacks(0);
+}
+
+void UMobaPassive_ManaBarrier::Tick(float DeltaSeconds)
+{
+	SetStacks(Owner && Owner->GetWorld()->GetTimeSeconds() >= ReadyTime ? 1 : 0);
+}
+
+void UMobaPassive_ManaBarrier::OnRespawned()
+{
+	Tick(0.0f);
+}

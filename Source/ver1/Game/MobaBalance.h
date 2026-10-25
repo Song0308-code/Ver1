@@ -50,4 +50,29 @@ namespace MobaBalance
 	 * MatchSeconds 시점의 누적 골드(시작 골드·초당 골드 포함)와 경험치. 처치·포탑·정글은 넣지 않는다.
 	 */
 	VER1_API FLaneEstimate EstimateLane(const AMobaGameMode& Mode, float MatchSeconds, float CsFraction);
+
+	/** 역할별 레벨 1 능력치와 레벨당 성장의 허용 범위(Docs/BALANCE.md 4절). */
+	struct FStatRange
+	{
+		float Min = 0.0f;
+		float Max = 0.0f;
+		bool Contains(float Value) const { return Value >= Min - KINDA_SMALL_NUMBER && Value <= Max + KINDA_SMALL_NUMBER; }
+	};
+
+	struct FChampionRoleRange
+	{
+		const TCHAR* RoleName = TEXT("");
+		FStatRange Health, AttackDamage, Armor, MagicResist, MoveSpeed, AttackRange;
+		FStatRange HealthGrowth, AttackDamageGrowth, ArmorGrowth;
+	};
+
+	inline FChampionRoleRange GetMarksmanRange()
+	{
+		return { TEXT("원거리 딜러"), { 560, 620 }, { 54, 62 }, { 22, 28 }, { 28, 32 }, { 325, 335 }, { 525, 575 }, { 90, 105 }, { 2.5f, 3.5f }, { 4.0f, 4.8f } };
+	}
+
+	inline FChampionRoleRange GetTankSupportRange()
+	{
+		return { TEXT("탱커 서포터"), { 620, 690 }, { 56, 64 }, { 32, 40 }, { 30, 34 }, { 330, 345 }, { 125, 175 }, { 100, 115 }, { 3.0f, 4.0f }, { 4.5f, 5.5f } };
+	}
 }

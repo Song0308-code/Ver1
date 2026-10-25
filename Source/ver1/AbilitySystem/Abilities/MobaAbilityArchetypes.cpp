@@ -227,6 +227,10 @@ void UMobaAbility_GroundAoE::Detonate(FVector Location)
 			{
 				MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(AbilitySystem, Caster, RootDuration, MobaTags::State_Rooted), Enemy);
 			}
+			if (SilenceDuration > 0.0f)
+			{
+				MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(AbilitySystem, Caster, SilenceDuration, MobaTags::State_Silenced), Enemy);
+			}
 		}
 
 		OnDetonated(Caster, Location);
@@ -658,4 +662,131 @@ void UMobaAbility_Sanctuary::ExecuteCast(AMobaCharacter* Caster, const FVector& 
 		MobaAbility::HealTarget(Ally, Heal);
 	}
 	FinishCast();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 깡통
+
+UMobaAbility_TinHook::UMobaAbility_TinHook()
+{
+	DisplayName = NSLOCTEXT("Moba", "TinHookName", "갈고리");
+	Description = NSLOCTEXT("Moba", "TinHookDesc", "커서 방향으로 갈고리를 던집니다. 처음 맞은 적에게 마법 피해를 주고 자기 앞으로 끌어옵니다. 끌려오는 동안 대상은 아무것도 할 수 없습니다.");
+	TargetingMode = EMobaTargetingMode::Direction;
+	CastRange = 1050.0f;
+	ManaCost = 100.0f;
+	CooldownDuration = 18.0f;
+}
+
+void UMobaAbility_TinHook::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+
+	FVector Direction = TargetLocation - Caster->GetActorLocation();
+	Direction.Z = 0.0;
+	if (!Direction.Normalize())
+	{
+		Direction = Caster->GetActorForwardVector();
+	}
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = Caster;
+	SpawnParams.Instigator = Caster;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	if (AMobaSkillshotProjectile* Hook = GetWorld()->SpawnActor<AMobaSkillshotProjectile>(AMobaSkillshotProjectile::StaticClass(), Caster->GetActorLocation(), Direction.Rotation(), SpawnParams))
+	{
+		const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAbilityPower(AbilitySystem) * AbilityPowerRatio;
+		TArray<FGameplayEffectSpecHandle> Effects;
+		Effects.Add(MobaAbility::MakeDamageSpec(AbilitySystem, Caster, 0.0f, Damage, 0.0f));
+		Effects.Add(MobaAbility::MakeCrowdControlSpec(AbilitySystem, Caster, PullDuration, MobaTags::State_Airborne));
+		Hook->Launch(Caster, Direction, HookSpeed, CastRange, HookRadius, Effects);
+
+		// 맞은 대상을 그때의 시전자 앞으로 끌어온다.
+		const TWeakObjectPtr<AMobaCharacter> WeakCaster = Caster;
+		const float StopDistance = PullStopDistance;
+		const float Duration = PullDuration;
+		Hook->OnHitActor = [WeakCaster, StopDistance, Duration](AActor* HitActor)
+		{
+			const AMobaCharacter* Puller = WeakCaster.Get();
+			if (!Puller || MobaCombat::IsDead(HitActor))
+			{
+				return;
+			}
+
+			const FVector Toward = (HitActor->GetActorLocation() - Puller->GetActorLocation()).GetSafeNormal2D();
+			MobaCombat::ForceMove(HitActor, Puller->GetActorLocation() + Toward * StopDistance, Duration);
+		};
+	}
+
+	FinishCast();
+}
+
+UMobaAbility_TinOverdrive::UMobaAbility_TinOverdrive()
+{
+	DisplayName = NSLOCTEXT("Moba", "TinOverdriveName", "과부하");
+	Description = NSLOCTEXT("Moba", "TinOverdriveDesc", "3초 동안 이동 속도가 60%, 공격 속도가 30% 오릅니다. 끝나면 과열되어 1.5초 동안 25% 느려집니다.");
+	TargetingMode = EMobaTargetingMode::None;
+	ManaCost = 60.0f;
+	CooldownDuration = 15.0f;
+}
+
+void UMobaAbility_TinOverdrive::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatModSpec(AbilitySystem, Caster, HasteDuration, HasteMultiplier, AttackSpeedMultiplier, MobaTags::State_Hasted), Caster);
+
+	// 스킬이 끝난 뒤에도 돌아가도록 시전자에 묶은 타이머로 과열을 건다.
+	const TWeakObjectPtr<UAbilitySystemComponent> WeakAbilitySystem = AbilitySystem;
+	const float Duration = OverheatDuration;
+	const float Multiplier = OverheatMultiplier;
+	FTimerHandle Handle;
+	GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(Caster, [Caster, WeakAbilitySystem, Duration, Multiplier]()
+	{
+		if (UAbilitySystemComponent* Source = WeakAbilitySystem.Get())
+		{
+			if (!Caster->IsDead())
+			{
+				MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatModSpec(Source, Caster, Duration, Multiplier, 1.0f, MobaTags::State_Slowed), Caster);
+			}
+		}
+	}), HasteDuration, false);
+
+	FinishCast();
+}
+
+UMobaAbility_TinPowerPunch::UMobaAbility_TinPowerPunch()
+{
+	DisplayName = NSLOCTEXT("Moba", "TinPowerPunchName", "감전 펀치");
+	Description = NSLOCTEXT("Moba", "TinPowerPunchDesc", "5초 안의 다음 기본 공격이 공격력의 100%만큼 추가 물리 피해를 주고 대상을 1초 동안 띄웁니다.");
+	TargetingMode = EMobaTargetingMode::None;
+	ManaCost = 30.0f;
+	CooldownDuration = 9.0f;
+}
+
+void UMobaAbility_TinPowerPunch::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	FMobaAttackBonus Bonus;
+	Bonus.BonusPhysicalDamage = GetAttackDamage(GetAbilitySystemComponentFromActorInfo()) * AttackDamageRatio;
+	Bonus.AirborneDuration = AirborneDuration;
+	Caster->SetEmpoweredAttack(Bonus, Duration);
+	FinishCast();
+}
+
+UMobaAbility_TinDischarge::UMobaAbility_TinDischarge()
+{
+	DisplayName = NSLOCTEXT("Moba", "TinDischargeName", "방전");
+	Description = NSLOCTEXT("Moba", "TinDischargeDesc", "주변 적에게 마법 피해를 주고 0.5초 동안 침묵시킵니다.");
+	TargetingMode = EMobaTargetingMode::None;
+	CastRange = 0.0f;
+	ManaCost = 100.0f;
+	CooldownDuration = 80.0f;
+	bUltimate = true;
+
+	Radius = 600.0f;
+	Delay = 0.0f;
+	BaseDamage = 250.0f;
+	DamagePerLevel = 125.0f;
+	AbilityPowerRatio = 1.0f;
+	StunDuration = 0.0f;
+	SilenceDuration = 0.5f;
 }

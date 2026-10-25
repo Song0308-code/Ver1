@@ -28,6 +28,9 @@ public:
 	/** 서버 전용. 생성 직후 호출한다. */
 	void Launch(AActor* InSource, const FVector& InDirection, float InSpeed, float InMaxRange, float InRadius, const TArray<FGameplayEffectSpecHandle>& InHitEffects);
 
+	/** 서버 전용. 처음 맞은 대상에게 이펙트를 적용한 뒤 불린다(끌어오기 등). */
+	TFunction<void(AActor*)> OnHitActor;
+
 protected:
 	UFUNCTION()
 	void OnRep_Visual();

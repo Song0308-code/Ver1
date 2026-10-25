@@ -143,6 +143,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Stun")
 	float RootDuration = 0.0f;
 
+	/** 0보다 크면 맞은 적을 이 시간 동안 침묵시킨다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Stun")
+	float SilenceDuration = 0.0f;
+
 	/** 1보다 작으면 맞은 적을 둔화시킨다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Slow")
 	float SlowMoveSpeedMultiplier = 1.0f;
@@ -459,4 +463,102 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Heal")
 	float AbilityPowerRatio = 0.5f;
+};
+
+/** 깡통 Q. 직선으로 갈고리를 던져 처음 맞은 적에게 마법 피해를 주고 자기 앞으로 끌어온다. */
+UCLASS()
+class VER1_API UMobaAbility_TinHook : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_TinHook();
+
+	virtual float GetIndicatorRadius() const override { return HookRadius; }
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Hook")
+	float HookSpeed = 1800.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Hook")
+	float HookRadius = 70.0f;
+
+	/** 끌어온 대상이 멈추는 곳(시전자 앞 거리). */
+	UPROPERTY(EditDefaultsOnly, Category = "Hook")
+	float PullStopDistance = 150.0f;
+
+	/** 끌려오는 데 걸리는 시간. 그동안 대상은 띄워져 아무것도 못 한다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Hook")
+	float PullDuration = 0.45f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 90.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 50.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AbilityPowerRatio = 0.9f;
+};
+
+/** 깡통 W. 잠깐 크게 빨라진 뒤 과열로 느려진다. */
+UCLASS()
+class VER1_API UMobaAbility_TinOverdrive : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_TinOverdrive();
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float HasteDuration = 3.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float HasteMultiplier = 1.6f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float AttackSpeedMultiplier = 1.3f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float OverheatDuration = 1.5f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float OverheatMultiplier = 0.75f;
+};
+
+/** 깡통 E. 5초 안의 다음 기본 공격이 추가 물리 피해를 주고 대상을 띄운다. */
+UCLASS()
+class VER1_API UMobaAbility_TinPowerPunch : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_TinPowerPunch();
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Punch")
+	float Duration = 5.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Punch")
+	float AttackDamageRatio = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Punch")
+	float AirborneDuration = 1.0f;
+};
+
+/** 깡통 R. 주변 적에게 마법 피해를 주고 침묵시킨다. */
+UCLASS()
+class VER1_API UMobaAbility_TinDischarge : public UMobaAbility_GroundAoE
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_TinDischarge();
 };
