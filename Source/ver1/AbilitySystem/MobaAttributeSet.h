@@ -152,6 +152,11 @@ public:
 	FGameplayAttributeData LifeSteal;
 	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, LifeSteal)
 
+	/** 기본 공격이 치명타가 될 확률. 0.25면 25%(1을 넘으면 항상). 치명타는 공격력 몫에 MobaBalance::CritDamageMultiplier를 곱한다. */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_CritChance, Category = "Attributes")
+	FGameplayAttributeData CritChance;
+	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, CritChance)
+
 	/** 스킬 가속. 스킬 재사용 대기 시간이 100 / (100 + 가속) 배가 된다. 소환사 주문에는 적용되지 않는다. */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_AbilityHaste, Category = "Attributes")
 	FGameplayAttributeData AbilityHaste;
@@ -198,6 +203,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_LifeSteal(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	void OnRep_CritChance(const FGameplayAttributeData& OldValue);
 
 	UFUNCTION()
 	void OnRep_Shield(const FGameplayAttributeData& OldValue);

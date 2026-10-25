@@ -1488,14 +1488,16 @@ void AMobaHUD::DrawStatsPanel(const AMobaCharacter* Character)
 		{ TEXT("이동 속도"), FString::FromInt(FMath::RoundToInt(Value(UMobaAttributeSet::GetMoveSpeedAttribute()))) },
 		{ TEXT("스킬 가속"), FString::FromInt(FMath::RoundToInt(Value(UMobaAttributeSet::GetAbilityHasteAttribute()))) },
 		{ TEXT("흡혈"), FString::Printf(TEXT("%d%%"), FMath::RoundToInt(Value(UMobaAttributeSet::GetLifeStealAttribute()) * 100.0f)) },
+		{ TEXT("치명타"), FString::Printf(TEXT("%d%%"), FMath::RoundToInt(FMath::Min(Value(UMobaAttributeSet::GetCritChanceAttribute()), 1.0f) * 100.0f)) },
 	};
 
-	// 두 열, 네 줄. 왼쪽 아래 구석에 둔다.
+	// 두 열, 다섯 줄. 왼쪽 아래 구석에 둔다.
+	const int32 RowsPerColumn = 5;
 	UFont* Font = GEngine->GetSmallFont();
 	const float ColumnWidth = 104.0f;
 	const float LineHeight = 17.0f;
 	const float Width = ColumnWidth * 2.0f + 12.0f;
-	const float Height = LineHeight * 4.0f + 10.0f;
+	const float Height = LineHeight * RowsPerColumn + 10.0f;
 	const float Left = 10.0f;
 	float Top = Canvas->ClipY - Height - 10.0f;
 
@@ -1508,8 +1510,8 @@ void AMobaHUD::DrawStatsPanel(const AMobaCharacter* Character)
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.7f), Left, Top, Width, Height);
 	for (int32 Index = 0; Index < UE_ARRAY_COUNT(Lines); ++Index)
 	{
-		const float X = Left + 6.0f + ColumnWidth * (Index / 4);
-		const float Y = Top + 5.0f + LineHeight * (Index % 4);
+		const float X = Left + 6.0f + ColumnWidth * (Index / RowsPerColumn);
+		const float Y = Top + 5.0f + LineHeight * (Index % RowsPerColumn);
 		DrawText(Lines[Index].Label, FLinearColor(0.7f, 0.72f, 0.78f), X, Y, Font, 0.95f);
 		DrawText(Lines[Index].Text, FLinearColor::White, X + 62.0f, Y, Font, 0.95f);
 	}

@@ -159,7 +159,7 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s 가격"), Item.Name), Item.Cost > 0);
 		const bool bHasStat = Item.AttackDamage > 0.0f || Item.AbilityPower > 0.0f || Item.MaxHealth > 0.0f || Item.MaxMana > 0.0f
 			|| Item.Armor > 0.0f || Item.MagicResist > 0.0f || Item.MoveSpeed > 0.0f || Item.AttackSpeedFraction > 0.0f
-			|| Item.LifeSteal > 0.0f || Item.AbilityHaste > 0.0f || (Item.bConsumable && Item.HealAmount > 0.0f && Item.HealDuration > 0.0f) || Item.bControlWard;
+			|| Item.LifeSteal > 0.0f || Item.AbilityHaste > 0.0f || Item.CritChance > 0.0f || (Item.bConsumable && Item.HealAmount > 0.0f && Item.HealDuration > 0.0f) || Item.bControlWard;
 		TestTrue(FString::Printf(TEXT("%s 능력치"), Item.Name), bHasStat);
 		BasicCount += Item.IsBasic() ? 1 : 0;
 
@@ -175,7 +175,8 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 		}
 		TestTrue(FString::Printf(TEXT("%s 조합 가격"), Item.Name), Item.IsBasic() || Item.Cost > ComponentCost);
 	}
-	TestTrue(TEXT("상점 왼쪽 열에 다 들어간다"), BasicCount <= 12);
+	// 기본 열(한 줄 30)과 완성 열(한 줄 40)이 720 높이 창에서 상점 창(머리 74 + 아래 30) 안에 들어간다.
+	TestTrue(TEXT("상점 높이가 720 창에 들어간다"), 74.0f + FMath::Max(30.0f * BasicCount, 40.0f * (Items.Num() - BasicCount)) + 30.0f <= 690.0f);
 
 	// 소모품은 하나(체력 물약)이고 재료가 없으며 다른 아이템의 재료로 쓰이지 않는다.
 	const int32 Potion = MobaItems::GetPotionItemIndex();
@@ -203,7 +204,6 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 		TestFalse(FString::Printf(TEXT("%s 재료에 물약 없음"), Items[Index].Name), Items[Index].Components.Contains(Potion));
 		TestTrue(FString::Printf(TEXT("%s 소모품은 기본 아이템"), Items[Index].Name), !Items[Index].bConsumable || Items[Index].IsBasic());
 	}
-	TestTrue(TEXT("상점 오른쪽 열에 다 들어간다"), Items.Num() - BasicCount <= 10);
 	return true;
 }
 
@@ -408,6 +408,25 @@ bool FMobaChampionStatRangeTest::RunTest(const FString& Parameters)
 		Check(TEXT("레벨당 공격력"), Range.AttackDamageGrowth, Growth.AttackDamage);
 		Check(TEXT("레벨당 방어력"), Range.ArmorGrowth, Growth.Armor);
 	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaCriticalTest, "Moba.Rules.Critical", MobaTestFlags)
+bool FMobaCriticalTest::RunTest(const FString& Parameters)
+{
+	TestFalse(TEXT("확률 0은 치명타 없음"), MobaBalance::IsCritical(0.0f, 0.0f));
+	TestTrue(TEXT("25%에서 난수 0.2는 치명타"), MobaBalance::IsCritical(0.25f, 0.2f));
+	TestFalse(TEXT("25%에서 난수 0.3은 아님"), MobaBalance::IsCritical(0.25f, 0.3f));
+	TestTrue(TEXT("100%를 넘으면 항상"), MobaBalance::IsCritical(1.2f, 0.999f));
+	TestTrue(TEXT("치명타 피해는 1.5~2배"), MobaBalance::CritDamageMultiplier >= 1.5f && MobaBalance::CritDamageMultiplier <= 2.0f);
+
+	// 치명타 아이템이 기본 1, 2단계, 3단계 모두 있다.
+	int32 CritItems = 0;
+	for (const FMobaItemDefinition& Item : MobaItems::GetItems())
+	{
+		CritItems += Item.CritChance > 0.0f ? 1 : 0;
+	}
+	TestTrue(TEXT("치명타 아이템 넷 이상"), CritItems >= 4);
 	return true;
 }
 

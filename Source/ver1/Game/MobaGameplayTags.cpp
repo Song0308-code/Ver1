@@ -11,6 +11,7 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Stealthed, "State.Stealthed", "은신. 적에게 보이지 않는다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Airborne, "State.Airborne", "에어본. 기절과 같이 모든 행동이 막힌다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Damage_BasicAttack, "Damage.BasicAttack", "기본 공격으로 준 피해.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Damage_Critical, "Damage.Critical", "치명타가 된 기본 공격 피해.");
 
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Invulnerable, "State.Invulnerable", "무적. 공격 대상이 되지 않는다. 앞선 건물이 남아 있는 건물에 붙는다.");
 

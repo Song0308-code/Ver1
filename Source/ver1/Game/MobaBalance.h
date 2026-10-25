@@ -22,6 +22,13 @@ namespace MobaBalance
 	constexpr float GoldPerMoveSpeed = 11.0f;
 	constexpr float GoldPerLifeStealPercent = 32.0f;
 	constexpr float GoldPerAbilityHaste = 25.0f;
+	constexpr float GoldPerCritPercent = 30.0f;
+
+	/** 치명타가 된 기본 공격은 공격력 몫이 이만큼 커진다. */
+	constexpr float CritDamageMultiplier = 1.75f;
+
+	/** 치명타 확률 Chance에서 0~1 난수 Roll이 치명타인지. */
+	inline bool IsCritical(float Chance, float Roll) { return Chance > 0.0f && Roll < Chance; }
 
 	/** 미니언 웨이브가 나와서 라인 가운데에 닿기까지 걸리는 시간(초). 추정에만 쓴다. */
 	constexpr float LaneTravelSeconds = 25.0f;

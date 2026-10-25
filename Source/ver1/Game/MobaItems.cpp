@@ -41,6 +41,8 @@ namespace
 		Items[BigSword].AttackDamage = 37.0f;
 		const int32 BigRod = Add(TEXT("큰 지팡이"), TEXT("주문력 +60"), 1250);
 		Items[BigRod].AbilityPower = 60.0f;
+		const int32 LuckyCharm = Add(TEXT("행운의 부적"), TEXT("치명타 확률 +12%"), 350);
+		Items[LuckyCharm].CritChance = 0.12f;
 
 		// 2단계.
 		const int32 BattleAxe = Add(TEXT("전투 도끼"), TEXT("공격력 +18, 체력 +250"), 1150, { LongSword, RubyCrystal });
@@ -66,6 +68,10 @@ namespace
 		Items[BerserkerBoots].MoveSpeed = 40.0f;
 		Items[BerserkerBoots].AttackSpeedFraction = 0.28f;
 		Items[BerserkerBoots].UniqueGroup = TEXT("Boots");
+		const int32 KeenDirk = Add(TEXT("예리한 단도"), TEXT("공격 속도 +18%, 치명타 확률 +15%, 이동 속도 +5"), 880, { Dagger, LuckyCharm });
+		Items[KeenDirk].AttackSpeedFraction = 0.18f;
+		Items[KeenDirk].CritChance = 0.15f;
+		Items[KeenDirk].MoveSpeed = 5.0f;
 
 		// 3단계.
 		const int32 DoomBlade = Add(TEXT("파멸의 대검"), TEXT("공격력 +70, 스킬 가속 +12"), 2650, { BigSword, LongSword, LongSword });
@@ -78,6 +84,13 @@ namespace
 		Items[Bulwark].Armor = 45.0f;
 		Items[Bulwark].MagicResist = 45.0f;
 		Items[Bulwark].MaxHealth = 450.0f;
+		const int32 StormBlade = Add(TEXT("폭풍 대검"), TEXT("공격력 +55, 치명타 확률 +25%"), 2600, { BigSword, LuckyCharm, LongSword });
+		Items[StormBlade].AttackDamage = 55.0f;
+		Items[StormBlade].CritChance = 0.25f;
+		const int32 MarksmanBow = Add(TEXT("명사수의 활"), TEXT("공격 속도 +35%, 치명타 확률 +25%, 이동 속도 +8"), 1550, { GaleBow, LuckyCharm });
+		Items[MarksmanBow].AttackSpeedFraction = 0.35f;
+		Items[MarksmanBow].CritChance = 0.25f;
+		Items[MarksmanBow].MoveSpeed = 8.0f;
 
 		// 소모품. 가방 칸을 쓰지 않으므로 맨 뒤에 둔다(상점에서는 기본 열에 보인다).
 		const int32 Potion = Add(TEXT("체력 물약"), TEXT("15초간 체력 120 (최대 5, 키 1)"), 50);
@@ -220,6 +233,7 @@ TArray<FString> MobaItems::DescribeStats(const FMobaItemDefinition& Item)
 	Add(Item.MoveSpeed, TEXT("이동 속도"), TEXT(""));
 	Add(Item.LifeSteal * 100.0f, TEXT("생명력 흡수"), TEXT("%"));
 	Add(Item.AbilityHaste, TEXT("스킬 가속"), TEXT(""));
+	Add(Item.CritChance * 100.0f, TEXT("치명타 확률"), TEXT("%"));
 	if (Item.bConsumable && Item.HealAmount > 0.0f)
 	{
 		Lines.Add(FString::Printf(TEXT("사용: %d초 동안 체력 %d 회복 (키 1, 최대 %d개)"), FMath::RoundToInt(Item.HealDuration), FMath::RoundToInt(Item.HealAmount), MaxPotions));

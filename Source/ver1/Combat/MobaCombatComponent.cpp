@@ -7,6 +7,7 @@
 #include "Character/MobaPassive.h"
 #include "Combat/MobaCombatLibrary.h"
 #include "Combat/MobaProjectile.h"
+#include "Game/MobaBalance.h"
 #include "Game/MobaGameplayTags.h"
 #include "Structures/MobaStructure.h"
 #include "GameFramework/Controller.h"
@@ -498,12 +499,23 @@ void UMobaCombatComponent::FireAttack(AActor* Target)
 	{
 		AttackDamage *= Tower->ConsumeDamageMultiplier(Target);
 	}
+	// 치명타는 공격력 몫에만 곱한다(패시브 추가 피해·고정 피해는 그대로).
+	const bool bCritical = MobaBalance::IsCritical(SourceAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetCritChanceAttribute()), FMath::FRand());
+	if (bCritical)
+	{
+		AttackDamage *= MobaBalance::CritDamageMultiplier;
+	}
+
 	const FGameplayEffectSpecHandle Spec = MobaAbility::MakeDamageSpec(SourceAbilitySystem, GetOwner(), AttackDamage + PassiveBonus.BonusPhysicalDamage, PassiveBonus.BonusMagicDamage, bRedBuff ? RedBuffTrueDamage : 0.0f);
 	if (!Spec.IsValid())
 	{
 		return;
 	}
 	Spec.Data->AddDynamicAssetTag(MobaTags::Damage_BasicAttack);
+	if (bCritical)
+	{
+		Spec.Data->AddDynamicAssetTag(MobaTags::Damage_Critical);
+	}
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = GetOwner();
