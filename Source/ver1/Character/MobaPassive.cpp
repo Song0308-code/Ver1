@@ -3,6 +3,8 @@
 #include "AbilitySystem/MobaAttributeSet.h"
 #include "AbilitySystemComponent.h"
 #include "Character/MobaCharacter.h"
+#include "Player/MobaPlayerState.h"
+#include "Game/MobaGameplayTags.h"
 
 namespace
 {
@@ -265,4 +267,67 @@ void UMobaPassive_Rumination::OnCrowdControlApplied(AActor* Target)
 	{
 		MobaAbility::HealTarget(Ally, Heal);
 	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 노머고
+
+UMobaPassive_Overclock::UMobaPassive_Overclock()
+{
+	DisplayName = NSLOCTEXT("Moba", "OverclockName", "가속 회로");
+	Description = NSLOCTEXT("Moba", "OverclockDesc", "스킬을 맞힐 때마다 6초 동안 공격 속도가 8% 오릅니다(최대 5중첩). W의 표식이 붙은 적을 기본 공격이나 다른 스킬로 맞히면 표식이 터져 마법 피해 60(+챔피언 레벨당 10, 주문력 60%)을 줍니다.");
+	MaxStacks = 5;
+}
+
+float UMobaPassive_Overclock::GetMarkDamage() const
+{
+	const AMobaPlayerState* PlayerState = Owner ? Owner->GetPlayerState<AMobaPlayerState>() : nullptr;
+	const int32 Level = PlayerState ? PlayerState->GetChampionLevel() : 1;
+	return MarkBaseDamage + MarkDamagePerLevel * (Level - 1) + GetAttribute(Owner, UMobaAttributeSet::GetAbilityPowerAttribute()) * MarkAbilityPowerRatio;
+}
+
+FMobaAttackBonus UMobaPassive_Overclock::OnBasicAttack(AActor* Target)
+{
+	FMobaAttackBonus Bonus;
+	if (MobaAbility::ConsumeMark(Target))
+	{
+		Bonus.BonusMagicDamage = GetMarkDamage();
+	}
+	return Bonus;
+}
+
+void UMobaPassive_Overclock::OnAbilityHit(AActor* Target)
+{
+	UAbilitySystemComponent* AbilitySystem = Owner ? Owner->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystem)
+	{
+		return;
+	}
+
+	if (MobaAbility::ConsumeMark(Target))
+	{
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(AbilitySystem, Owner, 0.0f, GetMarkDamage(), 0.0f), Target);
+	}
+
+	// 중첩은 효과 하나로 유지한다: 이전 것을 지우고 새 배율로 다시 건다.
+	Stacks = FMath::Min(Stacks + 1, MaxStacks);
+	ExpireTime = Owner->GetWorld()->GetTimeSeconds() + StackDuration;
+	AbilitySystem->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(MobaTags::Buff_Overclock));
+	MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatModSpec(AbilitySystem, Owner, StackDuration, 1.0f, 1.0f + AttackSpeedPerStack * Stacks, MobaTags::Buff_Overclock), Owner);
+	SetStacks(Stacks);
+}
+
+void UMobaPassive_Overclock::Tick(float DeltaSeconds)
+{
+	if (Stacks > 0 && Owner && Owner->GetWorld()->GetTimeSeconds() > ExpireTime)
+	{
+		Stacks = 0;
+		SetStacks(0);
+	}
+}
+
+void UMobaPassive_Overclock::OnRespawned()
+{
+	Stacks = 0;
+	SetStacks(0);
 }

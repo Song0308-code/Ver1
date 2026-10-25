@@ -377,6 +377,7 @@ bool FMobaChampionStatRangeTest::RunTest(const FString& Parameters)
 	const TArray<TPair<FString, MobaBalance::FChampionRoleRange>> Champions = {
 		{ TEXT("DA_Champion_Tin"), MobaBalance::GetTankSupportRange() },
 		{ TEXT("DA_Champion_Cow"), MobaBalance::GetTankSupportRange() },
+		{ TEXT("DA_Champion_Nomago"), MobaBalance::GetMarksmanRange() },
 	};
 
 	for (const TPair<FString, MobaBalance::FChampionRoleRange>& Entry : Champions)

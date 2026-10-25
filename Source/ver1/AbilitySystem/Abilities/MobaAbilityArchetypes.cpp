@@ -5,6 +5,7 @@
 #include "Character/MobaCharacter.h"
 #include "Combat/MobaAreaIndicator.h"
 #include "Combat/MobaCombatLibrary.h"
+#include "Combat/MobaProjectile.h"
 #include "Combat/MobaSkillshotProjectile.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
@@ -936,5 +937,203 @@ void UMobaAbility_CowUnbreakable::ExecuteCast(AMobaCharacter* Caster, const FVec
 	AbilitySystem->RemoveActiveEffectsWithGrantedTags(CrowdControl);
 
 	MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatBuffSpec(AbilitySystem, Caster, Duration, FMobaStatBonus(), FGameplayTagContainer(MobaTags::Buff_Unbreakable)), Caster);
+	FinishCast();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 노머고
+
+namespace
+{
+	AMobaSkillshotProjectile* SpawnSkillshot(AMobaCharacter* Caster, const FVector& TargetLocation, FVector& OutDirection)
+	{
+		OutDirection = TargetLocation - Caster->GetActorLocation();
+		OutDirection.Z = 0.0;
+		if (!OutDirection.Normalize())
+		{
+			OutDirection = Caster->GetActorForwardVector();
+		}
+
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = Caster;
+		SpawnParams.Instigator = Caster;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		return Caster->GetWorld()->SpawnActor<AMobaSkillshotProjectile>(AMobaSkillshotProjectile::StaticClass(), Caster->GetActorLocation(), OutDirection.Rotation(), SpawnParams);
+	}
+}
+
+UMobaAbility_NomagoPulse::UMobaAbility_NomagoPulse()
+{
+	DisplayName = NSLOCTEXT("Moba", "NomagoPulseName", "파동탄");
+	Description = NSLOCTEXT("Moba", "NomagoPulseDesc", "커서 방향으로 파동탄을 쏩니다. 처음 맞은 적에게 물리 피해를 주고, 맞으면 W·E·R의 재사용 대기가 1.5초 줄어듭니다.");
+	TargetingMode = EMobaTargetingMode::Direction;
+	CastRange = 1150.0f;
+	ManaCost = 30.0f;
+	CooldownDuration = 5.0f;
+}
+
+void UMobaAbility_NomagoPulse::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	FVector Direction;
+	if (AMobaSkillshotProjectile* Projectile = SpawnSkillshot(Caster, TargetLocation, Direction))
+	{
+		const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAttackDamage(AbilitySystem) * AttackDamageRatio + GetAbilityPower(AbilitySystem) * AbilityPowerRatio;
+		Projectile->Launch(Caster, Direction, ProjectileSpeed, CastRange, ProjectileRadius, { MobaAbility::MakeDamageSpec(AbilitySystem, Caster, Damage, 0.0f, 0.0f) });
+
+		const TWeakObjectPtr<AMobaCharacter> WeakCaster = Caster;
+		const float Refund = CooldownRefund;
+		Projectile->OnHitActor = [WeakCaster, Refund](AActor* HitActor)
+		{
+			if (AMobaCharacter* Owner = WeakCaster.Get())
+			{
+				for (const EMobaAbilitySlot Slot : { EMobaAbilitySlot::W, EMobaAbilitySlot::E, EMobaAbilitySlot::R })
+				{
+					MobaAbility::ReduceCooldown(Owner->GetAbilitySystemComponent(), Slot, Refund);
+				}
+				Owner->NotifyAbilityHit(HitActor);
+			}
+		};
+	}
+
+	FinishCast();
+}
+
+UMobaAbility_NomagoMark::UMobaAbility_NomagoMark()
+{
+	DisplayName = NSLOCTEXT("Moba", "NomagoMarkName", "표식탄");
+	Description = NSLOCTEXT("Moba", "NomagoMarkDesc", "적을 꿰뚫고 날아가며 맞은 적 챔피언에게 4초 동안 표식을 남깁니다. 표식은 노머고의 기본 공격이나 다른 스킬에 맞으면 터집니다(피해는 패시브 설명).");
+	TargetingMode = EMobaTargetingMode::Direction;
+	CastRange = 1000.0f;
+	ManaCost = 50.0f;
+	CooldownDuration = 10.0f;
+}
+
+void UMobaAbility_NomagoMark::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	FVector Direction;
+	if (AMobaSkillshotProjectile* Projectile = SpawnSkillshot(Caster, TargetLocation, Direction))
+	{
+		Projectile->bPierce = true;
+		Projectile->Launch(Caster, Direction, ProjectileSpeed, CastRange, ProjectileRadius, {});
+
+		const TWeakObjectPtr<AMobaCharacter> WeakCaster = Caster;
+		const TWeakObjectPtr<UAbilitySystemComponent> WeakAbilitySystem = AbilitySystem;
+		const float Duration = MarkDuration;
+		Projectile->OnHitActor = [WeakCaster, WeakAbilitySystem, Duration](AActor* HitActor)
+		{
+			AMobaCharacter* Owner = WeakCaster.Get();
+			UAbilitySystemComponent* Source = WeakAbilitySystem.Get();
+			if (!Owner || !Source || !HitActor->IsA<AMobaCharacter>())
+			{
+				return;
+			}
+
+			// 이미 있던 표식이 이 스킬로 터지지 않도록, 알린 다음에 표식을 붙인다.
+			Owner->NotifyAbilityHit(HitActor);
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(Source, Owner, Duration, MobaTags::State_Marked), HitActor);
+		};
+	}
+
+	FinishCast();
+}
+
+UMobaAbility_NomagoPhase::UMobaAbility_NomagoPhase()
+{
+	DisplayName = NSLOCTEXT("Moba", "NomagoPhaseName", "위상 도약");
+	Description = NSLOCTEXT("Moba", "NomagoPhaseDesc", "커서 쪽으로 짧게 순간이동한 뒤, 근처의 적(챔피언 우선)에게 유도탄을 쏴 마법 피해를 줍니다.");
+	TargetingMode = EMobaTargetingMode::Location;
+	CastRange = 475.0f;
+	ManaCost = 80.0f;
+	CooldownDuration = 18.0f;
+	bMovementAbility = true;
+}
+
+void UMobaAbility_NomagoPhase::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	FVector Facing = TargetLocation - Caster->GetActorLocation();
+	Facing.Z = 0.0;
+	Caster->TeleportChampion(TargetLocation, Facing.IsNearlyZero() ? Caster->GetActorRotation() : Facing.Rotation());
+
+	AActor* Target = MobaAbility::PickEnemyNearCursor(Caster, Caster->GetActorLocation(), BoltSearchRadius, BoltSearchRadius, [](const AActor* Candidate) { return Candidate->IsA<AMobaCharacter>(); });
+	if (!Target)
+	{
+		Target = MobaAbility::PickEnemyNearCursor(Caster, Caster->GetActorLocation(), BoltSearchRadius, BoltSearchRadius, [](const AActor*) { return true; });
+	}
+
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	if (Target && AbilitySystem)
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = Caster;
+		SpawnParams.Instigator = Caster;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		if (AMobaProjectile* Bolt = GetWorld()->SpawnActor<AMobaProjectile>(AMobaProjectile::StaticClass(), Caster->GetActorLocation(), Caster->GetActorRotation(), SpawnParams))
+		{
+			const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAttackDamage(AbilitySystem) * AttackDamageRatio + GetAbilityPower(AbilitySystem) * AbilityPowerRatio;
+			Bolt->InitHoming(Target, MobaAbility::MakeDamageSpec(AbilitySystem, Caster, 0.0f, Damage, 0.0f), BoltSpeed, 0.6f, Caster->GetTeam());
+		}
+
+		// 유도탄은 반드시 맞으므로 쏠 때 적중으로 친다.
+		Caster->NotifyAbilityHit(Target);
+	}
+
+	FinishCast();
+}
+
+UMobaAbility_NomagoBarrage::UMobaAbility_NomagoBarrage()
+{
+	DisplayName = NSLOCTEXT("Moba", "NomagoBarrageName", "궤도 포격");
+	Description = NSLOCTEXT("Moba", "NomagoBarrageDesc", "1초 동안 충전한 뒤 커서 방향으로 맵을 가로지르는 넓은 포격을 쏩니다. 지나가는 모든 적에게 마법 피해를 주며, 챔피언이 아닌 대상은 절반만 받습니다.");
+	TargetingMode = EMobaTargetingMode::Direction;
+	CastRange = 16000.0f;
+	ManaCost = 100.0f;
+	CooldownDuration = 100.0f;
+	bUltimate = true;
+}
+
+void UMobaAbility_NomagoBarrage::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAttackDamage(AbilitySystem) * AttackDamageRatio + GetAbilityPower(AbilitySystem) * AbilityPowerRatio;
+	const TWeakObjectPtr<UAbilitySystemComponent> WeakAbilitySystem = AbilitySystem;
+	const float Speed = BeamSpeed;
+	const float Range = CastRange;
+	const float Radius = BeamRadius;
+	const float Scale = NonChampionDamageScale;
+
+	// 충전이 끝나면 그때의 시전자 위치에서 쏜다.
+	FTimerHandle Handle;
+	GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(Caster, [Caster, TargetLocation, WeakAbilitySystem, Damage, Speed, Range, Radius, Scale]()
+	{
+		if (Caster->IsDead() || !WeakAbilitySystem.IsValid())
+		{
+			return;
+		}
+
+		FVector Direction;
+		AMobaSkillshotProjectile* Beam = SpawnSkillshot(Caster, TargetLocation, Direction);
+		if (!Beam)
+		{
+			return;
+		}
+
+		Beam->bPierce = true;
+		Beam->Launch(Caster, Direction, Speed, Range, Radius, {});
+		Beam->OnHitActor = [Caster, WeakAbilitySystem, Damage, Scale](AActor* HitActor)
+		{
+			if (UAbilitySystemComponent* Source = WeakAbilitySystem.Get())
+			{
+				const bool bChampion = HitActor->IsA<AMobaCharacter>();
+				MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(Source, Caster, 0.0f, bChampion ? Damage : Damage * Scale, 0.0f), HitActor);
+				if (bChampion && IsValid(Caster))
+				{
+					Caster->NotifyAbilityHit(HitActor);
+				}
+			}
+		};
+	}), ChargeTime, false);
+
 	FinishCast();
 }

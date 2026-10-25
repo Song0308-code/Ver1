@@ -1321,6 +1321,14 @@ void AMobaCharacter::NotifyCrowdControlApplied(AActor* Target)
 	}
 }
 
+void AMobaCharacter::NotifyAbilityHit(AActor* Target)
+{
+	if (PassiveInstance && Target && !MobaCombat::IsDead(Target))
+	{
+		PassiveInstance->OnAbilityHit(Target);
+	}
+}
+
 void AMobaCharacter::SetEmpoweredAttack(const FMobaAttackBonus& Bonus, float Duration)
 {
 	EmpoweredAttack = Bonus;

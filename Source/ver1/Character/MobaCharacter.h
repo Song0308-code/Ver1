@@ -120,6 +120,9 @@ public:
 	/** 서버 전용. 스킬이 Target에게 군중 제어를 걸었을 때 부른다. 적 챔피언이면 패시브에 알린다. */
 	void NotifyCrowdControlApplied(AActor* Target);
 
+	/** 서버 전용. 스킬이 적 Target에게 맞았을 때 부른다. 패시브에 알린다. */
+	void NotifyAbilityHit(AActor* Target);
+
 	/** 이 챔피언의 패시브 정의(클래스 기본값). 이름·설명을 화면에 보여 줄 때 쓴다. 없으면 nullptr. */
 	const UMobaPassive* GetPassiveDefaults() const;
 

@@ -28,8 +28,11 @@ public:
 	/** 서버 전용. 생성 직후 호출한다. */
 	void Launch(AActor* InSource, const FVector& InDirection, float InSpeed, float InMaxRange, float InRadius, const TArray<FGameplayEffectSpecHandle>& InHitEffects);
 
-	/** 서버 전용. 처음 맞은 대상에게 이펙트를 적용한 뒤 불린다(끌어오기 등). */
+	/** 서버 전용. 처음 맞은 대상에게 이펙트를 적용한 뒤 불린다(끌어오기 등). 관통이면 맞은 대상마다 불린다. */
 	TFunction<void(AActor*)> OnHitActor;
+
+	/** 서버 전용. true면 멈추지 않고 지나가며 맞은 적마다 한 번씩 이펙트를 적용한다. */
+	bool bPierce = false;
 
 protected:
 	UFUNCTION()
@@ -64,4 +67,7 @@ protected:
 	TArray<FGameplayEffectSpecHandle> HitEffects;
 
 	float DistanceTravelled = 0.0f;
+
+	/** 관통 투사체가 이미 맞힌 대상. */
+	TSet<TWeakObjectPtr<AActor>> AlreadyHit;
 };

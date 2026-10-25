@@ -16,6 +16,7 @@ namespace MobaTags
 
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Recalling, "State.Recalling", "귀환을 준비하는 중. 움직이거나 맞으면 취소된다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Displaced, "State.Displaced", "강제 이동 중. 스스로 걷지 못한다.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Marked, "State.Marked", "노머고의 표식. 다음 공격에 터진다.");
 
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Blue, "Buff.Blue", "푸른 파수꾼 버프. 마나 재생이 늘고 재사용 대기 시간이 줄어든다.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Red, "Buff.Red", "붉은 덩굴정령 버프. 체력 재생이 늘고 기본 공격이 둔화와 추가 피해를 준다.");
@@ -29,6 +30,7 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Elder, "Buff.Elder", "장로 드래곤: 체력 20% 아래의 적 챔피언을 바로 처치.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Baron, "Buff.Baron", "내셔 남작 처치 보상.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Unbreakable, "Buff.Unbreakable", "받는 피해 감소(젖소 불굴).");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Overclock, "Buff.Overclock", "노머고 패시브 공격 속도 중첩.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_BaronAura, "Buff.BaronAura", "바론 버프 챔피언 근처의 강화된 미니언.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Unit_Ward, "Unit.Ward", "와드. 기본 공격 한 번에 체력 1씩만 깎인다.");
 

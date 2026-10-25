@@ -97,7 +97,20 @@ void AMobaSkillshotProjectile::Tick(float DeltaSeconds)
 		for (const FHitResult& Hit : Hits)
 		{
 			AActor* HitActor = Hit.GetActor();
-			if (MobaCombat::IsValidEnemyTarget(Source, HitActor))
+			if (bPierce && MobaCombat::IsValidEnemyTarget(Source, HitActor) && !AlreadyHit.Contains(HitActor))
+			{
+				AlreadyHit.Add(HitActor);
+				for (const FGameplayEffectSpecHandle& Effect : HitEffects)
+				{
+					MobaAbility::ApplySpecToTarget(Effect, HitActor);
+				}
+				if (OnHitActor)
+				{
+					OnHitActor(HitActor);
+				}
+				continue;
+			}
+			if (!bPierce && MobaCombat::IsValidEnemyTarget(Source, HitActor))
 			{
 				for (const FGameplayEffectSpecHandle& Effect : HitEffects)
 				{

@@ -205,6 +205,50 @@ void MobaAbility::FindAlliedChampionsInRadius(const AActor* Source, const FVecto
 	}
 }
 
+void MobaAbility::ReduceCooldown(UAbilitySystemComponent* AbilitySystem, EMobaAbilitySlot Slot, float Seconds)
+{
+	if (!AbilitySystem || Seconds <= 0.0f)
+	{
+		return;
+	}
+
+	// 시작 시각만 당기면 만료 타이머가 그대로라 태그가 늦게 풀린다. 남은 시간으로 다시 건다.
+	const float Now = AbilitySystem->GetWorld()->GetTimeSeconds();
+	const FGameplayEffectQuery Query = FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(FGameplayTagContainer(GetCooldownTag(Slot)));
+	for (const FActiveGameplayEffectHandle& Handle : AbilitySystem->GetActiveEffects(Query))
+	{
+		const FActiveGameplayEffect* Active = AbilitySystem->GetActiveGameplayEffect(Handle);
+		if (!Active)
+		{
+			continue;
+		}
+
+		const float Remaining = Active->GetTimeRemaining(Now) - Seconds;
+		AbilitySystem->RemoveActiveGameplayEffect(Handle);
+		if (Remaining > 0.05f)
+		{
+			const FGameplayEffectSpecHandle Spec = MakeSpec(AbilitySystem, AbilitySystem->GetAvatarActor(), UMobaCooldownEffect::StaticClass());
+			if (Spec.IsValid())
+			{
+				Spec.Data->DynamicGrantedTags.AddTag(GetCooldownTag(Slot));
+				Spec.Data->SetSetByCallerMagnitude(MobaTags::Data_Cooldown, Remaining);
+				AbilitySystem->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+			}
+		}
+	}
+}
+
+bool MobaAbility::ConsumeMark(AActor* Target)
+{
+	UAbilitySystemComponent* AbilitySystem = MobaCombat::GetAbilitySystem(Target);
+	if (!AbilitySystem || !AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Marked))
+	{
+		return false;
+	}
+	AbilitySystem->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(MobaTags::State_Marked));
+	return true;
+}
+
 float MobaAbility::HealTarget(AActor* Target, float Amount)
 {
 	const IAbilitySystemInterface* AbilityInterface = Cast<IAbilitySystemInterface>(Target);

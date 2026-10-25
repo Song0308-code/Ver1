@@ -29,6 +29,9 @@ namespace MobaTags
 	/** 끌려가거나 밀려나거나 돌진하는 중(MobaCombat::ForceMove). 그동안 스스로 걷지 못한다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Displaced);
 
+	/** 노머고 W의 표식. 노머고의 기본 공격이나 다른 스킬에 맞으면 터진다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Marked);
+
 	/** 정글 보상으로 받는 버프. 효과는 태그를 보고 각 시스템이 적용한다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Blue);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Red);
@@ -50,6 +53,9 @@ namespace MobaTags
 
 	/** 받는 피해가 줄어든 상태(젖소 R). 줄어드는 비율은 UMobaAttributeSet::UnbreakableDamageTaken. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Unbreakable);
+
+	/** 노머고 패시브의 공격 속도 중첩. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Overclock);
 
 	/** 바론 버프를 가진 아군 챔피언 근처에서 강해진 미니언. 1초짜리로 계속 갱신된다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_BaronAura);

@@ -54,6 +54,9 @@ public:
 	/** 이 챔피언의 스킬이 적 챔피언에게 군중 제어를 걸었을 때. */
 	virtual void OnCrowdControlApplied(AActor* Target) {}
 
+	/** 이 챔피언의 스킬이 적에게 맞았을 때. */
+	virtual void OnAbilityHit(AActor* Target) {}
+
 protected:
 	/** 챔피언의 중첩 표시를 바꾼다. */
 	void SetStacks(int32 Stacks) const;
@@ -240,4 +243,44 @@ protected:
 	float InternalCooldown = 2.0f;
 
 	double ReadyTime = 0.0;
+};
+
+/**
+ * 노머고: 스킬을 맞힐 때마다 6초 동안 공격 속도가 8% 오른다(최대 5중첩).
+ * W의 표식이 붙은 적을 기본 공격이나 다른 스킬로 맞히면 표식이 터져 마법 피해를 준다.
+ */
+UCLASS()
+class VER1_API UMobaPassive_Overclock : public UMobaPassive
+{
+	GENERATED_BODY()
+
+public:
+	UMobaPassive_Overclock();
+
+	virtual FMobaAttackBonus OnBasicAttack(AActor* Target) override;
+	virtual void OnAbilityHit(AActor* Target) override;
+	virtual void Tick(float DeltaSeconds) override;
+	virtual void OnRespawned() override;
+
+	/** 표식이 터질 때의 마법 피해. */
+	float GetMarkDamage() const;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float AttackSpeedPerStack = 0.08f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float StackDuration = 6.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Mark")
+	float MarkBaseDamage = 60.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Mark")
+	float MarkDamagePerLevel = 10.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Mark")
+	float MarkAbilityPowerRatio = 0.6f;
+
+	int32 Stacks = 0;
+	double ExpireTime = 0.0;
 };

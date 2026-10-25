@@ -660,3 +660,134 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Buff")
 	float Duration = 6.0f;
 };
+
+/** 노머고 Q. 물리 피해 직선탄. 맞으면 다른 스킬의 재사용 대기가 줄어든다. */
+UCLASS()
+class VER1_API UMobaAbility_NomagoPulse : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_NomagoPulse();
+
+	virtual float GetIndicatorRadius() const override { return ProjectileRadius; }
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Skillshot")
+	float ProjectileSpeed = 2000.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Skillshot")
+	float ProjectileRadius = 60.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 20.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 25.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 1.1f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AbilityPowerRatio = 0.3f;
+
+	/** 맞았을 때 W·E·R의 남은 재사용 대기에서 빼는 시간. */
+	UPROPERTY(EditDefaultsOnly, Category = "Skillshot")
+	float CooldownRefund = 1.5f;
+};
+
+/** 노머고 W. 적을 꿰뚫고 날아가며 챔피언에게 표식을 남긴다. */
+UCLASS()
+class VER1_API UMobaAbility_NomagoMark : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_NomagoMark();
+
+	virtual float GetIndicatorRadius() const override { return ProjectileRadius; }
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Skillshot")
+	float ProjectileSpeed = 1600.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Skillshot")
+	float ProjectileRadius = 80.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Mark")
+	float MarkDuration = 4.0f;
+};
+
+/** 노머고 E. 짧게 순간이동한 뒤 근처의 적(챔피언 우선)에게 유도탄을 쏜다. */
+UCLASS()
+class VER1_API UMobaAbility_NomagoPhase : public UMobaAbility_Blink
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_NomagoPhase();
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Bolt")
+	float BoltSearchRadius = 750.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Bolt")
+	float BoltSpeed = 2000.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 80.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 50.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 0.5f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AbilityPowerRatio = 0.75f;
+};
+
+/** 노머고 R. 1초 충전한 뒤 맵을 가로지르는 넓은 포격을 쏜다. 챔피언이 아닌 대상은 절반 피해. */
+UCLASS()
+class VER1_API UMobaAbility_NomagoBarrage : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_NomagoBarrage();
+
+	virtual float GetIndicatorRadius() const override { return BeamRadius; }
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Beam")
+	float ChargeTime = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Beam")
+	float BeamSpeed = 2400.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Beam")
+	float BeamRadius = 160.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 300.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 150.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 0.9f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AbilityPowerRatio = 0.9f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float NonChampionDamageScale = 0.5f;
+};
