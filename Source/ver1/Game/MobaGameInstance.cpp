@@ -67,6 +67,24 @@ void UMobaGameInstance::SetSelectedSpell(int32 Index, EMobaSummonerSpell Spell)
 	SaveProfile();
 }
 
+void UMobaGameInstance::SetSelectedKeystone(EMobaKeystone Keystone)
+{
+	if (Keystone < EMobaKeystone::Count && Keystone != SelectedKeystone)
+	{
+		SelectedKeystone = Keystone;
+		SaveProfile();
+	}
+}
+
+void UMobaGameInstance::SetSelectedTalentBonus(EMobaTalentBonus Bonus)
+{
+	if (Bonus < EMobaTalentBonus::Count && Bonus != SelectedTalentBonus)
+	{
+		SelectedTalentBonus = Bonus;
+		SaveProfile();
+	}
+}
+
 void UMobaGameInstance::SetHostPlayers(int32 Players)
 {
 	Players = Players >= 4 ? 4 : 2;
@@ -85,6 +103,7 @@ FString UMobaGameInstance::MakeLoadoutOptions() const
 		Options += FString::Printf(TEXT("?Champion=%s"), *SelectedChampion);
 	}
 	Options += FString::Printf(TEXT("?Spells=%s"), *AMobaGameMode::MakeSpellsOption(SelectedSpellD, SelectedSpellF));
+	Options += FString::Printf(TEXT("?Talent=%s"), *AMobaGameMode::MakeTalentOption(SelectedKeystone, SelectedTalentBonus));
 	return Options;
 }
 
@@ -131,6 +150,11 @@ void UMobaGameInstance::LoadProfile()
 	bSmartCast = Profile->bSmartCast;
 	bCameraLockDefault = Profile->bCameraLockDefault;
 	CameraSpeedIndex = FMath::Clamp(Profile->CameraSpeedIndex, 0, NumCameraSpeeds - 1);
+	if (Profile->Keystone < EMobaKeystone::Count && Profile->TalentBonus < EMobaTalentBonus::Count)
+	{
+		SelectedKeystone = Profile->Keystone;
+		SelectedTalentBonus = Profile->TalentBonus;
+	}
 	if (Profile->SpellD < EMobaSummonerSpell::Count && Profile->SpellF < EMobaSummonerSpell::Count && Profile->SpellD != Profile->SpellF)
 	{
 		SelectedSpellD = Profile->SpellD;
@@ -150,6 +174,8 @@ void UMobaGameInstance::SaveProfile() const
 	Profile->ChampionAssetName = SelectedChampion;
 	Profile->SpellD = SelectedSpellD;
 	Profile->SpellF = SelectedSpellF;
+	Profile->Keystone = SelectedKeystone;
+	Profile->TalentBonus = SelectedTalentBonus;
 	Profile->HostPlayers = HostPlayers;
 	Profile->bSmartCast = bSmartCast;
 	Profile->bCameraLockDefault = bCameraLockDefault;

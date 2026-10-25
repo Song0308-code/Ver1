@@ -215,6 +215,12 @@ public:
 	/** 서버 전용. 챔피언 Attacker의 기본 공격에 맞았을 때(가시). */
 	void HandleBasicAttackTaken(AActor* Attacker);
 
+	/** 서버 전용. 이 챔피언이 적 챔피언 Victim에게 피해를 줬을 때(특성). */
+	void HandleDamageDealtToChampion(AMobaCharacter* Victim, bool bBasicAttack);
+
+	/** 서버 전용. 적 챔피언 Attacker에게 피해를 받았을 때(특성). */
+	void HandleDamagedByChampion(AMobaCharacter* Attacker);
+
 protected:
 	UFUNCTION(Server, Reliable)
 	void ServerUseActiveItem();
@@ -222,6 +228,15 @@ protected:
 	/** 서버 전용. 마력 칼날이 준비된 다음 기본 공격인지와 다시 준비되는 시각. */
 	bool bSpellbladeArmed = false;
 	double SpellbladeReadyTime = 0.0;
+
+	/** 서버 전용. 특성 상태: 맹공 연속 타격, 수호·신속 재사용 대기. */
+	TWeakObjectPtr<AActor> OnslaughtTarget;
+	int32 OnslaughtHits = 0;
+	double OnslaughtLastTime = 0.0;
+	double KeystoneReadyTime = 0.0;
+
+	/** 서버 전용. 특성 효과의 레벨 비례 수치에 쓴다. */
+	int32 GetChampionLevel() const;
 
 	UFUNCTION(Server, Reliable)
 	void ServerPlaceControlWard(FVector_NetQuantize Location);

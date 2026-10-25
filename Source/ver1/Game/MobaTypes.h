@@ -98,6 +98,71 @@ struct FMobaTeamObjectives
 	int32 Get(EMobaObjective Objective) const { return const_cast<FMobaTeamObjectives*>(this)->Get(Objective); }
 };
 
+/** 경기 전에 고르는 특성(하나). */
+UENUM()
+enum class EMobaKeystone : uint8
+{
+	/** 같은 챔피언에게 기본 공격 네 번째마다 고정 피해. */
+	Onslaught,
+
+	/** 적 챔피언에게 피해를 받으면 보호막(재사용 대기). */
+	Bulwark,
+
+	/** 스킬로 적 챔피언에게 피해를 주면 잠깐 빨라진다(재사용 대기). */
+	Swiftness,
+
+	Count UMETA(Hidden)
+};
+
+/** 특성과 함께 고르는 보조 능력치(하나). */
+UENUM()
+enum class EMobaTalentBonus : uint8
+{
+	Might,
+	Wisdom,
+	Vitality,
+	Haste,
+
+	Count UMETA(Hidden)
+};
+
+namespace MobaTalent
+{
+	inline FString GetKeystoneName(EMobaKeystone Keystone)
+	{
+		switch (Keystone)
+		{
+		case EMobaKeystone::Onslaught: return TEXT("맹공");
+		case EMobaKeystone::Bulwark: return TEXT("수호");
+		case EMobaKeystone::Swiftness: return TEXT("신속");
+		default: return FString();
+		}
+	}
+
+	inline FString GetKeystoneDescription(EMobaKeystone Keystone)
+	{
+		switch (Keystone)
+		{
+		case EMobaKeystone::Onslaught: return TEXT("같은 적 챔피언을 3초 안에 기본 공격으로 네 번 맞히면 고정 피해 20(+레벨당 4)");
+		case EMobaKeystone::Bulwark: return TEXT("적 챔피언에게 피해를 받으면 2.5초 동안 보호막 40(+레벨당 8). 15초에 한 번");
+		case EMobaKeystone::Swiftness: return TEXT("스킬로 적 챔피언에게 피해를 주면 2초 동안 이동 속도 20%. 8초에 한 번");
+		default: return FString();
+		}
+	}
+
+	inline FString GetBonusName(EMobaTalentBonus Bonus)
+	{
+		switch (Bonus)
+		{
+		case EMobaTalentBonus::Might: return TEXT("힘 (공격력 +6)");
+		case EMobaTalentBonus::Wisdom: return TEXT("지혜 (주문력 +10)");
+		case EMobaTalentBonus::Vitality: return TEXT("강인 (체력 +70)");
+		case EMobaTalentBonus::Haste: return TEXT("가속 (스킬 가속 +8)");
+		default: return FString();
+		}
+	}
+}
+
 namespace MobaScore
 {
 	/** 직전 처치에서 Window초 안이면 멀티킬 수를 이어 가고, 아니면 1부터 다시 센다. 최대 5(펜타킬). */

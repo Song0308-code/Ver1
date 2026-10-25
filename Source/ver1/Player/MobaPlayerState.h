@@ -106,6 +106,14 @@ public:
 	/** 서버 전용. 다른 칸에 같은 주문이 있으면 두 칸을 맞바꾼다. */
 	void SetSummonerSpell(int32 Index, EMobaSummonerSpell Spell);
 
+	/** 고른 특성과 보조 능력치. */
+	EMobaKeystone GetKeystone() const { return Keystone; }
+	EMobaTalentBonus GetTalentBonus() const { return TalentBonus; }
+
+	/** 서버 전용. 범위 밖 값은 무시한다. */
+	void SetKeystone(EMobaKeystone InKeystone) { if (InKeystone < EMobaKeystone::Count) { Keystone = InKeystone; } }
+	void SetTalentBonus(EMobaTalentBonus InBonus) { if (InBonus < EMobaTalentBonus::Count) { TalentBonus = InBonus; } }
+
 	/** 들고 있는 체력 물약 수. */
 	int32 GetPotions() const { return Potions; }
 
@@ -243,6 +251,12 @@ protected:
 
 	UPROPERTY(Replicated, VisibleAnywhere, Category = "Champion")
 	EMobaSummonerSpell SummonerSpellF = EMobaSummonerSpell::Ignite;
+
+	UPROPERTY(Replicated, VisibleAnywhere, Category = "Loadout")
+	EMobaKeystone Keystone = EMobaKeystone::Onslaught;
+
+	UPROPERTY(Replicated, VisibleAnywhere, Category = "Loadout")
+	EMobaTalentBonus TalentBonus = EMobaTalentBonus::Might;
 
 	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")
 	TArray<uint8> Items;

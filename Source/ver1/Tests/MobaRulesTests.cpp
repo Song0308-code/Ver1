@@ -472,6 +472,36 @@ bool FMobaItemEffectTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaTalentOptionTest, "Moba.Rules.TalentOption", MobaTestFlags)
+bool FMobaTalentOptionTest::RunTest(const FString& Parameters)
+{
+	// 모든 특성·보조 능력치 조합이 옵션 문자열을 거쳐 그대로 돌아오고, 이름과 설명이 있다.
+	for (int32 K = 0; K < static_cast<int32>(EMobaKeystone::Count); ++K)
+	{
+		const EMobaKeystone Keystone = static_cast<EMobaKeystone>(K);
+		TestFalse(TEXT("특성 이름"), MobaTalent::GetKeystoneName(Keystone).IsEmpty());
+		TestFalse(TEXT("특성 설명"), MobaTalent::GetKeystoneDescription(Keystone).IsEmpty());
+		for (int32 B = 0; B < static_cast<int32>(EMobaTalentBonus::Count); ++B)
+		{
+			const EMobaTalentBonus Bonus = static_cast<EMobaTalentBonus>(B);
+			TestFalse(TEXT("보조 이름"), MobaTalent::GetBonusName(Bonus).IsEmpty());
+			EMobaKeystone ParsedKeystone;
+			EMobaTalentBonus ParsedBonus;
+			TestTrue(TEXT("해석"), AMobaGameMode::ParseTalentOption(AMobaGameMode::MakeTalentOption(Keystone, Bonus), ParsedKeystone, ParsedBonus));
+			TestEqual(TEXT("특성 왕복"), ParsedKeystone, Keystone);
+			TestEqual(TEXT("보조 왕복"), ParsedBonus, Bonus);
+		}
+	}
+
+	EMobaKeystone Keystone;
+	EMobaTalentBonus Bonus;
+	TestTrue(TEXT("대소문자 무시"), AMobaGameMode::ParseTalentOption(TEXT("bulwark, VITALITY"), Keystone, Bonus));
+	TestEqual(TEXT("수호"), Keystone, EMobaKeystone::Bulwark);
+	TestFalse(TEXT("모르는 이름"), AMobaGameMode::ParseTalentOption(TEXT("Onslaught,Luck"), Keystone, Bonus));
+	TestFalse(TEXT("하나만"), AMobaGameMode::ParseTalentOption(TEXT("Onslaught"), Keystone, Bonus));
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaSpellsOptionTest, "Moba.Rules.SpellsOption", MobaTestFlags)
 bool FMobaSpellsOptionTest::RunTest(const FString& Parameters)
 {

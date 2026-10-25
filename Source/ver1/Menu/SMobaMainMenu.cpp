@@ -69,9 +69,16 @@ void SMobaMainMenu::Construct(const FArguments& InArgs)
 
 				+ SVerticalBox::Slot()
 				.AutoHeight()
-				.Padding(0.0f, 0.0f, 0.0f, 22.0f)
+				.Padding(0.0f, 0.0f, 0.0f, 8.0f)
 				[
 					MakeSpellRow()
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f, 0.0f, 0.0f, 22.0f)
+				[
+					MakeTalentRow()
 				]
 
 				+ SVerticalBox::Slot()
@@ -276,6 +283,64 @@ TSharedRef<SWidget> SMobaMainMenu::MakeSpellRow()
 						const AMobaMenuPlayerController* MenuController = OwnerController.Get();
 						const FText Name = MenuController ? MobaSummoner::GetDisplayName(MenuController->GetSelectedSpell(Index)) : FText::GetEmpty();
 						return FText::FromString(FString::Printf(TEXT("%s: %s"), *Key, *Name.ToString()));
+					})
+				]
+			];
+	}
+
+	return Row;
+}
+
+TSharedRef<SWidget> SMobaMainMenu::MakeTalentRow()
+{
+	const FSlateFontInfo Font = FCoreStyle::GetDefaultFontStyle("Regular", 13);
+	TSharedRef<SHorizontalBox> Row = SNew(SHorizontalBox);
+
+	Row->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0.0f, 0.0f, 10.0f, 0.0f)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(TEXT("특성")))
+			.Font(Font)
+			.ColorAndOpacity(FLinearColor(0.7f, 0.75f, 0.85f))
+		];
+
+	for (int32 Index = 0; Index < 2; ++Index)
+	{
+		const bool bKeystone = Index == 0;
+		Row->AddSlot()
+			.FillWidth(1.0f)
+			.Padding(0.0f, 0.0f, bKeystone ? 6.0f : 0.0f, 0.0f)
+			[
+				SNew(SButton)
+				.HAlign(HAlign_Center)
+				.ContentPadding(FMargin(0.0f, 6.0f))
+				.ToolTipText_Lambda([this, bKeystone]()
+				{
+					const AMobaMenuPlayerController* MenuController = OwnerController.Get();
+					return FText::FromString(MenuController && bKeystone ? MobaTalent::GetKeystoneDescription(MenuController->GetSelectedKeystone()) : FString(TEXT("누를 때마다 다음 것으로 바뀝니다.")));
+				})
+				.OnClicked_Lambda([this, bKeystone]()
+				{
+					if (AMobaMenuPlayerController* MenuController = OwnerController.Get())
+					{
+						bKeystone ? MenuController->CycleKeystone() : MenuController->CycleTalentBonus();
+					}
+					return FReply::Handled();
+				})
+				[
+					SNew(STextBlock)
+					.Font(Font)
+					.Text_Lambda([this, bKeystone]()
+					{
+						const AMobaMenuPlayerController* MenuController = OwnerController.Get();
+						if (!MenuController)
+						{
+							return FText::GetEmpty();
+						}
+						return FText::FromString(bKeystone ? MobaTalent::GetKeystoneName(MenuController->GetSelectedKeystone()) : MobaTalent::GetBonusName(MenuController->GetSelectedTalentBonus()));
 					})
 				]
 			];

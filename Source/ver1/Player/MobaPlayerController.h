@@ -148,6 +148,9 @@ public:
 	/** 로비에서 소환사 주문을 바꾼다. Index 0이 D, 1이 F. 고른 것은 다음 경기를 위해 저장해 둔다. */
 	void RequestSummonerSpell(int32 Index, EMobaSummonerSpell Spell);
 
+	/** 로비에서 특성(bKeystone) 또는 보조 능력치를 고른다. 메뉴 구성에도 저장한다. */
+	void RequestTalent(bool bKeystone, int32 Value);
+
 protected:
 	/** 입력 에셋을 만들기 전까지 쓰는 기본 키 배치를 코드로 구성한다. */
 	void CreateDefaultInput();
@@ -192,6 +195,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerRequestSummonerSpell(int32 Index, EMobaSummonerSpell Spell);
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestTalent(bool bKeystone, int32 Value);
 
 	UFUNCTION(Server, Reliable)
 	void ServerRequestSurrender();

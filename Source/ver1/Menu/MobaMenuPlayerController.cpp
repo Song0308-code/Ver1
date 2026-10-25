@@ -176,6 +176,36 @@ void AMobaMenuPlayerController::CycleSpell(int32 Index)
 	MobaGameInstance->SetSelectedSpell(Index, static_cast<EMobaSummonerSpell>(Next));
 }
 
+EMobaKeystone AMobaMenuPlayerController::GetSelectedKeystone() const
+{
+	const UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>();
+	return MobaGameInstance ? MobaGameInstance->GetSelectedKeystone() : EMobaKeystone::Onslaught;
+}
+
+EMobaTalentBonus AMobaMenuPlayerController::GetSelectedTalentBonus() const
+{
+	const UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>();
+	return MobaGameInstance ? MobaGameInstance->GetSelectedTalentBonus() : EMobaTalentBonus::Might;
+}
+
+void AMobaMenuPlayerController::CycleKeystone()
+{
+	if (UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>())
+	{
+		const int32 Next = (static_cast<int32>(MobaGameInstance->GetSelectedKeystone()) + 1) % static_cast<int32>(EMobaKeystone::Count);
+		MobaGameInstance->SetSelectedKeystone(static_cast<EMobaKeystone>(Next));
+	}
+}
+
+void AMobaMenuPlayerController::CycleTalentBonus()
+{
+	if (UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>())
+	{
+		const int32 Next = (static_cast<int32>(MobaGameInstance->GetSelectedTalentBonus()) + 1) % static_cast<int32>(EMobaTalentBonus::Count);
+		MobaGameInstance->SetSelectedTalentBonus(static_cast<EMobaTalentBonus>(Next));
+	}
+}
+
 void AMobaMenuPlayerController::QuitGame()
 {
 	UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);

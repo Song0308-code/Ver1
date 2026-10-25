@@ -354,6 +354,61 @@ FString AMobaGameMode::MakeSpellsOption(EMobaSummonerSpell SpellD, EMobaSummoner
 	return FString::Printf(TEXT("%s,%s"), *SpellEnum->GetNameStringByValue(static_cast<int64>(SpellD)), *SpellEnum->GetNameStringByValue(static_cast<int64>(SpellF)));
 }
 
+bool AMobaGameMode::ParseTalentOption(const FString& Value, EMobaKeystone& OutKeystone, EMobaTalentBonus& OutBonus)
+{
+	TArray<FString> Names;
+	Value.ParseIntoArray(Names, TEXT(","));
+	if (Names.Num() != 2)
+	{
+		return false;
+	}
+
+	const UEnum* KeystoneEnum = StaticEnum<EMobaKeystone>();
+	const UEnum* BonusEnum = StaticEnum<EMobaTalentBonus>();
+	int32 KeystoneValue = INDEX_NONE;
+	int32 BonusValue = INDEX_NONE;
+	for (int32 Index = 0; Index < static_cast<int32>(EMobaKeystone::Count); ++Index)
+	{
+		KeystoneValue = KeystoneEnum->GetNameStringByValue(Index).Equals(Names[0].TrimStartAndEnd(), ESearchCase::IgnoreCase) ? Index : KeystoneValue;
+	}
+	for (int32 Index = 0; Index < static_cast<int32>(EMobaTalentBonus::Count); ++Index)
+	{
+		BonusValue = BonusEnum->GetNameStringByValue(Index).Equals(Names[1].TrimStartAndEnd(), ESearchCase::IgnoreCase) ? Index : BonusValue;
+	}
+	if (KeystoneValue == INDEX_NONE || BonusValue == INDEX_NONE)
+	{
+		return false;
+	}
+
+	OutKeystone = static_cast<EMobaKeystone>(KeystoneValue);
+	OutBonus = static_cast<EMobaTalentBonus>(BonusValue);
+	return true;
+}
+
+FString AMobaGameMode::MakeTalentOption(EMobaKeystone Keystone, EMobaTalentBonus Bonus)
+{
+	return FString::Printf(TEXT("%s,%s"), *StaticEnum<EMobaKeystone>()->GetNameStringByValue(static_cast<int64>(Keystone)), *StaticEnum<EMobaTalentBonus>()->GetNameStringByValue(static_cast<int64>(Bonus)));
+}
+
+void AMobaGameMode::RequestTalent(APlayerController* Player, bool bKeystone, int32 Value)
+{
+	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
+	AMobaPlayerState* MobaPlayerState = Player ? Player->GetPlayerState<AMobaPlayerState>() : nullptr;
+	if (!MobaGameState || MobaGameState->HasMatchStarted() || !MobaPlayerState || MobaPlayerState->IsReady() || Value < 0)
+	{
+		return;
+	}
+
+	if (bKeystone)
+	{
+		MobaPlayerState->SetKeystone(static_cast<EMobaKeystone>(Value));
+	}
+	else
+	{
+		MobaPlayerState->SetTalentBonus(static_cast<EMobaTalentBonus>(Value));
+	}
+}
+
 void AMobaGameMode::RequestSummonerSpell(APlayerController* Player, int32 Index, EMobaSummonerSpell Spell)
 {
 	const AMobaGameState* MobaGameState = GetGameState<AMobaGameState>();
@@ -1087,6 +1142,15 @@ FString AMobaGameMode::InitNewPlayer(APlayerController* NewPlayerController, con
 		{
 			MobaPlayerState->SetSummonerSpell(0, SpellD);
 			MobaPlayerState->SetSummonerSpell(1, SpellF);
+		}
+
+		// 메뉴에서 고른 특성(?Talent=특성,보조). 없으면 맹공·힘.
+		EMobaKeystone Keystone;
+		EMobaTalentBonus TalentBonus;
+		if (ParseTalentOption(UGameplayStatics::ParseOption(Options, TEXT("Talent")), Keystone, TalentBonus))
+		{
+			MobaPlayerState->SetKeystone(Keystone);
+			MobaPlayerState->SetTalentBonus(TalentBonus);
 		}
 
 		UE_LOG(LogTemp, Log, TEXT("플레이어 입장: %s 팀, 챔피언 %s, 주문 %s"), *MobaTeam::GetTeamTag(MobaPlayerState->GetTeam()).ToString(), *GetNameSafe(MobaPlayerState->GetChampion()),

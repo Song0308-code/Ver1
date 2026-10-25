@@ -31,6 +31,12 @@ public:
 	/** 바꾸면 저장한다. 다른 칸에 같은 주문이 있으면 두 칸을 맞바꾼다. */
 	void SetSelectedSpell(int32 Index, EMobaSummonerSpell Spell);
 
+	/** 고른 특성과 보조 능력치. 바꾸면 저장한다. */
+	EMobaKeystone GetSelectedKeystone() const { return SelectedKeystone; }
+	EMobaTalentBonus GetSelectedTalentBonus() const { return SelectedTalentBonus; }
+	void SetSelectedKeystone(EMobaKeystone Keystone);
+	void SetSelectedTalentBonus(EMobaTalentBonus Bonus);
+
 	/** 방을 만들 때의 인원(2면 1대1, 4면 2대2). 바꾸면 저장한다. */
 	int32 GetHostPlayers() const { return HostPlayers; }
 	void SetHostPlayers(int32 Players);
@@ -63,6 +69,8 @@ protected:
 	EMobaSummonerSpell SelectedSpellD = EMobaSummonerSpell::Flash;
 	EMobaSummonerSpell SelectedSpellF = EMobaSummonerSpell::Ignite;
 	int32 HostPlayers = 2;
+	EMobaKeystone SelectedKeystone = EMobaKeystone::Onslaught;
+	EMobaTalentBonus SelectedTalentBonus = EMobaTalentBonus::Might;
 	bool bSmartCast = true;
 	bool bCameraLockDefault = true;
 	int32 CameraSpeedIndex = 1;

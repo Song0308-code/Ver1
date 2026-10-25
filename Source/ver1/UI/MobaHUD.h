@@ -204,6 +204,15 @@ protected:
 		FBox2D Rect;
 	};
 	TArray<FLobbySpellButton> LobbySpellRects;
+
+	/** 이번 프레임에 그린 로비의 특성(bKeystone)·보조 능력치 버튼. */
+	struct FLobbyTalentButton
+	{
+		bool bKeystone;
+		int32 Value;
+		FBox2D Rect;
+	};
+	TArray<FLobbyTalentButton> LobbyTalentRects;
 	FBox2D LobbyReadyRect = FBox2D(ForceInit);
 	bool bLobbyDrawn = false;
 

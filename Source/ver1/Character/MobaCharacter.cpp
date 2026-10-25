@@ -318,6 +318,23 @@ void AMobaCharacter::GrantChampionKit(AMobaPlayerState* MobaPlayerState)
 
 	MobaPlayerState->GetAttributeSet()->InitFromBaseStats(GetBaseStats());
 
+	// 경기 전에 고른 보조 능력치.
+	const auto AddBase = [AbilitySystem](const FGameplayAttribute& Attribute, float Amount)
+	{
+		AbilitySystem->SetNumericAttributeBase(Attribute, AbilitySystem->GetNumericAttributeBase(Attribute) + Amount);
+	};
+	switch (MobaPlayerState->GetTalentBonus())
+	{
+	case EMobaTalentBonus::Might: AddBase(UMobaAttributeSet::GetAttackDamageAttribute(), 6.0f); break;
+	case EMobaTalentBonus::Wisdom: AddBase(UMobaAttributeSet::GetAbilityPowerAttribute(), 10.0f); break;
+	case EMobaTalentBonus::Vitality:
+		AddBase(UMobaAttributeSet::GetMaxHealthAttribute(), 70.0f);
+		AddBase(UMobaAttributeSet::GetHealthAttribute(), 70.0f);
+		break;
+	case EMobaTalentBonus::Haste: AddBase(UMobaAttributeSet::GetAbilityHasteAttribute(), 8.0f); break;
+	default: break;
+	}
+
 	if (ChampionData)
 	{
 		CombatComponent->ConfigureBasicAttack(ChampionData->bRangedBasicAttack, ChampionData->BasicAttackProjectileSpeed);
@@ -1373,6 +1390,67 @@ void AMobaCharacter::ServerUseActiveItem_Implementation()
 		MobaAbility::ApplySpecToTarget(MobaAbility::MakeStunSpec(AbilitySystem, this, Duration), this);
 	}
 	MobaPlayerState->SetActiveItemCooldown(Now + Item->ActiveCooldown, Item->ActiveCooldown);
+}
+
+int32 AMobaCharacter::GetChampionLevel() const
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	return MobaPlayerState ? MobaPlayerState->GetChampionLevel() : 1;
+}
+
+void AMobaCharacter::HandleDamageDealtToChampion(AMobaCharacter* Victim, bool bBasicAttack)
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!MobaPlayerState || !AbilitySystem || !Victim || IsDead())
+	{
+		return;
+	}
+
+	const double Now = GetWorld()->GetTimeSeconds();
+	switch (MobaPlayerState->GetKeystone())
+	{
+	case EMobaKeystone::Onslaught:
+		if (!bBasicAttack)
+		{
+			return;
+		}
+		// 같은 대상을 3초 안에 이어서 쳐야 센다. 네 번째에 고정 피해.
+		if (OnslaughtTarget.Get() != Victim || Now - OnslaughtLastTime > 3.0)
+		{
+			OnslaughtTarget = Victim;
+			OnslaughtHits = 0;
+		}
+		OnslaughtLastTime = Now;
+		if (++OnslaughtHits >= 4)
+		{
+			OnslaughtHits = 0;
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(AbilitySystem, this, 0.0f, 0.0f, 20.0f + 4.0f * GetChampionLevel()), Victim);
+		}
+		break;
+
+	case EMobaKeystone::Swiftness:
+		if (!bBasicAttack && Now >= KeystoneReadyTime)
+		{
+			KeystoneReadyTime = Now + 8.0;
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatModSpec(AbilitySystem, this, 2.0f, 1.2f, 1.0f, MobaTags::State_Hasted), this);
+		}
+		break;
+
+	default:
+		break;
+	}
+}
+
+void AMobaCharacter::HandleDamagedByChampion(AMobaCharacter* Attacker)
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (MobaPlayerState && MobaPlayerState->GetKeystone() == EMobaKeystone::Bulwark && !IsDead() && Now >= KeystoneReadyTime)
+	{
+		KeystoneReadyTime = Now + 15.0;
+		AddShield(40.0f + 8.0f * GetChampionLevel(), 2.5f);
+	}
 }
 
 void AMobaCharacter::HandleBasicAttackTaken(AActor* Attacker)

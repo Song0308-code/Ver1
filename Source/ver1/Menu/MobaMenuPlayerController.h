@@ -52,6 +52,12 @@ public:
 	/** 그 칸의 주문을 다음 주문으로 바꾼다(다른 칸의 주문은 건너뛴다). */
 	void CycleSpell(int32 Index);
 
+	/** 메뉴의 특성·보조 능력치 버튼. 누를 때마다 다음 것으로. */
+	EMobaKeystone GetSelectedKeystone() const;
+	EMobaTalentBonus GetSelectedTalentBonus() const;
+	void CycleKeystone();
+	void CycleTalentBonus();
+
 	/** 방을 만들 때의 인원(2 또는 4). */
 	int32 GetHostPlayers() const;
 

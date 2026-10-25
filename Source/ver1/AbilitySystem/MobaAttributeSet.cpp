@@ -147,6 +147,18 @@ void UMobaAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 				}
 			}
 
+			// 챔피언끼리 주고받은 피해는 양쪽 특성에 알린다.
+			AMobaCharacter* VictimChampion = Cast<AMobaCharacter>(GetOwningAbilitySystemComponentChecked()->GetAvatarActor());
+			AMobaCharacter* SourceChampion = Cast<AMobaCharacter>(DamageInstigator);
+			if (VictimChampion && SourceChampion && VictimChampion != SourceChampion && VictimChampion->GetTeam() != SourceChampion->GetTeam())
+			{
+				SourceChampion->HandleDamageDealtToChampion(VictimChampion, Data.EffectSpec.GetDynamicAssetTags().HasTagExact(MobaTags::Damage_BasicAttack));
+				if (NewHealth > 0.0f)
+				{
+					VictimChampion->HandleDamagedByChampion(SourceChampion);
+				}
+			}
+
 			if (NewHealth > 0.0f && Data.EffectSpec.GetDynamicAssetTags().HasTagExact(MobaTags::Damage_BasicAttack))
 			{
 				if (AMobaCharacter* Victim = Cast<AMobaCharacter>(GetOwningAbilitySystemComponentChecked()->GetAvatarActor()))

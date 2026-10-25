@@ -42,6 +42,7 @@ private:
 
 	/** 소환사 주문 D·F 버튼. 누를 때마다 다음 주문으로 바뀐다. */
 	TSharedRef<SWidget> MakeSpellRow();
+	TSharedRef<SWidget> MakeTalentRow();
 
 	/** 화면 모드와 해상도 버튼. */
 	TSharedRef<SWidget> MakeDisplayRow();

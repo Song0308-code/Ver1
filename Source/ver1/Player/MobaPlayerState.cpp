@@ -32,6 +32,8 @@ void AMobaPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMobaPlayerState, Champion);
 	DOREPLIFETIME(AMobaPlayerState, SummonerSpellD);
 	DOREPLIFETIME(AMobaPlayerState, SummonerSpellF);
+	DOREPLIFETIME(AMobaPlayerState, Keystone);
+	DOREPLIFETIME(AMobaPlayerState, TalentBonus);
 	DOREPLIFETIME(AMobaPlayerState, Items);
 	DOREPLIFETIME(AMobaPlayerState, Potions);
 	DOREPLIFETIME(AMobaPlayerState, ControlWards);

@@ -27,6 +27,12 @@ public:
 	UPROPERTY()
 	int32 HostPlayers = 2;
 
+	UPROPERTY()
+	EMobaKeystone Keystone = EMobaKeystone::Onslaught;
+
+	UPROPERTY()
+	EMobaTalentBonus TalentBonus = EMobaTalentBonus::Might;
+
 	/** 조작 설정. 스킬 즉시 시전, 카메라 가장자리 이동 속도 단계, 경기 시작 때 카메라 고정. */
 	UPROPERTY()
 	bool bSmartCast = true;

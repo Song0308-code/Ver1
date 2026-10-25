@@ -1183,6 +1183,7 @@ void AMobaHUD::DrawLobby()
 
 	bLobbyDrawn = true;
 	LobbyChampionRects.Reset();
+	LobbyTalentRects.Reset();
 	LobbySpellRects.Reset();
 
 	UFont* Font = GEngine->GetSmallFont();
@@ -1224,7 +1225,7 @@ void AMobaHUD::DrawLobby()
 		DrawRect(MobaTeam::GetTeamColor(Player->GetTeam()), Left, Top, 6.0f, RowHeight);
 		DrawText(FString::Printf(TEXT("%s 팀%s"), *MobaTeam::GetTeamDisplayName(Player->GetTeam()), bIsLocal ? TEXT(" (나)") : TEXT("")), FLinearColor::White, Left + 18.0f, TextTop, Font, 1.2f);
 		DrawText(Player->GetChampionDisplayName(), FLinearColor(1.0f, 0.9f, 0.6f), Left + 220.0f, TextTop, Font, 1.2f);
-		DrawText(FString::Printf(TEXT("%s / %s"), *MobaSummoner::GetDisplayName(Player->GetSummonerSpell(0)).ToString(), *MobaSummoner::GetDisplayName(Player->GetSummonerSpell(1)).ToString()), FLinearColor(0.8f, 0.7f, 1.0f), Left + 350.0f, TextTop, Font, 1.1f);
+		DrawText(FString::Printf(TEXT("%s / %s · %s"), *MobaSummoner::GetDisplayName(Player->GetSummonerSpell(0)).ToString(), *MobaSummoner::GetDisplayName(Player->GetSummonerSpell(1)).ToString(), *MobaTalent::GetKeystoneName(Player->GetKeystone())), FLinearColor(0.8f, 0.7f, 1.0f), Left + 350.0f, TextTop, Font, 1.1f);
 		DrawText(Player->IsReady() ? TEXT("준비 완료") : TEXT("고르는 중"), Player->IsReady() ? FLinearColor(0.4f, 1.0f, 0.5f) : FLinearColor(0.7f, 0.7f, 0.7f), Left + Width - 120.0f, TextTop, Font, 1.2f);
 		Top += RowHeight + 6.0f;
 	}
@@ -1280,7 +1281,29 @@ void AMobaHUD::DrawLobby()
 		}
 		Top += SpellButtonHeight + 4.0f;
 	}
-	Top += 10.0f;
+	Top += 6.0f;
+
+	// 특성(셋 중 하나)과 보조 능력치(넷 중 하나)를 한 줄에.
+	DrawText(TEXT("특성"), FLinearColor(0.7f, 0.75f, 0.85f), Left, Top + SpellButtonHeight * 0.5f - 9.0f, Font, 1.1f);
+	const int32 KeystoneCount = static_cast<int32>(EMobaKeystone::Count);
+	const int32 BonusCount = static_cast<int32>(EMobaTalentBonus::Count);
+	const float TalentLeft = Left + 44.0f;
+	const float TalentWidth = (Width - 44.0f - SpellGap * (KeystoneCount + BonusCount - 1) - 12.0f) / (KeystoneCount + BonusCount);
+	for (int32 Index = 0; Index < KeystoneCount + BonusCount; ++Index)
+	{
+		const bool bKeystone = Index < KeystoneCount;
+		const int32 Value = bKeystone ? Index : Index - KeystoneCount;
+		const bool bSelected = bKeystone ? LocalState->GetKeystone() == static_cast<EMobaKeystone>(Value) : LocalState->GetTalentBonus() == static_cast<EMobaTalentBonus>(Value);
+		const float ButtonLeft = TalentLeft + (TalentWidth + SpellGap) * Index + (bKeystone ? 0.0f : 12.0f);
+		const FString Label = bKeystone ? MobaTalent::GetKeystoneName(static_cast<EMobaKeystone>(Value)) : MobaTalent::GetBonusName(static_cast<EMobaTalentBonus>(Value)).Left(2);
+
+		DrawRect(bSelected ? (bKeystone ? FLinearColor(0.55f, 0.35f, 0.15f) : FLinearColor(0.2f, 0.4f, 0.35f)) : FLinearColor(0.12f, 0.13f, 0.17f), ButtonLeft, Top, TalentWidth, SpellButtonHeight);
+		DrawCenteredText(Label, LocalState->IsReady() && !bSelected ? FLinearColor(0.45f, 0.45f, 0.45f) : FLinearColor::White, ButtonLeft + TalentWidth * 0.5f, Top + SpellButtonHeight * 0.5f - 8.0f, Font, 1.1f);
+		LobbyTalentRects.Add({ bKeystone, Value, FBox2D(FVector2D(ButtonLeft, Top), FVector2D(ButtonLeft + TalentWidth, Top + SpellButtonHeight)) });
+	}
+	Top += SpellButtonHeight + 4.0f;
+	DrawText(FString::Printf(TEXT("%s · %s"), *MobaTalent::GetKeystoneDescription(LocalState->GetKeystone()), *MobaTalent::GetBonusName(LocalState->GetTalentBonus())), FLinearColor(0.75f, 0.75f, 0.7f), Left, Top, Font, 0.95f);
+	Top += 22.0f;
 
 	// 준비 버튼과 카운트다운.
 	const float ReadyWidth = 260.0f;
@@ -1508,6 +1531,11 @@ void AMobaHUD::DrawStatsPanel(const AMobaCharacter* Character)
 		Top = Canvas->ClipY - AbilityBoxSize - 16.0f * 2.0f - 28.0f - 44.0f - Height - 30.0f;
 	}
 
+	if (const AMobaPlayerState* TalentState = Character->GetPlayerState<AMobaPlayerState>())
+	{
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.7f), Left, Top - 20.0f, Width, 19.0f);
+		DrawTextFit(FString::Printf(TEXT("특성 %s · %s"), *MobaTalent::GetKeystoneName(TalentState->GetKeystone()), *MobaTalent::GetBonusName(TalentState->GetTalentBonus())), FLinearColor(1.0f, 0.8f, 0.5f), Left + 6.0f, Top - 18.0f, Width - 12.0f, Font, 0.95f);
+	}
 	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.7f), Left, Top, Width, Height);
 	for (int32 Index = 0; Index < UE_ARRAY_COUNT(Lines); ++Index)
 	{
@@ -1820,6 +1848,14 @@ bool AMobaHUD::HandleClick(const FVector2D& ScreenPosition)
 					if (Button.Rect.IsInsideOrOn(ScreenPosition))
 					{
 						MobaController->RequestSummonerSpell(Button.Index, Button.Spell);
+						break;
+					}
+				}
+				for (const FLobbyTalentButton& Button : LobbyTalentRects)
+				{
+					if (Button.Rect.IsInsideOrOn(ScreenPosition))
+					{
+						MobaController->RequestTalent(Button.bKeystone, Button.Value);
 						break;
 					}
 				}

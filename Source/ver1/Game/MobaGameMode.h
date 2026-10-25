@@ -63,6 +63,13 @@ public:
 	/** 서버 전용. 로비에서 소환사 주문을 바꾼다. Index 0이 D, 1이 F. */
 	void RequestSummonerSpell(APlayerController* Player, int32 Index, EMobaSummonerSpell Spell);
 
+	/** 접속 옵션 "Talent" 값("Onslaught,Might"처럼 특성, 보조 능력치 순서)을 해석한다. 대소문자를 가리지 않는다. */
+	static bool ParseTalentOption(const FString& Value, EMobaKeystone& OutKeystone, EMobaTalentBonus& OutBonus);
+	static FString MakeTalentOption(EMobaKeystone Keystone, EMobaTalentBonus Bonus);
+
+	/** 로비에서 특성(bKeystone) 또는 보조 능력치를 바꾼다. 경기 시작 전, 준비하지 않았을 때만. */
+	void RequestTalent(APlayerController* Player, bool bKeystone, int32 Value);
+
 	/** 드래곤의 영혼(마지막 원소)을 팀 전원에게 영구히 준다. */
 	void GrantDragonSoulToTeam(EMobaTeam Team, EMobaDragonElement Element);
 

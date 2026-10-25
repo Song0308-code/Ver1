@@ -1049,6 +1049,36 @@ void AMobaPlayerController::RequestSummonerSpell(int32 Index, EMobaSummonerSpell
 	ServerRequestSummonerSpell(Index, Spell);
 }
 
+void AMobaPlayerController::RequestTalent(bool bKeystone, int32 Value)
+{
+	const AMobaPlayerState* MyState = GetPlayerState<AMobaPlayerState>();
+	if (MyState && MyState->IsReady())
+	{
+		return;
+	}
+
+	if (UMobaGameInstance* MobaGameInstance = GetGameInstance<UMobaGameInstance>())
+	{
+		if (bKeystone)
+		{
+			MobaGameInstance->SetSelectedKeystone(static_cast<EMobaKeystone>(Value));
+		}
+		else
+		{
+			MobaGameInstance->SetSelectedTalentBonus(static_cast<EMobaTalentBonus>(Value));
+		}
+	}
+	ServerRequestTalent(bKeystone, Value);
+}
+
+void AMobaPlayerController::ServerRequestTalent_Implementation(bool bKeystone, int32 Value)
+{
+	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
+	{
+		GameMode->RequestTalent(this, bKeystone, Value);
+	}
+}
+
 void AMobaPlayerController::ServerRequestChampion_Implementation(const FString& AssetName)
 {
 	if (AMobaGameMode* GameMode = GetWorld()->GetAuthGameMode<AMobaGameMode>())
