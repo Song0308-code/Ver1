@@ -140,7 +140,8 @@ bool FMobaUltimateLevelTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("일반 스킬 최대 단계"), Basic->GetMaxLevel(), 5);
 	TestTrue(TEXT("1레벨에 배운다"), Basic->CanLevelUp(0, 1));
 	TestFalse(TEXT("5단계가 끝"), Basic->CanLevelUp(5, 18));
-	TestFalse(TEXT("뱅가드 R도 궁극기"), GetDefault<UMobaAbility_Frenzy>()->CanLevelUp(0, 5));
+	TestFalse(TEXT("노머고 R도 궁극기"), GetDefault<UMobaAbility_NomagoBarrage>()->CanLevelUp(0, 5));
+	TestEqual(TEXT("진진자라 R 최대 단계"), GetDefault<UMobaAbility_JinCurtainCall>()->GetMaxLevel(), 3);
 	return true;
 }
 
@@ -558,7 +559,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaChampionDataTest, "Moba.Data.Champions", M
 bool FMobaChampionDataTest::RunTest(const FString& Parameters)
 {
 	const TArray<FSoftObjectPath>& Roster = GetDefault<AMobaGameMode>()->GetChampionRoster();
-	TestTrue(TEXT("고를 수 있는 챔피언이 셋 이상"), Roster.Num() >= 3);
+	TestEqual(TEXT("고를 수 있는 챔피언 넷"), Roster.Num(), 4);
 
 	for (const FSoftObjectPath& Path : Roster)
 	{
