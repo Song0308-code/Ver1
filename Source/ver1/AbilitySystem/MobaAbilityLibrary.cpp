@@ -2,6 +2,10 @@
 #include "AbilitySystem/MobaDamageExecution.h"
 #include "AbilitySystem/MobaGameplayEffects.h"
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
+#include "AbilitySystem/MobaAttributeSet.h"
+#include "Character/MobaCharacter.h"
+#include "EngineUtils.h"
 #include "Combat/MobaCombatLibrary.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
@@ -181,6 +185,40 @@ void MobaAbility::FindEnemiesInRadius(const AActor* Source, const FVector& Cente
 			OutEnemies.AddUnique(Actor);
 		}
 	}
+}
+
+void MobaAbility::FindAlliedChampionsInRadius(const AActor* Source, const FVector& Center, float Radius, TArray<AMobaCharacter*>& OutAllies)
+{
+	OutAllies.Reset();
+	if (!Source || !Source->GetWorld())
+	{
+		return;
+	}
+
+	const EMobaTeam Team = MobaCombat::GetTeam(Source);
+	for (TActorIterator<AMobaCharacter> It(Source->GetWorld()); It; ++It)
+	{
+		if (It->GetTeam() == Team && !It->IsDead() && FVector::DistSquared2D(It->GetActorLocation(), Center) <= FMath::Square(Radius))
+		{
+			OutAllies.Add(*It);
+		}
+	}
+}
+
+float MobaAbility::HealTarget(AActor* Target, float Amount)
+{
+	const IAbilitySystemInterface* AbilityInterface = Cast<IAbilitySystemInterface>(Target);
+	UAbilitySystemComponent* AbilitySystem = AbilityInterface ? AbilityInterface->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystem || Amount <= 0.0f || MobaCombat::IsDead(Target))
+	{
+		return 0.0f;
+	}
+
+	const float Health = AbilitySystem->GetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute());
+	const float MaxHealth = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
+	const float NewHealth = FMath::Min(Health + Amount, MaxHealth);
+	AbilitySystem->SetNumericAttributeBase(UMobaAttributeSet::GetHealthAttribute(), NewHealth);
+	return FMath::Max(NewHealth - Health, 0.0f);
 }
 
 AActor* MobaAbility::PickEnemyNearCursor(const AActor* Caster, const FVector& Cursor, float PickRadius, float Range, TFunctionRef<bool(const AActor*)> Filter)

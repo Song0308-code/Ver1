@@ -155,3 +155,25 @@ protected:
 
 	bool bReady = false;
 };
+
+/** 세이지: 스킬을 쓰면 주변에서 체력 비율이 가장 낮은 아군 챔피언(자신 포함)을 회복한다. */
+UCLASS()
+class VER1_API UMobaPassive_Grace : public UMobaPassive
+{
+	GENERATED_BODY()
+
+public:
+	UMobaPassive_Grace();
+
+	virtual void OnAbilityCast(EMobaAbilitySlot Slot) override;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float Radius = 700.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float BaseHeal = 20.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float AbilityPowerRatio = 0.15f;
+};

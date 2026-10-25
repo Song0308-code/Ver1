@@ -228,6 +228,8 @@ void UMobaAbility_GroundAoE::Detonate(FVector Location)
 				MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(AbilitySystem, Caster, RootDuration, MobaTags::State_Rooted), Enemy);
 			}
 		}
+
+		OnDetonated(Caster, Location);
 	}
 
 	FinishCast();
@@ -533,5 +535,127 @@ void UMobaAbility_Execute::ExecuteCast(AMobaCharacter* Caster, const FVector& Ta
 		MobaEffects::Play(Caster, EMobaEffect::Hit, MobaCombat::GetAimLocation(Target), 2.0f, Target);
 	}
 
+	FinishCast();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 세이지
+
+UMobaAbility_HealingWave::UMobaAbility_HealingWave()
+{
+	DisplayName = NSLOCTEXT("Moba", "HealingWaveName", "치유의 물결");
+	Description = NSLOCTEXT("Moba", "HealingWaveDesc", "지정한 곳에 물결을 일으켜 범위 안의 적에게 마법 피해를 주고, 범위 안의 아군 챔피언(자신 포함)의 체력을 회복합니다.");
+	CastRange = 800.0f;
+	ManaCost = 70.0f;
+	CooldownDuration = 9.0f;
+	bUltimate = false;
+
+	Radius = 280.0f;
+	Delay = 0.0f;
+	BaseDamage = 60.0f;
+	DamagePerLevel = 35.0f;
+	AbilityPowerRatio = 0.4f;
+	StunDuration = 0.0f;
+}
+
+void UMobaAbility_HealingWave::OnDetonated(AMobaCharacter* Caster, const FVector& Location)
+{
+	const float Heal = ScaleByLevel(BaseHeal, HealPerLevel) + GetAbilityPower(GetAbilitySystemComponentFromActorInfo()) * HealAbilityPowerRatio;
+
+	TArray<AMobaCharacter*> Allies;
+	MobaAbility::FindAlliedChampionsInRadius(Caster, Location, Radius, Allies);
+	for (AMobaCharacter* Ally : Allies)
+	{
+		MobaAbility::HealTarget(Ally, Heal);
+	}
+}
+
+UMobaAbility_GuardianLight::UMobaAbility_GuardianLight()
+{
+	DisplayName = NSLOCTEXT("Moba", "GuardianLightName", "수호의 빛");
+	Description = NSLOCTEXT("Moba", "GuardianLightDesc", "커서 근처의 아군 챔피언과 자신에게 2.5초 동안 피해를 흡수하는 보호막을 줍니다. 커서 근처에 아군이 없으면 자신에게만 줍니다.");
+	TargetingMode = EMobaTargetingMode::Location;
+	CastRange = 700.0f;
+	ManaCost = 60.0f;
+	CooldownDuration = 12.0f;
+}
+
+void UMobaAbility_GuardianLight::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	const float Shield = ScaleByLevel(BaseShield, ShieldPerLevel) + GetAbilityPower(GetAbilitySystemComponentFromActorInfo()) * AbilityPowerRatio;
+	Caster->AddShield(Shield, ShieldDuration);
+
+	// 커서에 가장 가까운 다른 아군 챔피언 하나(사거리 안).
+	TArray<AMobaCharacter*> Allies;
+	MobaAbility::FindAlliedChampionsInRadius(Caster, TargetLocation, AllyPickRadius, Allies);
+	AMobaCharacter* Best = nullptr;
+	for (AMobaCharacter* Ally : Allies)
+	{
+		if (Ally != Caster && FVector::Dist2D(Ally->GetActorLocation(), Caster->GetActorLocation()) <= CastRange + AllyPickRadius
+			&& (!Best || FVector::DistSquared2D(Ally->GetActorLocation(), TargetLocation) < FVector::DistSquared2D(Best->GetActorLocation(), TargetLocation)))
+		{
+			Best = Ally;
+		}
+	}
+	if (Best)
+	{
+		Best->AddShield(Shield, ShieldDuration);
+	}
+
+	FinishCast();
+}
+
+UMobaAbility_BlessedWind::UMobaAbility_BlessedWind()
+{
+	DisplayName = NSLOCTEXT("Moba", "BlessedWindName", "축복의 바람");
+	Description = NSLOCTEXT("Moba", "BlessedWindDesc", "자신과 주변 아군 챔피언의 이동 속도가 2초 동안 30% 오릅니다.");
+	TargetingMode = EMobaTargetingMode::None;
+	ManaCost = 50.0f;
+	CooldownDuration = 14.0f;
+}
+
+void UMobaAbility_BlessedWind::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	TArray<AMobaCharacter*> Allies;
+	MobaAbility::FindAlliedChampionsInRadius(Caster, Caster->GetActorLocation(), Radius, Allies);
+	for (AMobaCharacter* Ally : Allies)
+	{
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatModSpec(AbilitySystem, Caster, Duration, MoveSpeedMultiplier, 1.0f, MobaTags::State_Hasted), Ally);
+	}
+	FinishCast();
+}
+
+UMobaAbility_Sanctuary::UMobaAbility_Sanctuary()
+{
+	DisplayName = NSLOCTEXT("Moba", "SanctuaryName", "성역");
+	Description = NSLOCTEXT("Moba", "SanctuaryDesc", "넓은 범위의 아군 챔피언(자신 포함)의 체력을 크게 회복하고 기절·속박·침묵·둔화를 풀어 줍니다.");
+	TargetingMode = EMobaTargetingMode::None;
+	ManaCost = 120.0f;
+	CooldownDuration = 90.0f;
+	bUltimate = true;
+}
+
+void UMobaAbility_Sanctuary::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	const float Heal = ScaleByLevel(BaseHeal, HealPerLevel) + GetAbilityPower(GetAbilitySystemComponentFromActorInfo()) * AbilityPowerRatio;
+
+	FGameplayTagContainer CrowdControl;
+	CrowdControl.AddTag(MobaTags::State_Stunned);
+	CrowdControl.AddTag(MobaTags::State_Rooted);
+	CrowdControl.AddTag(MobaTags::State_Silenced);
+	CrowdControl.AddTag(MobaTags::State_Slowed);
+	CrowdControl.AddTag(MobaTags::State_Airborne);
+
+	TArray<AMobaCharacter*> Allies;
+	MobaAbility::FindAlliedChampionsInRadius(Caster, Caster->GetActorLocation(), Radius, Allies);
+	for (AMobaCharacter* Ally : Allies)
+	{
+		if (UAbilitySystemComponent* AllyAbilitySystem = Ally->GetAbilitySystemComponent())
+		{
+			AllyAbilitySystem->RemoveActiveEffectsWithGrantedTags(CrowdControl);
+		}
+		MobaAbility::HealTarget(Ally, Heal);
+	}
 	FinishCast();
 }

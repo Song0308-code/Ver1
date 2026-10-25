@@ -103,6 +103,9 @@ protected:
 
 	void Detonate(FVector Location);
 
+	/** 폭발할 때 적 처리가 끝난 뒤 불린다. 아군에게 효과를 주는 스킬이 덮어쓴다. */
+	virtual void OnDetonated(AMobaCharacter* Caster, const FVector& Location) {}
+
 	UPROPERTY(EditDefaultsOnly, Category = "Area")
 	TSubclassOf<AMobaAreaIndicator> IndicatorClass;
 
@@ -355,4 +358,105 @@ protected:
 	float MissingHealthRatio = 0.3f;
 
 	mutable TWeakObjectPtr<AActor> PendingTarget;
+};
+
+/** 세이지 Q. 지정한 곳의 적에게 마법 피해를 주고, 범위 안의 아군 챔피언(자신 포함)을 회복한다. */
+UCLASS()
+class VER1_API UMobaAbility_HealingWave : public UMobaAbility_GroundAoE
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_HealingWave();
+
+protected:
+	virtual void OnDetonated(AMobaCharacter* Caster, const FVector& Location) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Heal")
+	float BaseHeal = 50.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Heal")
+	float HealPerLevel = 25.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Heal")
+	float HealAbilityPowerRatio = 0.3f;
+};
+
+/** 세이지 W. 커서 근처의 아군 챔피언과 자신에게 보호막을 준다. 커서 근처에 아군이 없으면 자신에게만 준다. */
+UCLASS()
+class VER1_API UMobaAbility_GuardianLight : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_GuardianLight();
+
+	virtual float GetIndicatorRadius() const override { return AllyPickRadius; }
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Target")
+	float AllyPickRadius = 300.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shield")
+	float BaseShield = 60.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shield")
+	float ShieldPerLevel = 30.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shield")
+	float AbilityPowerRatio = 0.4f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shield")
+	float ShieldDuration = 2.5f;
+};
+
+/** 세이지 E. 자신과 주변 아군 챔피언의 이동 속도를 잠시 올린다. */
+UCLASS()
+class VER1_API UMobaAbility_BlessedWind : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_BlessedWind();
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float Radius = 600.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float Duration = 2.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float MoveSpeedMultiplier = 1.3f;
+};
+
+/** 세이지 R. 넓은 범위의 아군 챔피언(자신 포함)을 크게 회복하고 기절·속박·침묵·둔화를 풀어 준다. */
+UCLASS()
+class VER1_API UMobaAbility_Sanctuary : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_Sanctuary();
+
+	virtual float GetIndicatorRadius() const override { return Radius; }
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Heal")
+	float Radius = 900.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Heal")
+	float BaseHeal = 150.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Heal")
+	float HealPerLevel = 100.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Heal")
+	float AbilityPowerRatio = 0.5f;
 };

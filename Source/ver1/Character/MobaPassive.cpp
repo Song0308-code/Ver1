@@ -1,4 +1,5 @@
 #include "Character/MobaPassive.h"
+#include "AbilitySystem/MobaAbilityLibrary.h"
 #include "AbilitySystem/MobaAttributeSet.h"
 #include "AbilitySystemComponent.h"
 #include "Character/MobaCharacter.h"
@@ -153,4 +154,42 @@ FMobaAttackBonus UMobaPassive_Ambush::OnBasicAttack(AActor* Target)
 		Bonus.BonusPhysicalDamage = GetAttribute(Owner, UMobaAttributeSet::GetAttackDamageAttribute()) * BonusAttackDamageRatio;
 	}
 	return Bonus;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 세이지
+
+UMobaPassive_Grace::UMobaPassive_Grace()
+{
+	DisplayName = NSLOCTEXT("Moba", "GraceName", "은총");
+	Description = NSLOCTEXT("Moba", "GraceDesc", "스킬을 쓰면 주변에서 체력 비율이 가장 낮은 아군 챔피언(자신 포함)이 체력 20(+주문력 15%)을 회복합니다.");
+}
+
+void UMobaPassive_Grace::OnAbilityCast(EMobaAbilitySlot Slot)
+{
+	if (!Owner)
+	{
+		return;
+	}
+
+	TArray<AMobaCharacter*> Allies;
+	MobaAbility::FindAlliedChampionsInRadius(Owner, Owner->GetActorLocation(), Radius, Allies);
+
+	AMobaCharacter* Lowest = nullptr;
+	float LowestFraction = 2.0f;
+	for (AMobaCharacter* Ally : Allies)
+	{
+		const float MaxHealth = GetAttribute(Ally, UMobaAttributeSet::GetMaxHealthAttribute());
+		const float Fraction = MaxHealth > 0.0f ? GetAttribute(Ally, UMobaAttributeSet::GetHealthAttribute()) / MaxHealth : 1.0f;
+		if (Fraction < LowestFraction)
+		{
+			Lowest = Ally;
+			LowestFraction = Fraction;
+		}
+	}
+
+	if (Lowest)
+	{
+		MobaAbility::HealTarget(Lowest, BaseHeal + GetAttribute(Owner, UMobaAttributeSet::GetAbilityPowerAttribute()) * AbilityPowerRatio);
+	}
 }

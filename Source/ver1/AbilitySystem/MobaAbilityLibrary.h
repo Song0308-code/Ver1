@@ -6,6 +6,7 @@
 #include "GameplayTagContainer.h"
 
 class AActor;
+class AMobaCharacter;
 class UAbilitySystemComponent;
 
 /** 버프로 더하는 능력치. */
@@ -54,4 +55,10 @@ namespace MobaAbility
 
 	/** Source의 적 중 Center에서 Radius 안에 있는 살아 있는 대상을 모은다. 건물은 bIncludeStructures가 true일 때만 포함한다. */
 	VER1_API void FindEnemiesInRadius(const AActor* Source, const FVector& Center, float Radius, TArray<AActor*>& OutEnemies, bool bIncludeStructures = false);
+
+	/** Source와 같은 팀의 살아 있는 챔피언(Source 자신 포함) 중 Center에서 Radius 안에 있는 것을 모은다. */
+	VER1_API void FindAlliedChampionsInRadius(const AActor* Source, const FVector& Center, float Radius, TArray<AMobaCharacter*>& OutAllies);
+
+	/** 서버 전용. 살아 있는 대상의 체력을 최대 체력까지 Amount만큼 회복하고 실제로 회복한 양을 돌려준다. */
+	VER1_API float HealTarget(AActor* Target, float Amount);
 }
