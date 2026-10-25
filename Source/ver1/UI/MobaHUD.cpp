@@ -1489,6 +1489,7 @@ void AMobaHUD::DrawStatsPanel(const AMobaCharacter* Character)
 		{ TEXT("스킬 가속"), FString::FromInt(FMath::RoundToInt(Value(UMobaAttributeSet::GetAbilityHasteAttribute()))) },
 		{ TEXT("흡혈"), FString::Printf(TEXT("%d%%"), FMath::RoundToInt(Value(UMobaAttributeSet::GetLifeStealAttribute()) * 100.0f)) },
 		{ TEXT("치명타"), FString::Printf(TEXT("%d%%"), FMath::RoundToInt(FMath::Min(Value(UMobaAttributeSet::GetCritChanceAttribute()), 1.0f) * 100.0f)) },
+		{ TEXT("관통"), FString::Printf(TEXT("%d / %d"), FMath::RoundToInt(Value(UMobaAttributeSet::GetArmorPenetrationAttribute())), FMath::RoundToInt(Value(UMobaAttributeSet::GetMagicPenetrationAttribute()))) },
 	};
 
 	// 두 열, 다섯 줄. 왼쪽 아래 구석에 둔다.
@@ -1576,7 +1577,7 @@ void AMobaHUD::DrawShop(const AMobaCharacter* Character)
 	const float AdvancedWidth = 420.0f;
 	const float Width = BasicWidth + AdvancedWidth + 18.0f;
 	const float BasicRowHeight = 30.0f;
-	const float AdvancedRowHeight = 40.0f;
+	const float AdvancedRowHeight = 36.0f;
 	const float HeaderHeight = 74.0f;
 
 	int32 BasicCount = 0;
@@ -1618,19 +1619,20 @@ void AMobaHUD::DrawShop(const AMobaCharacter* Character)
 
 		const FLinearColor TextColor = bCanBuy ? FLinearColor::White : FLinearColor(0.5f, 0.5f, 0.5f);
 		const FLinearColor CostColor = bCanBuy ? FLinearColor(1.0f, 0.85f, 0.3f) : FLinearColor(0.5f, 0.45f, 0.3f);
-		DrawText(Item.Name, TextColor, ColumnLeft + 8.0f, RowTop + 6.0f, Font, 1.1f);
+		const float TextTop = RowTop + (bBasic ? 6.0f : 3.0f);
+		DrawText(Item.Name, TextColor, ColumnLeft + 8.0f, TextTop, Font, 1.1f);
 		const float DescriptionOffset = bBasic ? 100.0f : 130.0f;
-		DrawTextFit(Item.Description, TextColor, ColumnLeft + DescriptionOffset, RowTop + 6.0f, ColumnWidth - DescriptionOffset - 60.0f, Font, 1.0f);
+		DrawTextFit(Item.Description, TextColor, ColumnLeft + DescriptionOffset, TextTop, ColumnWidth - DescriptionOffset - 60.0f, Font, 1.0f);
 
 		// 재료가 있어 싸졌으면 원래 가격을 작게 함께 적는다.
-		DrawText(FString::FromInt(Cost), CostColor, ColumnLeft + ColumnWidth - 52.0f, RowTop + 6.0f, Font, 1.1f);
+		DrawText(FString::FromInt(Cost), CostColor, ColumnLeft + ColumnWidth - 52.0f, TextTop, Font, 1.1f);
 		if (!bBasic)
 		{
 			const FString Recipe = FString::Printf(TEXT("재료: %s"), *MobaItems::DescribeComponents(Index));
-			DrawText(Recipe, FLinearColor(0.6f, 0.65f, 0.75f), ColumnLeft + 8.0f, RowTop + 22.0f, Font, 0.9f);
+			DrawText(Recipe, FLinearColor(0.6f, 0.65f, 0.75f), ColumnLeft + 8.0f, RowTop + 18.0f, Font, 0.9f);
 			if (Cost != Item.Cost)
 			{
-				DrawText(FString::Printf(TEXT("(%d)"), Item.Cost), FLinearColor(0.55f, 0.55f, 0.55f), ColumnLeft + ColumnWidth - 52.0f, RowTop + 22.0f, Font, 0.9f);
+				DrawText(FString::Printf(TEXT("(%d)"), Item.Cost), FLinearColor(0.55f, 0.55f, 0.55f), ColumnLeft + ColumnWidth - 52.0f, RowTop + 18.0f, Font, 0.9f);
 			}
 		}
 	}

@@ -157,6 +157,26 @@ public:
 	FGameplayAttributeData CritChance;
 	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, CritChance)
 
+	/** 상대 방어력을 이만큼 무시한다(0 아래로는 내리지 않는다). */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_ArmorPenetration, Category = "Attributes")
+	FGameplayAttributeData ArmorPenetration;
+	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, ArmorPenetration)
+
+	/** 상대 마법 저항력을 이만큼 무시한다(0 아래로는 내리지 않는다). */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_MagicPenetration, Category = "Attributes")
+	FGameplayAttributeData MagicPenetration;
+	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, MagicPenetration)
+
+	/** 챔피언 기본 재생에 더하는 초당 체력 재생(아이템). */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_BonusHealthRegen, Category = "Attributes")
+	FGameplayAttributeData BonusHealthRegen;
+	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, BonusHealthRegen)
+
+	/** 챔피언 기본 재생에 더하는 초당 마나 재생(아이템). */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_BonusManaRegen, Category = "Attributes")
+	FGameplayAttributeData BonusManaRegen;
+	ATTRIBUTE_ACCESSORS_BASIC(UMobaAttributeSet, BonusManaRegen)
+
 	/** 스킬 가속. 스킬 재사용 대기 시간이 100 / (100 + 가속) 배가 된다. 소환사 주문에는 적용되지 않는다. */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_AbilityHaste, Category = "Attributes")
 	FGameplayAttributeData AbilityHaste;
@@ -206,6 +226,18 @@ protected:
 
 	UFUNCTION()
 	void OnRep_CritChance(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	void OnRep_ArmorPenetration(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	void OnRep_MagicPenetration(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	void OnRep_BonusHealthRegen(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	void OnRep_BonusManaRegen(const FGameplayAttributeData& OldValue);
 
 	UFUNCTION()
 	void OnRep_Shield(const FGameplayAttributeData& OldValue);

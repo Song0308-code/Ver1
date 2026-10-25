@@ -629,8 +629,10 @@ void AMobaCharacter::TickRegen()
 		}
 	}
 
-	Regenerate(UMobaAttributeSet::GetHealthAttribute(), UMobaAttributeSet::GetMaxHealthAttribute(), Stats.HealthRegenPerSecond + BonusHealthRegen);
-	Regenerate(UMobaAttributeSet::GetManaAttribute(), UMobaAttributeSet::GetMaxManaAttribute(), Stats.ManaRegenPerSecond + BonusManaRegen);
+	const float ItemHealthRegen = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetBonusHealthRegenAttribute());
+	const float ItemManaRegen = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetBonusManaRegenAttribute());
+	Regenerate(UMobaAttributeSet::GetHealthAttribute(), UMobaAttributeSet::GetMaxHealthAttribute(), Stats.HealthRegenPerSecond + BonusHealthRegen + ItemHealthRegen);
+	Regenerate(UMobaAttributeSet::GetManaAttribute(), UMobaAttributeSet::GetMaxManaAttribute(), Stats.ManaRegenPerSecond + BonusManaRegen + ItemManaRegen);
 }
 
 float AMobaCharacter::GetWardCooldownRemaining() const
@@ -1082,6 +1084,10 @@ void AMobaCharacter::ApplyItemStats(const FMobaItemDefinition& Item, float Sign)
 	AddToBase(UMobaAttributeSet::GetMaxManaAttribute(), Item.MaxMana);
 	AddToBase(UMobaAttributeSet::GetLifeStealAttribute(), Item.LifeSteal);
 	AddToBase(UMobaAttributeSet::GetCritChanceAttribute(), Item.CritChance);
+	AddToBase(UMobaAttributeSet::GetArmorPenetrationAttribute(), Item.ArmorPenetration);
+	AddToBase(UMobaAttributeSet::GetMagicPenetrationAttribute(), Item.MagicPenetration);
+	AddToBase(UMobaAttributeSet::GetBonusHealthRegenAttribute(), Item.HealthRegen);
+	AddToBase(UMobaAttributeSet::GetBonusManaRegenAttribute(), Item.ManaRegen);
 	AddToBase(UMobaAttributeSet::GetAbilityHasteAttribute(), Item.AbilityHaste);
 
 	// 살 때는 늘어난 최대치만큼 현재 수치도 채워 주고, 팔 때는 줄어든 최대치를 넘지 않게만 한다.

@@ -22,6 +22,10 @@ void UMobaAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, AttackRange, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, LifeSteal, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, CritChance, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, ArmorPenetration, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, MagicPenetration, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, BonusHealthRegen, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, BonusManaRegen, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, Shield, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UMobaAttributeSet, AbilityHaste, COND_None, REPNOTIFY_Always);
 }
@@ -41,6 +45,10 @@ void UMobaAttributeSet::InitFromBaseStats(const FMobaBaseStats& Stats)
 	InitAttackRange(Stats.AttackRange);
 	InitLifeSteal(0.0f);
 	InitCritChance(0.0f);
+	InitArmorPenetration(0.0f);
+	InitMagicPenetration(0.0f);
+	InitBonusHealthRegen(0.0f);
+	InitBonusManaRegen(0.0f);
 	InitShield(0.0f);
 	InitAbilityHaste(0.0f);
 
@@ -220,6 +228,26 @@ void UMobaAttributeSet::OnRep_LifeSteal(const FGameplayAttributeData& OldValue)
 void UMobaAttributeSet::OnRep_CritChance(const FGameplayAttributeData& OldValue)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UMobaAttributeSet, CritChance, OldValue);
+}
+
+void UMobaAttributeSet::OnRep_ArmorPenetration(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMobaAttributeSet, ArmorPenetration, OldValue);
+}
+
+void UMobaAttributeSet::OnRep_MagicPenetration(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMobaAttributeSet, MagicPenetration, OldValue);
+}
+
+void UMobaAttributeSet::OnRep_BonusHealthRegen(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMobaAttributeSet, BonusHealthRegen, OldValue);
+}
+
+void UMobaAttributeSet::OnRep_BonusManaRegen(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMobaAttributeSet, BonusManaRegen, OldValue);
 }
 
 void UMobaAttributeSet::OnRep_AbilityHaste(const FGameplayAttributeData& OldValue)

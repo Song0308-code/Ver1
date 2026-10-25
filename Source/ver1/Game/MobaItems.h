@@ -36,6 +36,14 @@ struct FMobaItemDefinition
 	/** 치명타 확률. 0.2면 20%. */
 	float CritChance = 0.0f;
 
+	/** 무시하는 상대 방어력·마법 저항력. */
+	float ArmorPenetration = 0.0f;
+	float MagicPenetration = 0.0f;
+
+	/** 초당 체력·마나 재생. */
+	float HealthRegen = 0.0f;
+	float ManaRegen = 0.0f;
+
 	/** 소모품은 가방 칸을 쓰지 않고 개수로 쌓인다(최대 MaxPotions). 키 1로 써서 HealAmount를 HealDuration초에 걸쳐 회복한다. */
 	bool bConsumable = false;
 	float HealAmount = 0.0f;

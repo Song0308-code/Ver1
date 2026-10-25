@@ -43,6 +43,12 @@ namespace
 		Items[BigRod].AbilityPower = 60.0f;
 		const int32 LuckyCharm = Add(TEXT("행운의 부적"), TEXT("치명타 확률 +12%"), 350);
 		Items[LuckyCharm].CritChance = 0.12f;
+		const int32 RegenRing = Add(TEXT("재생의 반지"), TEXT("체력 +50, 체력 재생 +3/초"), 250);
+		Items[RegenRing].MaxHealth = 50.0f;
+		Items[RegenRing].HealthRegen = 3.0f;
+		const int32 MeditationOrb = Add(TEXT("명상의 구슬"), TEXT("마나 +100, 마나 재생 +2/초"), 230);
+		Items[MeditationOrb].MaxMana = 100.0f;
+		Items[MeditationOrb].ManaRegen = 2.0f;
 
 		// 2단계.
 		const int32 BattleAxe = Add(TEXT("전투 도끼"), TEXT("공격력 +18, 체력 +250"), 1150, { LongSword, RubyCrystal });
@@ -72,6 +78,12 @@ namespace
 		Items[KeenDirk].AttackSpeedFraction = 0.18f;
 		Items[KeenDirk].CritChance = 0.15f;
 		Items[KeenDirk].MoveSpeed = 5.0f;
+		const int32 PiercingSpear = Add(TEXT("꿰뚫는 창"), TEXT("공격력 +20, 방어구 관통 +10"), 900, { LongSword, LongSword });
+		Items[PiercingSpear].AttackDamage = 20.0f;
+		Items[PiercingSpear].ArmorPenetration = 10.0f;
+		const int32 VoidStaff = Add(TEXT("공허의 지팡이"), TEXT("주문력 +40, 마법 관통 +10"), 1000, { Tome, Tome });
+		Items[VoidStaff].AbilityPower = 40.0f;
+		Items[VoidStaff].MagicPenetration = 10.0f;
 
 		// 3단계.
 		const int32 DoomBlade = Add(TEXT("파멸의 대검"), TEXT("공격력 +70, 스킬 가속 +12"), 2650, { BigSword, LongSword, LongSword });
@@ -234,6 +246,10 @@ TArray<FString> MobaItems::DescribeStats(const FMobaItemDefinition& Item)
 	Add(Item.LifeSteal * 100.0f, TEXT("생명력 흡수"), TEXT("%"));
 	Add(Item.AbilityHaste, TEXT("스킬 가속"), TEXT(""));
 	Add(Item.CritChance * 100.0f, TEXT("치명타 확률"), TEXT("%"));
+	Add(Item.ArmorPenetration, TEXT("방어구 관통"), TEXT(""));
+	Add(Item.MagicPenetration, TEXT("마법 관통"), TEXT(""));
+	Add(Item.HealthRegen, TEXT("체력 재생"), TEXT("/초"));
+	Add(Item.ManaRegen, TEXT("마나 재생"), TEXT("/초"));
 	if (Item.bConsumable && Item.HealAmount > 0.0f)
 	{
 		Lines.Add(FString::Printf(TEXT("사용: %d초 동안 체력 %d 회복 (키 1, 최대 %d개)"), FMath::RoundToInt(Item.HealDuration), FMath::RoundToInt(Item.HealAmount), MaxPotions));

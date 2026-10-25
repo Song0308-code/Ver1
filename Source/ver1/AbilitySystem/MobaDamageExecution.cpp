@@ -8,11 +8,15 @@ namespace
 	{
 		DECLARE_ATTRIBUTE_CAPTUREDEF(Armor);
 		DECLARE_ATTRIBUTE_CAPTUREDEF(MagicResist);
+		DECLARE_ATTRIBUTE_CAPTUREDEF(ArmorPenetration);
+		DECLARE_ATTRIBUTE_CAPTUREDEF(MagicPenetration);
 
 		FMobaDamageStatics()
 		{
 			DEFINE_ATTRIBUTE_CAPTUREDEF(UMobaAttributeSet, Armor, Target, false);
 			DEFINE_ATTRIBUTE_CAPTUREDEF(UMobaAttributeSet, MagicResist, Target, false);
+			DEFINE_ATTRIBUTE_CAPTUREDEF(UMobaAttributeSet, ArmorPenetration, Source, true);
+			DEFINE_ATTRIBUTE_CAPTUREDEF(UMobaAttributeSet, MagicPenetration, Source, true);
 		}
 	};
 
@@ -27,6 +31,13 @@ UMobaDamageExecution::UMobaDamageExecution()
 {
 	RelevantAttributesToCapture.Add(DamageStatics().ArmorDef);
 	RelevantAttributesToCapture.Add(DamageStatics().MagicResistDef);
+	RelevantAttributesToCapture.Add(DamageStatics().ArmorPenetrationDef);
+	RelevantAttributesToCapture.Add(DamageStatics().MagicPenetrationDef);
+}
+
+float UMobaDamageExecution::GetEffectiveResistance(float Resistance, float Penetration)
+{
+	return Resistance > 0.0f ? FMath::Max(Resistance - FMath::Max(Penetration, 0.0f), 0.0f) : Resistance;
 }
 
 float UMobaDamageExecution::GetResistanceMultiplier(float Resistance)
@@ -47,6 +58,15 @@ void UMobaDamageExecution::Execute_Implementation(const FGameplayEffectCustomExe
 
 	float MagicResist = 0.0f;
 	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().MagicResistDef, EvaluateParams, MagicResist);
+
+	float ArmorPenetration = 0.0f;
+	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ArmorPenetrationDef, EvaluateParams, ArmorPenetration);
+
+	float MagicPenetration = 0.0f;
+	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().MagicPenetrationDef, EvaluateParams, MagicPenetration);
+
+	Armor = GetEffectiveResistance(Armor, ArmorPenetration);
+	MagicResist = GetEffectiveResistance(MagicResist, MagicPenetration);
 
 	const float PhysicalDamage = FMath::Max(Spec.GetSetByCallerMagnitude(MobaTags::Data_Damage_Physical, false, 0.0f), 0.0f);
 	const float MagicDamage = FMath::Max(Spec.GetSetByCallerMagnitude(MobaTags::Data_Damage_Magic, false, 0.0f), 0.0f);

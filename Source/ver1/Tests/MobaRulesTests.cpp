@@ -159,7 +159,7 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s 가격"), Item.Name), Item.Cost > 0);
 		const bool bHasStat = Item.AttackDamage > 0.0f || Item.AbilityPower > 0.0f || Item.MaxHealth > 0.0f || Item.MaxMana > 0.0f
 			|| Item.Armor > 0.0f || Item.MagicResist > 0.0f || Item.MoveSpeed > 0.0f || Item.AttackSpeedFraction > 0.0f
-			|| Item.LifeSteal > 0.0f || Item.AbilityHaste > 0.0f || Item.CritChance > 0.0f || (Item.bConsumable && Item.HealAmount > 0.0f && Item.HealDuration > 0.0f) || Item.bControlWard;
+			|| Item.LifeSteal > 0.0f || Item.AbilityHaste > 0.0f || Item.CritChance > 0.0f || Item.ArmorPenetration > 0.0f || Item.MagicPenetration > 0.0f || Item.HealthRegen > 0.0f || Item.ManaRegen > 0.0f || (Item.bConsumable && Item.HealAmount > 0.0f && Item.HealDuration > 0.0f) || Item.bControlWard;
 		TestTrue(FString::Printf(TEXT("%s 능력치"), Item.Name), bHasStat);
 		BasicCount += Item.IsBasic() ? 1 : 0;
 
@@ -175,8 +175,8 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 		}
 		TestTrue(FString::Printf(TEXT("%s 조합 가격"), Item.Name), Item.IsBasic() || Item.Cost > ComponentCost);
 	}
-	// 기본 열(한 줄 30)과 완성 열(한 줄 40)이 720 높이 창에서 상점 창(머리 74 + 아래 30) 안에 들어간다.
-	TestTrue(TEXT("상점 높이가 720 창에 들어간다"), 74.0f + FMath::Max(30.0f * BasicCount, 40.0f * (Items.Num() - BasicCount)) + 30.0f <= 690.0f);
+	// 기본 열(한 줄 30)과 완성 열(한 줄 36)이 720 높이 창에서 상점 창(머리 74 + 아래 30) 안에 들어간다.
+	TestTrue(TEXT("상점 높이가 720 창에 들어간다"), 74.0f + FMath::Max(30.0f * BasicCount, 36.0f * (Items.Num() - BasicCount)) + 30.0f <= 690.0f);
 
 	// 소모품은 하나(체력 물약)이고 재료가 없으며 다른 아이템의 재료로 쓰이지 않는다.
 	const int32 Potion = MobaItems::GetPotionItemIndex();
@@ -427,6 +427,16 @@ bool FMobaCriticalTest::RunTest(const FString& Parameters)
 		CritItems += Item.CritChance > 0.0f ? 1 : 0;
 	}
 	TestTrue(TEXT("치명타 아이템 넷 이상"), CritItems >= 4);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaPenetrationTest, "Moba.Rules.Penetration", MobaTestFlags)
+bool FMobaPenetrationTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("방어력 50, 관통 10"), UMobaDamageExecution::GetEffectiveResistance(50.0f, 10.0f), 40.0f);
+	TestEqual(TEXT("0 아래로 내리지 않음"), UMobaDamageExecution::GetEffectiveResistance(8.0f, 10.0f), 0.0f);
+	TestEqual(TEXT("음수 저항은 그대로"), UMobaDamageExecution::GetEffectiveResistance(-10.0f, 10.0f), -10.0f);
+	TestEqual(TEXT("관통 없음"), UMobaDamageExecution::GetEffectiveResistance(30.0f, 0.0f), 30.0f);
 	return true;
 }
 

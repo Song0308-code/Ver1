@@ -23,6 +23,10 @@ namespace MobaBalance
 	constexpr float GoldPerLifeStealPercent = 32.0f;
 	constexpr float GoldPerAbilityHaste = 25.0f;
 	constexpr float GoldPerCritPercent = 30.0f;
+	constexpr float GoldPerArmorPenetration = 28.0f;
+	constexpr float GoldPerMagicPenetration = 26.0f;
+	constexpr float GoldPerHealthRegen = 40.0f;
+	constexpr float GoldPerManaRegen = 50.0f;
 
 	/** 치명타가 된 기본 공격은 공격력 몫이 이만큼 커진다. */
 	constexpr float CritDamageMultiplier = 1.75f;
