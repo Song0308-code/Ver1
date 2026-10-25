@@ -169,6 +169,7 @@ protected:
 	void OnReturnToMenu();
 	void OnPlaceWard();
 	void OnUsePotion();
+	void OnUseActiveItem();
 	void OnUseHeraldEye();
 	void OnPlaceControlWard();
 	void OnRecall();
@@ -339,6 +340,9 @@ protected:
 	TObjectPtr<UInputAction> UsePotionAction;
 
 	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> UseActiveItemAction;
+
+	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> PlaceControlWardAction;
 
 	UPROPERTY(Transient)
@@ -412,6 +416,10 @@ protected:
 	/** 에디터 자동 검증용. 켜면 다음 틱에 체력 물약을 마신다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
 	bool bDebugUsePotion = false;
+
+	/** 에디터 자동 검증용. 켜면 다음 틱에 사용 아이템(키 5)을 쓴다. */
+	UPROPERTY(EditAnywhere, Transient, Category = "Debug")
+	bool bDebugUseActiveItem = false;
 
 	/** 에디터 자동 검증용. 켜면 다음 틱에 DebugCastLocation에 와드를 놓는다. */
 	UPROPERTY(EditAnywhere, Transient, Category = "Debug")

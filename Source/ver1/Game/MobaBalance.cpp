@@ -24,7 +24,8 @@ float MobaBalance::GetStatGoldValue(const FMobaItemDefinition& Item)
 		+ Item.ArmorPenetration * GoldPerArmorPenetration
 		+ Item.MagicPenetration * GoldPerMagicPenetration
 		+ Item.HealthRegen * GoldPerHealthRegen
-		+ Item.ManaRegen * GoldPerManaRegen;
+		+ Item.ManaRegen * GoldPerManaRegen
+		+ Item.UniqueEffectGoldValue;
 }
 
 float MobaBalance::GetGoldEfficiency(const FMobaItemDefinition& Item)

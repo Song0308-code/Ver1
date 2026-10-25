@@ -104,6 +104,7 @@ void AMobaPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(ReturnToMenuAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnReturnToMenu);
 		EnhancedInput->BindAction(PlaceWardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnPlaceWard);
 		EnhancedInput->BindAction(UsePotionAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnUsePotion);
+		EnhancedInput->BindAction(UseActiveItemAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnUseActiveItem);
 		EnhancedInput->BindAction(PlaceControlWardAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnPlaceControlWard);
 		EnhancedInput->BindAction(UseHeraldEyeAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnUseHeraldEye);
 		EnhancedInput->BindAction(RecallAction, ETriggerEvent::Started, this, &AMobaPlayerController::OnRecall);
@@ -137,6 +138,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	ReturnToMenuAction = NewObject<UInputAction>(this, TEXT("IA_ReturnToMenu"));
 	PlaceWardAction = NewObject<UInputAction>(this, TEXT("IA_PlaceWard"));
 	UsePotionAction = NewObject<UInputAction>(this, TEXT("IA_UsePotion"));
+	UseActiveItemAction = NewObject<UInputAction>(this, TEXT("IA_UseActiveItem"));
 	PlaceControlWardAction = NewObject<UInputAction>(this, TEXT("IA_PlaceControlWard"));
 	UseHeraldEyeAction = NewObject<UInputAction>(this, TEXT("IA_UseHeraldEye"));
 	RecallAction = NewObject<UInputAction>(this, TEXT("IA_Recall"));
@@ -163,6 +165,7 @@ void AMobaPlayerController::CreateDefaultInput()
 	DefaultMappingContext->MapKey(ReturnToMenuAction, EKeys::Enter);
 	DefaultMappingContext->MapKey(PlaceWardAction, EKeys::Four);
 	DefaultMappingContext->MapKey(UsePotionAction, EKeys::One);
+	DefaultMappingContext->MapKey(UseActiveItemAction, EKeys::Five);
 	DefaultMappingContext->MapKey(PlaceControlWardAction, EKeys::Three);
 	DefaultMappingContext->MapKey(UseHeraldEyeAction, EKeys::Two);
 	DefaultMappingContext->MapKey(RecallAction, EKeys::B);
@@ -484,6 +487,12 @@ void AMobaPlayerController::PlayerTick(float DeltaTime)
 	{
 		bDebugUseHeraldEye = false;
 		OnUseHeraldEye();
+	}
+
+	if (bDebugUseActiveItem)
+	{
+		bDebugUseActiveItem = false;
+		OnUseActiveItem();
 	}
 
 	if (bDebugUsePotion)
@@ -853,6 +862,14 @@ void AMobaPlayerController::OnUseHeraldEye()
 	if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
 	{
 		MobaCharacter->UseHeraldEye();
+	}
+}
+
+void AMobaPlayerController::OnUseActiveItem()
+{
+	if (AMobaCharacter* MobaCharacter = GetPawn<AMobaCharacter>())
+	{
+		MobaCharacter->UseActiveItem();
 	}
 }
 

@@ -1552,6 +1552,19 @@ void AMobaHUD::DrawInventory(const AMobaCharacter* Character)
 		if (Item)
 		{
 			DrawTextFit(Item->Name, FLinearColor(1.0f, 0.9f, 0.6f), SlotLeft + 4.0f, SlotTop + 6.0f, SlotWidth - 8.0f, Font, 1.0f);
+
+			// 사용 아이템은 재사용 대기 동안 어둡게 덮고 남은 초를 보여 준다.
+			const AGameStateBase* ItemGameState = GetWorld()->GetGameState();
+			const float Remaining = Item->ActiveCooldown > 0.0f && ItemGameState ? PlayerState->GetActiveItemReadyServerTime() - ItemGameState->GetServerWorldTimeSeconds() : 0.0f;
+			if (Remaining > 0.0f)
+			{
+				DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.65f), SlotLeft, SlotTop, SlotWidth, SlotHeight);
+				DrawCenteredText(FString::FromInt(FMath::CeilToInt(Remaining)), FLinearColor::White, SlotLeft + SlotWidth * 0.5f, SlotTop + 5.0f, Font, 1.1f);
+			}
+			else if (Item->ActiveCooldown > 0.0f)
+			{
+				DrawText(TEXT("5"), FLinearColor(0.6f, 0.9f, 1.0f), SlotLeft + SlotWidth - 10.0f, SlotTop + 1.0f, Font, 0.8f);
+			}
 		}
 	}
 }
@@ -1577,7 +1590,7 @@ void AMobaHUD::DrawShop(const AMobaCharacter* Character)
 	const float AdvancedWidth = 420.0f;
 	const float Width = BasicWidth + AdvancedWidth + 18.0f;
 	const float BasicRowHeight = 30.0f;
-	const float AdvancedRowHeight = 36.0f;
+	const float AdvancedRowHeight = 32.0f;
 	const float HeaderHeight = 74.0f;
 
 	int32 BasicCount = 0;
@@ -1619,7 +1632,7 @@ void AMobaHUD::DrawShop(const AMobaCharacter* Character)
 
 		const FLinearColor TextColor = bCanBuy ? FLinearColor::White : FLinearColor(0.5f, 0.5f, 0.5f);
 		const FLinearColor CostColor = bCanBuy ? FLinearColor(1.0f, 0.85f, 0.3f) : FLinearColor(0.5f, 0.45f, 0.3f);
-		const float TextTop = RowTop + (bBasic ? 6.0f : 3.0f);
+		const float TextTop = RowTop + (bBasic ? 6.0f : 1.0f);
 		DrawText(Item.Name, TextColor, ColumnLeft + 8.0f, TextTop, Font, 1.1f);
 		const float DescriptionOffset = bBasic ? 100.0f : 130.0f;
 		DrawTextFit(Item.Description, TextColor, ColumnLeft + DescriptionOffset, TextTop, ColumnWidth - DescriptionOffset - 60.0f, Font, 1.0f);
@@ -1629,10 +1642,10 @@ void AMobaHUD::DrawShop(const AMobaCharacter* Character)
 		if (!bBasic)
 		{
 			const FString Recipe = FString::Printf(TEXT("재료: %s"), *MobaItems::DescribeComponents(Index));
-			DrawText(Recipe, FLinearColor(0.6f, 0.65f, 0.75f), ColumnLeft + 8.0f, RowTop + 18.0f, Font, 0.9f);
+			DrawText(Recipe, FLinearColor(0.6f, 0.65f, 0.75f), ColumnLeft + 8.0f, RowTop + 15.0f, Font, 0.85f);
 			if (Cost != Item.Cost)
 			{
-				DrawText(FString::Printf(TEXT("(%d)"), Item.Cost), FLinearColor(0.55f, 0.55f, 0.55f), ColumnLeft + ColumnWidth - 52.0f, RowTop + 18.0f, Font, 0.9f);
+				DrawText(FString::Printf(TEXT("(%d)"), Item.Cost), FLinearColor(0.55f, 0.55f, 0.55f), ColumnLeft + ColumnWidth - 52.0f, RowTop + 15.0f, Font, 0.85f);
 			}
 		}
 	}

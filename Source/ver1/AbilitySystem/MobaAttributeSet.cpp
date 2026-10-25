@@ -147,6 +147,14 @@ void UMobaAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 				}
 			}
 
+			if (NewHealth > 0.0f && Data.EffectSpec.GetDynamicAssetTags().HasTagExact(MobaTags::Damage_BasicAttack))
+			{
+				if (AMobaCharacter* Victim = Cast<AMobaCharacter>(GetOwningAbilitySystemComponentChecked()->GetAvatarActor()))
+				{
+					Victim->HandleBasicAttackTaken(DamageInstigator);
+				}
+			}
+
 			if (NewHealth <= 0.0f)
 			{
 				OnOutOfHealth.Broadcast(DamageInstigator);

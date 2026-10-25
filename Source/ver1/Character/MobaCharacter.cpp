@@ -884,6 +884,14 @@ void AMobaCharacter::NotifyAbilityCast(EMobaAbilitySlot Slot)
 	{
 		PassiveInstance->OnAbilityCast(Slot);
 	}
+
+	// 마력 칼날: 스킬을 쓰면 다음 기본 공격이 강해진다.
+	const AMobaPlayerState* CastState = GetPlayerState<AMobaPlayerState>();
+	if (Slot != EMobaAbilitySlot::D && Slot != EMobaAbilitySlot::F && CastState && MobaItems::HasUniqueEffect(CastState->GetItems(), EMobaItemEffect::Spellblade)
+		&& GetWorld()->GetTimeSeconds() >= SpellbladeReadyTime)
+	{
+		bSpellbladeArmed = true;
+	}
 }
 
 void AMobaCharacter::MulticastAbilityCast_Implementation(EMobaAbilitySlot Slot)
@@ -1316,7 +1324,69 @@ FMobaAttackBonus AMobaCharacter::ApplyPassiveOnBasicAttack(AActor* Target)
 		Bonus.AirborneDuration = FMath::Max(Bonus.AirborneDuration, EmpoweredAttack.AirborneDuration);
 		EmpoweredAttackExpireTime = 0.0;
 	}
+
+	if (bSpellbladeArmed)
+	{
+		bSpellbladeArmed = false;
+		SpellbladeReadyTime = GetWorld()->GetTimeSeconds() + 1.5;
+		if (const UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent())
+		{
+			Bonus.BonusPhysicalDamage += AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackDamageAttribute()) * 0.75f;
+		}
+	}
 	return Bonus;
+}
+
+void AMobaCharacter::UseActiveItem()
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	if (MobaPlayerState && !IsDead() && MobaItems::FindActiveItem(MobaPlayerState->GetItems()) != INDEX_NONE)
+	{
+		ServerUseActiveItem();
+	}
+}
+
+void AMobaCharacter::ServerUseActiveItem_Implementation()
+{
+	AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!MobaPlayerState || !GameState || !AbilitySystem || IsDead() || MobaCombat::IsMatchOver(this))
+	{
+		return;
+	}
+
+	const FMobaItemDefinition* Item = MobaItems::GetItem(MobaItems::FindActiveItem(MobaPlayerState->GetItems()));
+	const float Now = static_cast<float>(GameState->GetServerWorldTimeSeconds());
+	if (!Item || Now < MobaPlayerState->GetActiveItemReadyServerTime())
+	{
+		return;
+	}
+
+	if (Item->UniqueEffect == EMobaItemEffect::Stasis)
+	{
+		// 정지: 무적(대상이 되지 않음)과 기절을 함께 건다. 귀환·은신도 끊긴다.
+		const float Duration = 2.5f;
+		CancelRecall();
+		BreakStealth();
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(AbilitySystem, this, Duration, MobaTags::State_Invulnerable), this);
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeStunSpec(AbilitySystem, this, Duration), this);
+	}
+	MobaPlayerState->SetActiveItemCooldown(Now + Item->ActiveCooldown, Item->ActiveCooldown);
+}
+
+void AMobaCharacter::HandleBasicAttackTaken(AActor* Attacker)
+{
+	const AMobaPlayerState* MobaPlayerState = GetPlayerState<AMobaPlayerState>();
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!MobaPlayerState || !AbilitySystem || IsDead() || !Attacker || !Attacker->IsA<AMobaCharacter>() || MobaCombat::IsDead(Attacker)
+		|| !MobaItems::HasUniqueEffect(MobaPlayerState->GetItems(), EMobaItemEffect::Thorns))
+	{
+		return;
+	}
+
+	const float Reflected = 20.0f + AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetArmorAttribute()) * 0.15f;
+	MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(AbilitySystem, this, 0.0f, Reflected, 0.0f), Attacker);
 }
 
 void AMobaCharacter::NotifyCrowdControlApplied(AActor* Target)

@@ -114,6 +114,11 @@ public:
 
 	/** 전령의 눈이 사라지는 서버 시각. 0이면 없다. */
 	float GetHeraldEyeExpireServerTime() const { return HeraldEyeExpireServerTime; }
+
+	/** 사용 아이템을 다시 쓸 수 있는 시각(서버 월드 시간)과 그 재사용 대기. */
+	float GetActiveItemReadyServerTime() const { return ActiveItemReadyServerTime; }
+	float GetActiveItemCooldown() const { return ActiveItemCooldown; }
+	void SetActiveItemCooldown(float ReadyServerTime, float Cooldown) { ActiveItemReadyServerTime = ReadyServerTime; ActiveItemCooldown = Cooldown; }
 	void SetHeraldEyeExpireServerTime(float NewTime) { HeraldEyeExpireServerTime = NewTime; }
 
 	/** 들고 있는 제어 와드 수. */
@@ -250,6 +255,12 @@ protected:
 
 	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Items")
 	float HeraldEyeExpireServerTime = 0.0f;
+
+	UPROPERTY(Replicated)
+	float ActiveItemReadyServerTime = 0.0f;
+
+	UPROPERTY(Replicated)
+	float ActiveItemCooldown = 0.0f;
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	int32 MinionKills = 0;

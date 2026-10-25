@@ -99,6 +99,24 @@ namespace
 		const int32 StormBlade = Add(TEXT("폭풍 대검"), TEXT("공격력 +55, 치명타 확률 +25%"), 2600, { BigSword, LuckyCharm, LongSword });
 		Items[StormBlade].AttackDamage = 55.0f;
 		Items[StormBlade].CritChance = 0.25f;
+		// 고유 효과 아이템. 효과의 골드 가치는 Docs/BALANCE.md.
+		const int32 Hourglass = Add(TEXT("시간의 모래시계"), TEXT("주문력 +50, 방어력 +30, 사용: 2.5초 정지"), 1700, { Tome, ClothArmor });
+		Items[Hourglass].AbilityPower = 50.0f;
+		Items[Hourglass].Armor = 30.0f;
+		Items[Hourglass].UniqueEffect = EMobaItemEffect::Stasis;
+		Items[Hourglass].UniqueEffectGoldValue = 200.0f;
+		Items[Hourglass].ActiveCooldown = 120.0f;
+		const int32 ThornMail = Add(TEXT("가시 갑옷"), TEXT("방어력 +50, 체력 +200, 고유: 가시"), 1600, { WardensPlate, ClothArmor });
+		Items[ThornMail].Armor = 50.0f;
+		Items[ThornMail].MaxHealth = 200.0f;
+		Items[ThornMail].UniqueEffect = EMobaItemEffect::Thorns;
+		Items[ThornMail].UniqueEffectGoldValue = 250.0f;
+		const int32 ManaBlade = Add(TEXT("마력 칼날"), TEXT("공격력 +25, 마나 +250, 스킬 가속 +10, 고유: 마력 칼날"), 1650, { SapphireCrystal, LongSword });
+		Items[ManaBlade].AttackDamage = 25.0f;
+		Items[ManaBlade].MaxMana = 250.0f;
+		Items[ManaBlade].AbilityHaste = 10.0f;
+		Items[ManaBlade].UniqueEffect = EMobaItemEffect::Spellblade;
+		Items[ManaBlade].UniqueEffectGoldValue = 300.0f;
 		const int32 MarksmanBow = Add(TEXT("명사수의 활"), TEXT("공격 속도 +35%, 치명타 확률 +25%, 이동 속도 +8"), 1550, { GaleBow, LuckyCharm });
 		Items[MarksmanBow].AttackSpeedFraction = 0.35f;
 		Items[MarksmanBow].CritChance = 0.25f;
@@ -225,6 +243,47 @@ bool MobaItems::CanPurchase(int32 ItemIndex, const TArray<uint8>& Owned, const F
 	return true;
 }
 
+FString MobaItems::DescribeUniqueEffect(EMobaItemEffect Effect)
+{
+	switch (Effect)
+	{
+	case EMobaItemEffect::Stasis:
+		return TEXT("사용(키 5): 2.5초 동안 무적이 되지만 아무것도 할 수 없습니다. 재사용 대기 120초.");
+	case EMobaItemEffect::Thorns:
+		return TEXT("고유 가시: 챔피언의 기본 공격을 맞으면 그 챔피언에게 마법 피해 20(+방어력 15%)을 되돌립니다.");
+	case EMobaItemEffect::Spellblade:
+		return TEXT("고유 마력 칼날: 스킬을 쓴 뒤 다음 기본 공격이 공격력 75%만큼 추가 물리 피해를 줍니다(1.5초에 한 번).");
+	default:
+		return FString();
+	}
+}
+
+bool MobaItems::HasUniqueEffect(const TArray<uint8>& Items, EMobaItemEffect Effect)
+{
+	for (const uint8 Index : Items)
+	{
+		const FMobaItemDefinition* Item = GetItem(Index);
+		if (Item && Item->UniqueEffect == Effect)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+int32 MobaItems::FindActiveItem(const TArray<uint8>& Items)
+{
+	for (const uint8 Index : Items)
+	{
+		const FMobaItemDefinition* Item = GetItem(Index);
+		if (Item && Item->ActiveCooldown > 0.0f)
+		{
+			return Index;
+		}
+	}
+	return INDEX_NONE;
+}
+
 TArray<FString> MobaItems::DescribeStats(const FMobaItemDefinition& Item)
 {
 	TArray<FString> Lines;
@@ -250,6 +309,10 @@ TArray<FString> MobaItems::DescribeStats(const FMobaItemDefinition& Item)
 	Add(Item.MagicPenetration, TEXT("마법 관통"), TEXT(""));
 	Add(Item.HealthRegen, TEXT("체력 재생"), TEXT("/초"));
 	Add(Item.ManaRegen, TEXT("마나 재생"), TEXT("/초"));
+	if (Item.UniqueEffect != EMobaItemEffect::None)
+	{
+		Lines.Add(DescribeUniqueEffect(Item.UniqueEffect));
+	}
 	if (Item.bConsumable && Item.HealAmount > 0.0f)
 	{
 		Lines.Add(FString::Printf(TEXT("사용: %d초 동안 체력 %d 회복 (키 1, 최대 %d개)"), FMath::RoundToInt(Item.HealDuration), FMath::RoundToInt(Item.HealAmount), MaxPotions));

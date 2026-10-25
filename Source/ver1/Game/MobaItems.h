@@ -6,6 +6,21 @@
  * 상점에서 파는 아이템 하나. 사면 수치가 그대로 더해지고, 팔면 다시 빠진다.
  * 재료(Components)가 있는 아이템은 가진 재료만큼 싸게 살 수 있고, 사면 그 재료가 가방에서 사라진다.
  */
+/** 아이템 고유 효과. 같은 효과를 가진 아이템을 여러 개 가져도 한 번만 적용된다. */
+enum class EMobaItemEffect : uint8
+{
+	None,
+
+	/** 사용(키 5): 잠시 무적이 되지만 아무것도 할 수 없다. */
+	Stasis,
+
+	/** 챔피언의 기본 공격을 맞으면 공격한 챔피언에게 마법 피해를 되돌린다. */
+	Thorns,
+
+	/** 스킬을 쓴 뒤 다음 기본 공격이 추가 물리 피해를 준다. */
+	Spellblade
+};
+
 struct FMobaItemDefinition
 {
 	const TCHAR* Name = TEXT("");
@@ -43,6 +58,13 @@ struct FMobaItemDefinition
 	/** 초당 체력·마나 재생. */
 	float HealthRegen = 0.0f;
 	float ManaRegen = 0.0f;
+
+	/** 고유 효과와 그 골드 가치(가격 효율 계산에 더한다). */
+	EMobaItemEffect UniqueEffect = EMobaItemEffect::None;
+	float UniqueEffectGoldValue = 0.0f;
+
+	/** 사용 효과의 재사용 대기(초). 0이면 사용하는 아이템이 아니다. */
+	float ActiveCooldown = 0.0f;
 
 	/** 소모품은 가방 칸을 쓰지 않고 개수로 쌓인다(최대 MaxPotions). 키 1로 써서 HealAmount를 HealDuration초에 걸쳐 회복한다. */
 	bool bConsumable = false;
@@ -99,6 +121,15 @@ namespace MobaItems
 
 	/** 칸 수와 하나만 가질 수 있는 묶음 규칙상 살 수 있는지. 골드는 보지 않는다. */
 	VER1_API bool CanPurchase(int32 ItemIndex, const TArray<uint8>& Owned, const FMobaPurchasePlan& Plan);
+
+	/** 고유 효과 설명 한 줄. 효과가 없으면 빈 문자열. */
+	VER1_API FString DescribeUniqueEffect(EMobaItemEffect Effect);
+
+	/** Items 중 Effect를 가진 아이템이 있는지. */
+	VER1_API bool HasUniqueEffect(const TArray<uint8>& Items, EMobaItemEffect Effect);
+
+	/** Items 중 처음 나오는 사용 아이템의 번호. 없으면 INDEX_NONE. */
+	VER1_API int32 FindActiveItem(const TArray<uint8>& Items);
 
 	/** 아이템의 능력치를 "공격력 +20"처럼 한 줄씩 적은 목록. */
 	VER1_API TArray<FString> DescribeStats(const FMobaItemDefinition& Item);

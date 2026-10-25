@@ -208,6 +208,21 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerUsePotion();
 
+public:
+	/** 가방의 첫 사용 아이템을 쓴다(키 5). */
+	void UseActiveItem();
+
+	/** 서버 전용. 챔피언 Attacker의 기본 공격에 맞았을 때(가시). */
+	void HandleBasicAttackTaken(AActor* Attacker);
+
+protected:
+	UFUNCTION(Server, Reliable)
+	void ServerUseActiveItem();
+
+	/** 서버 전용. 마력 칼날이 준비된 다음 기본 공격인지와 다시 준비되는 시각. */
+	bool bSpellbladeArmed = false;
+	double SpellbladeReadyTime = 0.0;
+
 	UFUNCTION(Server, Reliable)
 	void ServerPlaceControlWard(FVector_NetQuantize Location);
 

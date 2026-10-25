@@ -159,7 +159,7 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s 가격"), Item.Name), Item.Cost > 0);
 		const bool bHasStat = Item.AttackDamage > 0.0f || Item.AbilityPower > 0.0f || Item.MaxHealth > 0.0f || Item.MaxMana > 0.0f
 			|| Item.Armor > 0.0f || Item.MagicResist > 0.0f || Item.MoveSpeed > 0.0f || Item.AttackSpeedFraction > 0.0f
-			|| Item.LifeSteal > 0.0f || Item.AbilityHaste > 0.0f || Item.CritChance > 0.0f || Item.ArmorPenetration > 0.0f || Item.MagicPenetration > 0.0f || Item.HealthRegen > 0.0f || Item.ManaRegen > 0.0f || (Item.bConsumable && Item.HealAmount > 0.0f && Item.HealDuration > 0.0f) || Item.bControlWard;
+			|| Item.LifeSteal > 0.0f || Item.AbilityHaste > 0.0f || Item.CritChance > 0.0f || Item.ArmorPenetration > 0.0f || Item.MagicPenetration > 0.0f || Item.HealthRegen > 0.0f || Item.ManaRegen > 0.0f || Item.UniqueEffect != EMobaItemEffect::None || (Item.bConsumable && Item.HealAmount > 0.0f && Item.HealDuration > 0.0f) || Item.bControlWard;
 		TestTrue(FString::Printf(TEXT("%s 능력치"), Item.Name), bHasStat);
 		BasicCount += Item.IsBasic() ? 1 : 0;
 
@@ -175,8 +175,8 @@ bool FMobaItemTableTest::RunTest(const FString& Parameters)
 		}
 		TestTrue(FString::Printf(TEXT("%s 조합 가격"), Item.Name), Item.IsBasic() || Item.Cost > ComponentCost);
 	}
-	// 기본 열(한 줄 30)과 완성 열(한 줄 36)이 720 높이 창에서 상점 창(머리 74 + 아래 30) 안에 들어간다.
-	TestTrue(TEXT("상점 높이가 720 창에 들어간다"), 74.0f + FMath::Max(30.0f * BasicCount, 36.0f * (Items.Num() - BasicCount)) + 30.0f <= 690.0f);
+	// 기본 열(한 줄 30)과 완성 열(한 줄 32)이 720 높이 창에서 상점 창(머리 74 + 아래 30) 안에 들어간다.
+	TestTrue(TEXT("상점 높이가 720 창에 들어간다"), 74.0f + FMath::Max(30.0f * BasicCount, 32.0f * (Items.Num() - BasicCount)) + 30.0f <= 690.0f);
 
 	// 소모품은 하나(체력 물약)이고 재료가 없으며 다른 아이템의 재료로 쓰이지 않는다.
 	const int32 Potion = MobaItems::GetPotionItemIndex();
@@ -437,6 +437,38 @@ bool FMobaPenetrationTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("0 아래로 내리지 않음"), UMobaDamageExecution::GetEffectiveResistance(8.0f, 10.0f), 0.0f);
 	TestEqual(TEXT("음수 저항은 그대로"), UMobaDamageExecution::GetEffectiveResistance(-10.0f, 10.0f), -10.0f);
 	TestEqual(TEXT("관통 없음"), UMobaDamageExecution::GetEffectiveResistance(30.0f, 0.0f), 30.0f);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaItemEffectTest, "Moba.Data.ItemEffects", MobaTestFlags)
+bool FMobaItemEffectTest::RunTest(const FString& Parameters)
+{
+	// 고유 효과는 종류마다 아이템 하나, 설명이 있고, 사용 아이템은 정지 하나다.
+	const TArray<FMobaItemDefinition>& Items = MobaItems::GetItems();
+	for (const EMobaItemEffect Effect : { EMobaItemEffect::Stasis, EMobaItemEffect::Thorns, EMobaItemEffect::Spellblade })
+	{
+		int32 Count = 0;
+		for (const FMobaItemDefinition& Item : Items)
+		{
+			Count += Item.UniqueEffect == Effect ? 1 : 0;
+		}
+		TestEqual(TEXT("효과마다 아이템 하나"), Count, 1);
+		TestFalse(TEXT("효과 설명"), MobaItems::DescribeUniqueEffect(Effect).IsEmpty());
+	}
+
+	TArray<uint8> Bag;
+	TestEqual(TEXT("빈 가방에는 사용 아이템 없음"), MobaItems::FindActiveItem(Bag), static_cast<int32>(INDEX_NONE));
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
+	{
+		if (Items[Index].UniqueEffect == EMobaItemEffect::Stasis)
+		{
+			Bag = { 0, static_cast<uint8>(Index) };
+			TestEqual(TEXT("모래시계가 사용 아이템"), MobaItems::FindActiveItem(Bag), Index);
+			TestTrue(TEXT("재사용 대기"), Items[Index].ActiveCooldown > 0.0f);
+		}
+	}
+	TestTrue(TEXT("가방에 정지 효과"), MobaItems::HasUniqueEffect(Bag, EMobaItemEffect::Stasis));
+	TestFalse(TEXT("가방에 가시 없음"), MobaItems::HasUniqueEffect(Bag, EMobaItemEffect::Thorns));
 	return true;
 }
 
