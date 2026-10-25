@@ -109,7 +109,7 @@ FString AMobaPlayerState::GetChampionDisplayName() const
 
 float AMobaPlayerState::GetExperienceForNextLevel(int32 Level)
 {
-	return 280.0f + 100.0f * FMath::Max(Level - 1, 0);
+	return 300.0f + 110.0f * FMath::Max(Level - 1, 0);
 }
 
 void AMobaPlayerState::AddExperience(float Amount)

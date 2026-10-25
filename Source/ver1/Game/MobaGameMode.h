@@ -128,6 +128,13 @@ public:
 	/** 해당 경기 시간에 새로 나오는 미니언이 받은 강화 횟수. */
 	int32 GetMinionUpgradeCount(float MatchTimeSeconds) const;
 
+	/** 밸런스 추정(MobaBalance)용. */
+	float GetPassiveGoldPerSecond() const { return PassiveGoldPerSecond; }
+	float GetMinionGoldPerUpgrade() const { return MinionGoldPerUpgrade; }
+	float GetFirstWaveDelay() const { return FirstWaveDelay; }
+	float GetWaveInterval() const { return WaveInterval; }
+	int32 GetMinionsPerType() const { return MinionsPerType; }
+
 protected:
 	/** 필요한 인원이 모였으면(로비를 쓰면 모두 준비되면) 경기를 시작한다. 미니언 웨이브와 골드 지급이 이때부터 돈다. */
 	void TryStartMatch();
@@ -273,13 +280,13 @@ protected:
 	float ExperienceShareRange = 1400.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
-	float ChampionKillGold = 300.0f;
+	float ChampionKillGold = 280.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
 	float ChampionKillExperience = 200.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
-	float PassiveGoldPerSecond = 2.0f;
+	float PassiveGoldPerSecond = 1.9f;
 
 	/**
 	 * 경기를 시작하는 데 필요한 인원. 접속 주소의 Players 옵션으로 덮어쓴다(예: ?listen?Players=2).
@@ -334,7 +341,7 @@ protected:
 	float BaronBonusAbilityPower = 40.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
-	float BaronTeamGold = 300.0f;
+	float BaronTeamGold = 250.0f;
 
 	/** 바위게를 잡으면 그 자리에 생기는 시야의 지속 시간(초). */
 	UPROPERTY(EditDefaultsOnly, Category = "Jungle")
@@ -363,17 +370,17 @@ protected:
 
 	/** 연속 처치 한 번마다 현상금에 더해지는 골드. 2연속부터 붙는다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
-	float KillStreakBountyStep = 150.0f;
+	float KillStreakBountyStep = 140.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
-	float MaxKillBounty = 1000.0f;
+	float MaxKillBounty = 900.0f;
 
 	/** 연속으로 죽을 때마다 현상금에서 빠지는 골드. 2연속부터 줄어든다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
-	float DeathStreakBountyStep = 50.0f;
+	float DeathStreakBountyStep = 45.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
-	float MinKillBounty = 100.0f;
+	float MinKillBounty = 110.0f;
 
 	/** 처치 직전 이 시간(초) 안에 피해를 준 아군은 어시스트를 받는다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
@@ -389,11 +396,11 @@ protected:
 
 	/** 경기의 첫 챔피언 처치에 더 주는 골드. */
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
-	float FirstBloodBonusGold = 100.0f;
+	float FirstBloodBonusGold = 90.0f;
 
 	/** 포탑 방패 하나를 깼을 때의 골드. */
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
-	float TowerPlateGold = 160.0f;
+	float TowerPlateGold = 150.0f;
 
 	/** 미니언이 방패를 깼을 때 골드를 나눠 받는 근처 상대 챔피언의 거리. */
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")

@@ -35,21 +35,21 @@ AMobaGameMode::AMobaGameMode()
 	ActiveLanes.Add(EMobaLane::Mid);
 	ActiveLanes.Add(EMobaLane::Bot);
 
-	MeleeMinion.Stats.MaxHealth = 477.0f;
+	MeleeMinion.Stats.MaxHealth = 450.0f;
 	MeleeMinion.Stats.MaxMana = 0.0f;
-	MeleeMinion.Stats.AttackDamage = 12.0f;
+	MeleeMinion.Stats.AttackDamage = 13.0f;
 	MeleeMinion.Stats.Armor = 0.0f;
 	MeleeMinion.Stats.MagicResist = 0.0f;
 	MeleeMinion.Stats.AttackSpeed = 1.25f;
 	MeleeMinion.Stats.MoveSpeed = 325.0f;
 	MeleeMinion.Stats.AttackRange = 110.0f;
 	MeleeMinion.bRanged = false;
-	MeleeMinion.GoldReward = 21.0f;
-	MeleeMinion.ExperienceReward = 60.0f;
+	MeleeMinion.GoldReward = 20.0f;
+	MeleeMinion.ExperienceReward = 55.0f;
 
-	CasterMinion.Stats.MaxHealth = 296.0f;
+	CasterMinion.Stats.MaxHealth = 290.0f;
 	CasterMinion.Stats.MaxMana = 0.0f;
-	CasterMinion.Stats.AttackDamage = 23.0f;
+	CasterMinion.Stats.AttackDamage = 22.0f;
 	CasterMinion.Stats.Armor = 0.0f;
 	CasterMinion.Stats.MagicResist = 0.0f;
 	CasterMinion.Stats.AttackSpeed = 0.67f;
@@ -57,8 +57,8 @@ AMobaGameMode::AMobaGameMode()
 	CasterMinion.Stats.AttackRange = 550.0f;
 	CasterMinion.bRanged = true;
 	CasterMinion.ProjectileSpeed = 1000.0f;
-	CasterMinion.GoldReward = 14.0f;
-	CasterMinion.ExperienceReward = 30.0f;
+	CasterMinion.GoldReward = 15.0f;
+	CasterMinion.ExperienceReward = 32.0f;
 
 	SuperMinion.Stats.MaxHealth = 1500.0f;
 	SuperMinion.Stats.MaxMana = 0.0f;
@@ -73,9 +73,9 @@ AMobaGameMode::AMobaGameMode()
 	SuperMinion.ExperienceReward = 95.0f;
 
 	// 대포 미니언: 체력이 많고 사거리가 중간인 원거리 유닛.
-	SiegeMinion.Stats.MaxHealth = 900.0f;
+	SiegeMinion.Stats.MaxHealth = 880.0f;
 	SiegeMinion.Stats.MaxMana = 0.0f;
-	SiegeMinion.Stats.AttackDamage = 40.0f;
+	SiegeMinion.Stats.AttackDamage = 42.0f;
 	SiegeMinion.Stats.Armor = 0.0f;
 	SiegeMinion.Stats.MagicResist = 0.0f;
 	SiegeMinion.Stats.AttackSpeed = 1.0f;
@@ -83,8 +83,8 @@ AMobaGameMode::AMobaGameMode()
 	SiegeMinion.Stats.AttackRange = 300.0f;
 	SiegeMinion.bRanged = true;
 	SiegeMinion.ProjectileSpeed = 1200.0f;
-	SiegeMinion.GoldReward = 60.0f;
-	SiegeMinion.ExperienceReward = 93.0f;
+	SiegeMinion.GoldReward = 55.0f;
+	SiegeMinion.ExperienceReward = 90.0f;
 
 	// 임시 아트: Epic 마네킹을 작게 줄여 쓴다. 근접은 Manny, 원거리는 Quinn, 슈퍼 미니언은 큰 Manny.
 	const TCHAR* AnimRoot = TEXT("/Game/Characters/Mannequins/Anims/");

@@ -10,6 +10,7 @@
 #include "Character/MobaChampionData.h"
 #include "Character/MobaPassive.h"
 #include "AbilitySystem/Abilities/MobaSummonerSpells.h"
+#include "Game/MobaBalance.h"
 #include "Game/MobaGameInstance.h"
 #include "Game/MobaGameMode.h"
 #include "Game/MobaItems.h"
@@ -39,13 +40,13 @@ bool FMobaKillBountyTest::RunTest(const FString& Parameters)
 {
 	const AMobaGameMode* Mode = GetDefault<AMobaGameMode>();
 
-	TestEqual(TEXT("기본 현상금"), Mode->CalculateKillBounty(0, 0), 300.0f);
-	TestEqual(TEXT("1연속 처치는 기본"), Mode->CalculateKillBounty(1, 0), 300.0f);
-	TestEqual(TEXT("3연속 처치 중인 상대"), Mode->CalculateKillBounty(3, 0), 600.0f);
-	TestEqual(TEXT("현상금 상한"), Mode->CalculateKillBounty(20, 0), 1000.0f);
-	TestEqual(TEXT("1연속 죽음은 기본"), Mode->CalculateKillBounty(0, 1), 300.0f);
-	TestEqual(TEXT("2연속 죽음"), Mode->CalculateKillBounty(0, 2), 250.0f);
-	TestEqual(TEXT("현상금 하한"), Mode->CalculateKillBounty(0, 50), 100.0f);
+	TestEqual(TEXT("기본 현상금"), Mode->CalculateKillBounty(0, 0), 280.0f);
+	TestEqual(TEXT("1연속 처치는 기본"), Mode->CalculateKillBounty(1, 0), 280.0f);
+	TestEqual(TEXT("3연속 처치 중인 상대"), Mode->CalculateKillBounty(3, 0), 560.0f);
+	TestEqual(TEXT("현상금 상한"), Mode->CalculateKillBounty(20, 0), 900.0f);
+	TestEqual(TEXT("1연속 죽음은 기본"), Mode->CalculateKillBounty(0, 1), 280.0f);
+	TestEqual(TEXT("2연속 죽음"), Mode->CalculateKillBounty(0, 2), 235.0f);
+	TestEqual(TEXT("현상금 하한"), Mode->CalculateKillBounty(0, 50), 110.0f);
 	return true;
 }
 
@@ -112,8 +113,8 @@ bool FMobaSiegeWaveTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaExperienceCurveTest, "Moba.Rules.ExperienceCurve", MobaTestFlags)
 bool FMobaExperienceCurveTest::RunTest(const FString& Parameters)
 {
-	TestEqual(TEXT("1→2레벨"), AMobaPlayerState::GetExperienceForNextLevel(1), 280.0f);
-	TestEqual(TEXT("2→3레벨"), AMobaPlayerState::GetExperienceForNextLevel(2), 380.0f);
+	TestEqual(TEXT("1→2레벨"), AMobaPlayerState::GetExperienceForNextLevel(1), 300.0f);
+	TestEqual(TEXT("2→3레벨"), AMobaPlayerState::GetExperienceForNextLevel(2), 410.0f);
 	for (int32 Level = 1; Level < AMobaPlayerState::MaxChampionLevel; ++Level)
 	{
 		TestTrue(FString::Printf(TEXT("%d레벨 필요 경험치가 늘어난다"), Level), AMobaPlayerState::GetExperienceForNextLevel(Level + 1) > AMobaPlayerState::GetExperienceForNextLevel(Level));
@@ -310,6 +311,65 @@ bool FMobaMultiKillTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaItemEfficiencyTest, "Moba.Balance.ItemEfficiency", MobaTestFlags)
+bool FMobaItemEfficiencyTest::RunTest(const FString& Parameters)
+{
+	// 기본은 가격만큼(95~105%), 조합할수록 약간 이득(2단계 100~120%, 3단계 100~115%).
+	const TArray<FMobaItemDefinition>& Items = MobaItems::GetItems();
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
+	{
+		const FMobaItemDefinition& Item = Items[Index];
+		if (Item.bConsumable)
+		{
+			continue;
+		}
+
+		const float Efficiency = MobaBalance::GetGoldEfficiency(Item);
+		const int32 Tier = MobaBalance::GetItemTier(Index);
+		const float Min = Tier == 1 ? 0.95f : 1.0f;
+		const float Max = Tier == 1 ? 1.05f : (Tier == 2 ? 1.2f : 1.15f);
+		TestTrue(FString::Printf(TEXT("%s 효율 %.0f%% (%d단계, %.0f~%.0f%%)"), Item.Name, Efficiency * 100.0f, Tier, Min * 100.0f, Max * 100.0f), Efficiency >= Min && Efficiency <= Max);
+		TestTrue(FString::Printf(TEXT("%s 3단계까지"), Item.Name), Tier >= 1 && Tier <= 3);
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaEconomyCurveTest, "Moba.Balance.EconomyCurve", MobaTestFlags)
+bool FMobaEconomyCurveTest::RunTest(const FString& Parameters)
+{
+	// 라인을 혼자 맡아 미니언 60%를 막타 쳤을 때(처치·포탑·정글 제외)의 목표 범위. 근거는 Docs/BALANCE.md.
+	const AMobaGameMode* Mode = GetDefault<AMobaGameMode>();
+	const auto At = [Mode](float Minutes) { return MobaBalance::EstimateLane(*Mode, Minutes * 60.0f, 0.6f); };
+
+	const MobaBalance::FLaneEstimate Early = At(4.0f);
+	const MobaBalance::FLaneEstimate Six = At(6.0f);
+	const MobaBalance::FLaneEstimate Mid = At(15.0f);
+	const MobaBalance::FLaneEstimate Late = At(30.0f);
+
+	TestTrue(FString::Printf(TEXT("4분에는 6레벨 전 (%d)"), Early.Level), Early.Level < 6);
+	TestTrue(FString::Printf(TEXT("6분에는 6레벨 이상 (%d)"), Six.Level), Six.Level >= 6 && Six.Level <= 7);
+	TestTrue(FString::Printf(TEXT("15분 골드 4000~5200 (%.0f)"), Mid.Gold), Mid.Gold >= 4000.0f && Mid.Gold <= 5200.0f);
+	TestTrue(FString::Printf(TEXT("15분 레벨 10~12 (%d)"), Mid.Level), Mid.Level >= 10 && Mid.Level <= 12);
+	TestTrue(FString::Printf(TEXT("30분 골드 8500~11000 (%.0f)"), Late.Gold), Late.Gold >= 8500.0f && Late.Gold <= 11000.0f);
+	TestTrue(FString::Printf(TEXT("30분 레벨 16~18 (%d)"), Late.Level), Late.Level >= 16 && Late.Level <= 18);
+	TestTrue(TEXT("25분 전에는 18레벨이 아니다"), At(25.0f).Level < 18);
+
+	// 가장 비싼 완성 아이템 세 개(약 8200G)는 막타만으로 20분에는 못 사고 35분에는 산다.
+	TArray<int32> Costs;
+	for (const FMobaItemDefinition& Item : MobaItems::GetItems())
+	{
+		if (!Item.bConsumable)
+		{
+			Costs.Add(Item.Cost);
+		}
+	}
+	Costs.Sort(TGreater<int32>());
+	const int32 ThreeCore = Costs.Num() >= 3 ? Costs[0] + Costs[1] + Costs[2] : 0;
+	TestTrue(FString::Printf(TEXT("20분 %.0f < 완성 세 개 %d"), At(20.0f).Gold, ThreeCore), At(20.0f).Gold < ThreeCore);
+	TestTrue(FString::Printf(TEXT("35분 %.0f >= 완성 세 개 %d"), At(35.0f).Gold, ThreeCore), At(35.0f).Gold >= ThreeCore);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaSpellsOptionTest, "Moba.Rules.SpellsOption", MobaTestFlags)
 bool FMobaSpellsOptionTest::RunTest(const FString& Parameters)
 {
@@ -364,27 +424,28 @@ bool FMobaItemRecipeTest::RunTest(const FString& Parameters)
 	const int32 Berserker = FindItem(TEXT("광전사의 군화"));
 	const int32 DoomBlade = FindItem(TEXT("파멸의 대검"));
 	const int32 Bulwark = FindItem(TEXT("수호 군주의 갑주"));
+	const auto Cost = [](int32 Index) { return MobaItems::GetItem(Index)->Cost; };
 
 	// 재료 없음: 총 가격.
 	FMobaPurchasePlan Plan = MobaItems::PlanPurchase(BattleAxe, {});
-	TestEqual(TEXT("재료 없이 전투 도끼"), Plan.Cost, 1100);
+	TestEqual(TEXT("재료 없이 전투 도끼"), Plan.Cost, Cost(BattleAxe));
 	TestEqual(TEXT("쓰이는 재료 없음"), Plan.ConsumedSlots.Num(), 0);
 
 	// 재료 둘을 가지면 조합 비용만. 쓰이는 칸은 큰 번호부터.
 	Plan = MobaItems::PlanPurchase(BattleAxe, { Dagger, LongSword, Ruby });
-	TestEqual(TEXT("긴 검·붉은 수정을 가진 전투 도끼"), Plan.Cost, 1100 - 350 - 400);
+	TestEqual(TEXT("긴 검·붉은 수정을 가진 전투 도끼"), Plan.Cost, Cost(BattleAxe) - Cost(LongSword) - Cost(Ruby));
 	TestEqual(TEXT("두 칸이 쓰인다"), Plan.ConsumedSlots, TArray<int32>({ 2, 1 }));
 
 	// 같은 재료가 두 번 필요하면 두 개 다 쓴다.
 	Plan = MobaItems::PlanPurchase(DoomBlade, { LongSword, BigSword, LongSword });
-	TestEqual(TEXT("파멸의 대검"), Plan.Cost, 3000 - 1300 - 350 - 350);
+	TestEqual(TEXT("파멸의 대검"), Plan.Cost, Cost(DoomBlade) - Cost(BigSword) - 2 * Cost(LongSword));
 	TestEqual(TEXT("세 칸"), Plan.ConsumedSlots.Num(), 3);
 	Plan = MobaItems::PlanPurchase(DoomBlade, { LongSword });
-	TestEqual(TEXT("긴 검 하나만"), Plan.Cost, 3000 - 350);
+	TestEqual(TEXT("긴 검 하나만"), Plan.Cost, Cost(DoomBlade) - Cost(LongSword));
 
 	// 중간 재료가 없으면 그 재료의 재료로 깎는다.
 	Plan = MobaItems::PlanPurchase(Bulwark, { Cloth, Ruby });
-	TestEqual(TEXT("수호 군주의 갑주: 천 갑옷·붉은 수정"), Plan.Cost, 2900 - 300 - 400);
+	TestEqual(TEXT("수호 군주의 갑주: 천 갑옷·붉은 수정"), Plan.Cost, Cost(Bulwark) - Cost(Cloth) - Cost(Ruby));
 
 	// 칸 수: 가득 찬 가방도 재료가 빠지면 살 수 있다.
 	const TArray<uint8> Full = { LongSword, Ruby, Cloth, Cloth, Cloth, Cloth };
