@@ -38,6 +38,7 @@ public:
 
 	/** 로비에서 고르는 소환사 주문(D·F 칸)인지. */
 	bool IsSummonerSpell() const { return bSummonerSpell; }
+	bool IsUsableWhileCrowdControlled() const { return bUsableWhileCrowdControlled; }
 
 	/** 현재 CurrentLevel단계인 이 스킬을 챔피언 레벨 ChampionLevel에서 한 단계 올릴 수 있는지. */
 	bool CanLevelUp(int32 CurrentLevel, int32 ChampionLevel) const;
@@ -99,6 +100,10 @@ protected:
 	/** 소환사 주문은 1단계로 주어지고 스킬 포인트로 올릴 수 없다. 패시브의 "스킬을 쓰면" 효과도 일으키지 않는다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Skill")
 	bool bSummonerSpell = false;
+
+	/** 기절·에어본·침묵·속박 중에도 쓸 수 있다(군중 제어를 푸는 스킬). 생성자에서 켜면 기절 차단 태그도 뺀다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Skill")
+	bool bUsableWhileCrowdControlled = false;
 
 private:
 	/** GetCooldownTags가 돌려줄 태그를 담아 두는 곳. */

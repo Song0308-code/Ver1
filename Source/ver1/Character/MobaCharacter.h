@@ -56,7 +56,10 @@ public:
 	bool IsRooted() const;
 
 	/** 지금 움직일 수 있는지(행동 가능하고 속박되지 않음). */
-	bool CanMove() const { return CanAct() && !IsRooted(); }
+	bool CanMove() const { return CanAct() && !IsRooted() && !IsDisplaced(); }
+
+	/** 끌려가거나 밀려나거나 돌진하는 중인지. */
+	bool IsDisplaced() const;
 
 	/** 서버 전용. 체력과 마나를 채우고 지정한 위치에서 되살린다. */
 	void Respawn(const FVector& Location, const FRotator& Rotation);
@@ -113,6 +116,9 @@ public:
 
 	/** 서버 전용. Duration초 안에 쏘는 다음 기본 공격 한 번에 Bonus를 더한다. */
 	void SetEmpoweredAttack(const FMobaAttackBonus& Bonus, float Duration);
+
+	/** 서버 전용. 스킬이 Target에게 군중 제어를 걸었을 때 부른다. 적 챔피언이면 패시브에 알린다. */
+	void NotifyCrowdControlApplied(AActor* Target);
 
 	/** 이 챔피언의 패시브 정의(클래스 기본값). 이름·설명을 화면에 보여 줄 때 쓴다. 없으면 nullptr. */
 	const UMobaPassive* GetPassiveDefaults() const;

@@ -376,6 +376,7 @@ bool FMobaChampionStatRangeTest::RunTest(const FString& Parameters)
 	// 10단계에서 만드는 챔피언과 역할. 새 챔피언을 만들면 여기에 넣는다.
 	const TArray<TPair<FString, MobaBalance::FChampionRoleRange>> Champions = {
 		{ TEXT("DA_Champion_Tin"), MobaBalance::GetTankSupportRange() },
+		{ TEXT("DA_Champion_Cow"), MobaBalance::GetTankSupportRange() },
 	};
 
 	for (const TPair<FString, MobaBalance::FChampionRoleRange>& Entry : Champions)

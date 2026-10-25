@@ -214,6 +214,12 @@ bool AMobaCharacter::IsRooted() const
 	return AbilitySystem && AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Rooted);
 }
 
+bool AMobaCharacter::IsDisplaced() const
+{
+	const UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	return AbilitySystem && AbilitySystem->HasMatchingGameplayTag(MobaTags::State_Displaced);
+}
+
 bool AMobaCharacter::IsStunned() const
 {
 	const UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
@@ -282,6 +288,7 @@ void AMobaCharacter::InitAbilitySystem()
 	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Dead, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaCharacter::HandleDeadTagChanged);
 	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Stunned, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaCharacter::HandleStunnedTagChanged);
 	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Rooted, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaCharacter::HandleStunnedTagChanged);
+	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Displaced, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMobaCharacter::HandleStunnedTagChanged);
 	AttributeSet->OnMoveSpeedChanged.AddUObject(this, &AMobaCharacter::HandleMoveSpeedChanged);
 
 	if (HasAuthority())
@@ -473,7 +480,8 @@ void AMobaCharacter::ClientTeleport_Implementation(const FVector& Location, cons
 
 void AMobaCharacter::CastAbility(EMobaAbilitySlot Slot, const FVector& TargetLocation)
 {
-	if (!CanAct())
+	const UMobaGameplayAbility* SlotAbility = GetAbilityInSlot(Slot);
+	if (IsDead() || (!CanAct() && !(SlotAbility && SlotAbility->IsUsableWhileCrowdControlled())))
 	{
 		return;
 	}
@@ -1302,6 +1310,15 @@ FMobaAttackBonus AMobaCharacter::ApplyPassiveOnBasicAttack(AActor* Target)
 		EmpoweredAttackExpireTime = 0.0;
 	}
 	return Bonus;
+}
+
+void AMobaCharacter::NotifyCrowdControlApplied(AActor* Target)
+{
+	const AMobaCharacter* Victim = Cast<AMobaCharacter>(Target);
+	if (PassiveInstance && Victim && Victim->GetTeam() != GetTeam() && !Victim->IsDead())
+	{
+		PassiveInstance->OnCrowdControlApplied(Target);
+	}
 }
 
 void AMobaCharacter::SetEmpoweredAttack(const FMobaAttackBonus& Bonus, float Duration)

@@ -240,3 +240,29 @@ void UMobaPassive_ManaBarrier::OnRespawned()
 {
 	Tick(0.0f);
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 젖소
+
+UMobaPassive_Rumination::UMobaPassive_Rumination()
+{
+	DisplayName = NSLOCTEXT("Moba", "RuminationName", "되새김");
+	Description = NSLOCTEXT("Moba", "RuminationDesc", "스킬로 적 챔피언을 띄우거나 밀치면 주변 아군 챔피언(자신 포함)이 체력 20(+젖소 최대 체력의 2%)을 회복합니다. 2초에 한 번.");
+}
+
+void UMobaPassive_Rumination::OnCrowdControlApplied(AActor* Target)
+{
+	if (!Owner || Owner->IsDead() || Owner->GetWorld()->GetTimeSeconds() < ReadyTime)
+	{
+		return;
+	}
+	ReadyTime = Owner->GetWorld()->GetTimeSeconds() + InternalCooldown;
+
+	const float Heal = BaseHeal + GetAttribute(Owner, UMobaAttributeSet::GetMaxHealthAttribute()) * MaxHealthRatio;
+	TArray<AMobaCharacter*> Allies;
+	MobaAbility::FindAlliedChampionsInRadius(Owner, Owner->GetActorLocation(), Radius, Allies);
+	for (AMobaCharacter* Ally : Allies)
+	{
+		MobaAbility::HealTarget(Ally, Heal);
+	}
+}

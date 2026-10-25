@@ -51,6 +51,9 @@ public:
 	/** 부활했을 때. */
 	virtual void OnRespawned() {}
 
+	/** 이 챔피언의 스킬이 적 챔피언에게 군중 제어를 걸었을 때. */
+	virtual void OnCrowdControlApplied(AActor* Target) {}
+
 protected:
 	/** 챔피언의 중첩 표시를 바꾼다. */
 	void SetStacks(int32 Stacks) const;
@@ -206,6 +209,35 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Passive")
 	float Cooldown = 90.0f;
+
+	double ReadyTime = 0.0;
+};
+
+/** 젖소: 스킬로 적 챔피언에게 군중 제어를 걸면 주변 아군 챔피언(자신 포함)을 회복한다. */
+UCLASS()
+class VER1_API UMobaPassive_Rumination : public UMobaPassive
+{
+	GENERATED_BODY()
+
+public:
+	UMobaPassive_Rumination();
+
+	virtual void OnCrowdControlApplied(AActor* Target) override;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float Radius = 700.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float BaseHeal = 20.0f;
+
+	/** 젖소 최대 체력에 곱해 더하는 회복량. */
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float MaxHealthRatio = 0.02f;
+
+	/** 다시 발동하기까지의 최소 간격(초). */
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float InternalCooldown = 2.0f;
 
 	double ReadyTime = 0.0;
 };

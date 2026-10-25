@@ -86,6 +86,10 @@ void UMobaAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 		{
 			Damage = Data.EffectSpec.GetDynamicAssetTags().HasTagExact(MobaTags::Damage_BasicAttack) && Damage > 0.0f ? 1.0f : 0.0f;
 		}
+		else if (GetOwningAbilitySystemComponentChecked()->HasMatchingGameplayTag(MobaTags::Buff_Unbreakable))
+		{
+			Damage *= UnbreakableDamageTaken;
+		}
 		SetIncomingDamage(0.0f);
 
 		if (Damage > 0.0f && GetHealth() > 0.0f)

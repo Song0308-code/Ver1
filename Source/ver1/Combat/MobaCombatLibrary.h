@@ -40,6 +40,7 @@ namespace MobaCombat
 	/**
 	 * 서버 전용. 대상을 Duration초 동안 Destination까지 일정한 속도로 옮긴다(끌어오기·밀치기).
 	 * 챔피언은 조종하는 PC에도 위치를 맞춰 준다. 그동안 대상이 움직이지 못하게 하는 상태 이상은 호출한 쪽이 건다.
+	 * bStopAtWalls면 걸을 수 없는 곳(벽) 앞에서 멈춘다(밀치기). 끌어오기·돌진은 벽을 넘는다.
 	 */
-	VER1_API void ForceMove(AActor* Target, const FVector& Destination, float Duration);
+	VER1_API void ForceMove(AActor* Target, const FVector& Destination, float Duration, bool bStopAtWalls = false);
 }

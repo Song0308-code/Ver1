@@ -11,6 +11,7 @@
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "EngineUtils.h"
+#include "NavigationSystem.h"
 #include "Vision/MobaWard.h"
 
 UAbilitySystemComponent* MobaCombat::GetAbilitySystem(const AActor* Actor)
@@ -139,7 +140,7 @@ void MobaCombat::BindUnitMovement(ACharacter* Unit, UAbilitySystemComponent* Abi
 	AbilitySystem->RegisterGameplayTagEvent(MobaTags::State_Rooted, EGameplayTagEventType::NewOrRemoved).AddWeakLambda(Unit, UpdateLock);
 }
 
-void MobaCombat::ForceMove(AActor* Target, const FVector& Destination, float Duration)
+void MobaCombat::ForceMove(AActor* Target, const FVector& Destination, float Duration, bool bStopAtWalls)
 {
 	UWorld* World = Target ? Target->GetWorld() : nullptr;
 	if (!World || !Target->HasAuthority())
@@ -161,6 +162,14 @@ void MobaCombat::ForceMove(AActor* Target, const FVector& Destination, float Dur
 	Move->Target = Target;
 	Move->Start = Target->GetActorLocation();
 	Move->End = FVector(Destination.X, Destination.Y, Move->Start.Z);
+
+	// 걸을 수 없는 곳(벽)에 막히면 그 앞에서 멈춘다.
+	FVector NavHit;
+	if (bStopAtWalls && UNavigationSystemV1::NavigationRaycast(World, Move->Start, Move->End, NavHit))
+	{
+		const FVector Back = (Move->Start - Move->End).GetSafeNormal2D() * 40.0f;
+		Move->End = FVector(NavHit.X + Back.X, NavHit.Y + Back.Y, Move->Start.Z);
+	}
 	Move->StartTime = World->GetTimeSeconds();
 	Move->Duration = FMath::Max(Duration, 0.01f);
 
@@ -169,13 +178,29 @@ void MobaCombat::ForceMove(AActor* Target, const FVector& Destination, float Dur
 		Character->GetCharacterMovement()->StopMovementImmediately();
 	}
 
+	// 챔피언은 이동하는 동안 스스로 걷지 못하게 막는다(조종하는 PC의 이동이 위치를 되돌리지 않도록).
+	UAbilitySystemComponent* TargetAbilitySystem = Cast<AMobaCharacter>(Target) ? GetAbilitySystem(Target) : nullptr;
+	if (TargetAbilitySystem)
+	{
+		TargetAbilitySystem->AddLooseGameplayTag(MobaTags::State_Displaced, 1, EGameplayTagReplicationState::TagOnly);
+	}
+	const TWeakObjectPtr<UAbilitySystemComponent> WeakAbilitySystem = TargetAbilitySystem;
+	const auto Finish = [WeakAbilitySystem]()
+	{
+		if (UAbilitySystemComponent* AbilitySystem = WeakAbilitySystem.Get())
+		{
+			AbilitySystem->RemoveLooseGameplayTag(MobaTags::State_Displaced, 1, EGameplayTagReplicationState::TagOnly);
+		}
+	};
+
 	// 0.03초마다 위치를 옮긴다. 챔피언은 TeleportChampion으로 조종하는 PC의 위치도 맞춘다.
-	World->GetTimerManager().SetTimer(Move->Timer, FTimerDelegate::CreateLambda([Move, World]()
+	World->GetTimerManager().SetTimer(Move->Timer, FTimerDelegate::CreateLambda([Move, World, Finish]()
 	{
 		AActor* Actor = Move->Target.Get();
 		const float Alpha = FMath::Clamp(static_cast<float>((World->GetTimeSeconds() - Move->StartTime) / Move->Duration), 0.0f, 1.0f);
 		if (!Actor || IsDead(Actor))
 		{
+			Finish();
 			World->GetTimerManager().ClearTimer(Move->Timer);
 			return;
 		}
@@ -192,6 +217,7 @@ void MobaCombat::ForceMove(AActor* Target, const FVector& Destination, float Dur
 
 		if (Alpha >= 1.0f)
 		{
+			Finish();
 			World->GetTimerManager().ClearTimer(Move->Timer);
 		}
 	}), 0.03f, true);

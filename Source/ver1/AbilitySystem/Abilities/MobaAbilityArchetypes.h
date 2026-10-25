@@ -562,3 +562,101 @@ class VER1_API UMobaAbility_TinDischarge : public UMobaAbility_GroundAoE
 public:
 	UMobaAbility_TinDischarge();
 };
+
+/** 젖소 Q. 주변 땅을 내리쳐 적에게 마법 피해를 주고 띄운다. */
+UCLASS()
+class VER1_API UMobaAbility_CowSlam : public UMobaAbility_GroundAoE
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_CowSlam();
+
+protected:
+	virtual void OnDetonated(AMobaCharacter* Caster, const FVector& Location) override;
+};
+
+/** 젖소 W. 커서 근처의 적에게 달려가 들이받아 반대쪽으로 밀어낸다. */
+UCLASS()
+class VER1_API UMobaAbility_CowCharge : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_CowCharge();
+
+	virtual float GetIndicatorRadius() const override { return TargetPickRadius; }
+
+protected:
+	virtual bool ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const override;
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Target")
+	float TargetPickRadius = 250.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Charge")
+	float DashDuration = 0.2f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Charge")
+	float KnockbackDistance = 450.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Charge")
+	float KnockbackDuration = 0.4f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 55.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 40.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AbilityPowerRatio = 0.7f;
+
+	mutable TWeakObjectPtr<AActor> PendingTarget;
+};
+
+/** 젖소 E. 주변 아군 챔피언(자신 포함)에게 보호막을 준다. */
+UCLASS()
+class VER1_API UMobaAbility_CowBellow : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_CowBellow();
+
+	virtual float GetIndicatorRadius() const override { return Radius; }
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shield")
+	float Radius = 600.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shield")
+	float BaseShield = 70.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shield")
+	float ShieldPerLevel = 35.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shield")
+	float AbilityPowerRatio = 0.4f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shield")
+	float ShieldDuration = 2.5f;
+};
+
+/** 젖소 R. 걸린 군중 제어를 풀고 한동안 받는 피해가 크게 줄어든다. */
+UCLASS()
+class VER1_API UMobaAbility_CowUnbreakable : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_CowUnbreakable();
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Buff")
+	float Duration = 6.0f;
+};

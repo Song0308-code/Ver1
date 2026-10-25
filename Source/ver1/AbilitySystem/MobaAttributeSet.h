@@ -81,6 +81,9 @@ class VER1_API UMobaAttributeSet : public UAttributeSet
 	GENERATED_BODY()
 
 public:
+	/** 불굴(Buff_Unbreakable) 상태에서 받는 피해 배율. */
+	static constexpr float UnbreakableDamageTaken = 0.5f;
+
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;

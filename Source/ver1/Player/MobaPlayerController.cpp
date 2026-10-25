@@ -1127,7 +1127,7 @@ void AMobaPlayerController::HandleAbilityKey(EMobaAbilitySlot Slot)
 	}
 
 	const UMobaGameplayAbility* Ability = MobaCharacter->GetAbilityInSlot(Slot);
-	if (!Ability || !MobaCharacter->CanAct())
+	if (!Ability || MobaCharacter->IsDead() || (!MobaCharacter->CanAct() && !Ability->IsUsableWhileCrowdControlled()))
 	{
 		return;
 	}

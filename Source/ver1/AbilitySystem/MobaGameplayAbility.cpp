@@ -127,7 +127,7 @@ void UMobaGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 
 bool UMobaGameplayAbility::IsBlockedByCrowdControl(const UAbilitySystemComponent* AbilitySystem) const
 {
-	if (!AbilitySystem)
+	if (!AbilitySystem || bUsableWhileCrowdControlled)
 	{
 		return false;
 	}

@@ -790,3 +790,151 @@ UMobaAbility_TinDischarge::UMobaAbility_TinDischarge()
 	StunDuration = 0.0f;
 	SilenceDuration = 0.5f;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 젖소
+
+UMobaAbility_CowSlam::UMobaAbility_CowSlam()
+{
+	DisplayName = NSLOCTEXT("Moba", "CowSlamName", "지면 충격");
+	Description = NSLOCTEXT("Moba", "CowSlamDesc", "주변 땅을 내리쳐 적에게 마법 피해를 주고 0.75초 동안 띄웁니다.");
+	TargetingMode = EMobaTargetingMode::None;
+	CastRange = 0.0f;
+	ManaCost = 70.0f;
+	CooldownDuration = 14.0f;
+	bUltimate = false;
+
+	Radius = 350.0f;
+	Delay = 0.0f;
+	BaseDamage = 70.0f;
+	DamagePerLevel = 40.0f;
+	AbilityPowerRatio = 0.6f;
+	StunDuration = 0.0f;
+	AirborneDuration = 0.75f;
+}
+
+void UMobaAbility_CowSlam::OnDetonated(AMobaCharacter* Caster, const FVector& Location)
+{
+	TArray<AActor*> Enemies;
+	MobaAbility::FindEnemiesInRadius(Caster, Location, Radius, Enemies);
+	for (AActor* Enemy : Enemies)
+	{
+		Caster->NotifyCrowdControlApplied(Enemy);
+	}
+}
+
+UMobaAbility_CowCharge::UMobaAbility_CowCharge()
+{
+	DisplayName = NSLOCTEXT("Moba", "CowChargeName", "돌진 밀치기");
+	Description = NSLOCTEXT("Moba", "CowChargeDesc", "커서 근처의 적에게 달려가 들이받아 마법 피해를 주고 반대쪽으로 450만큼 밀어냅니다. 밀려나는 동안 대상은 아무것도 할 수 없습니다.");
+	TargetingMode = EMobaTargetingMode::Location;
+	CastRange = 650.0f;
+	ManaCost = 60.0f;
+	CooldownDuration = 12.0f;
+	bMovementAbility = true;
+}
+
+bool UMobaAbility_CowCharge::ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const
+{
+	PendingTarget = MobaAbility::PickEnemyNearCursor(Caster, InOutTargetLocation, TargetPickRadius, CastRange, [](const AActor*) { return true; });
+	if (!PendingTarget.IsValid())
+	{
+		return false;
+	}
+	InOutTargetLocation = PendingTarget->GetActorLocation();
+	return true;
+}
+
+void UMobaAbility_CowCharge::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	AActor* Target = PendingTarget.Get();
+	PendingTarget.Reset();
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	if (!Target || !AbilitySystem)
+	{
+		FinishCast();
+		return;
+	}
+
+	// 대상 바로 앞까지 달려간 뒤 들이받는다.
+	const FVector Direction = (Target->GetActorLocation() - Caster->GetActorLocation()).GetSafeNormal2D();
+	MobaCombat::ForceMove(Caster, Target->GetActorLocation() - Direction * 110.0f, DashDuration);
+
+	const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAbilityPower(AbilitySystem) * AbilityPowerRatio;
+	const TWeakObjectPtr<AActor> WeakTarget = Target;
+	const TWeakObjectPtr<UAbilitySystemComponent> WeakAbilitySystem = AbilitySystem;
+	const float Distance = KnockbackDistance;
+	const float PushDuration = KnockbackDuration;
+	FTimerHandle Handle;
+	GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(Caster, [Caster, WeakTarget, WeakAbilitySystem, Damage, Distance, PushDuration]()
+	{
+		AActor* Victim = WeakTarget.Get();
+		UAbilitySystemComponent* Source = WeakAbilitySystem.Get();
+		if (!Victim || !Source || Caster->IsDead() || MobaCombat::IsDead(Victim))
+		{
+			return;
+		}
+
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(Source, Caster, 0.0f, Damage, 0.0f), Victim);
+		if (MobaCombat::IsDead(Victim))
+		{
+			return;
+		}
+
+		const FVector PushDirection = (Victim->GetActorLocation() - Caster->GetActorLocation()).GetSafeNormal2D();
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(Source, Caster, PushDuration, MobaTags::State_Airborne), Victim);
+		MobaCombat::ForceMove(Victim, Victim->GetActorLocation() + PushDirection * Distance, PushDuration, true);
+		Caster->NotifyCrowdControlApplied(Victim);
+	}), DashDuration, false);
+
+	FinishCast();
+}
+
+UMobaAbility_CowBellow::UMobaAbility_CowBellow()
+{
+	DisplayName = NSLOCTEXT("Moba", "CowBellowName", "함성");
+	Description = NSLOCTEXT("Moba", "CowBellowDesc", "주변 아군 챔피언(자신 포함)에게 2.5초 동안 피해를 흡수하는 보호막을 줍니다.");
+	TargetingMode = EMobaTargetingMode::None;
+	ManaCost = 60.0f;
+	CooldownDuration = 14.0f;
+}
+
+void UMobaAbility_CowBellow::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	const float Shield = ScaleByLevel(BaseShield, ShieldPerLevel) + GetAbilityPower(GetAbilitySystemComponentFromActorInfo()) * AbilityPowerRatio;
+	TArray<AMobaCharacter*> Allies;
+	MobaAbility::FindAlliedChampionsInRadius(Caster, Caster->GetActorLocation(), Radius, Allies);
+	for (AMobaCharacter* Ally : Allies)
+	{
+		Ally->AddShield(Shield, ShieldDuration);
+	}
+	FinishCast();
+}
+
+UMobaAbility_CowUnbreakable::UMobaAbility_CowUnbreakable()
+{
+	DisplayName = NSLOCTEXT("Moba", "CowUnbreakableName", "불굴");
+	Description = NSLOCTEXT("Moba", "CowUnbreakableDesc", "걸린 기절·에어본·속박·침묵·둔화를 풀고 6초 동안 받는 피해가 50% 줄어듭니다.");
+	TargetingMode = EMobaTargetingMode::None;
+	ManaCost = 100.0f;
+	CooldownDuration = 100.0f;
+	bUltimate = true;
+	bUsableWhileCrowdControlled = true;
+	ActivationBlockedTags.RemoveTag(MobaTags::State_Stunned);
+}
+
+void UMobaAbility_CowUnbreakable::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+
+	FGameplayTagContainer CrowdControl;
+	CrowdControl.AddTag(MobaTags::State_Stunned);
+	CrowdControl.AddTag(MobaTags::State_Rooted);
+	CrowdControl.AddTag(MobaTags::State_Silenced);
+	CrowdControl.AddTag(MobaTags::State_Slowed);
+	CrowdControl.AddTag(MobaTags::State_Airborne);
+	AbilitySystem->RemoveActiveEffectsWithGrantedTags(CrowdControl);
+
+	MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatBuffSpec(AbilitySystem, Caster, Duration, FMobaStatBonus(), FGameplayTagContainer(MobaTags::Buff_Unbreakable)), Caster);
+	FinishCast();
+}

@@ -26,6 +26,9 @@ namespace MobaTags
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Invulnerable);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Recalling);
 
+	/** 끌려가거나 밀려나거나 돌진하는 중(MobaCombat::ForceMove). 그동안 스스로 걷지 못한다. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Displaced);
+
 	/** 정글 보상으로 받는 버프. 효과는 태그를 보고 각 시스템이 적용한다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Blue);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Red);
@@ -44,6 +47,9 @@ namespace MobaTags
 	/** 장로 드래곤 처치 보상. 적 챔피언을 체력 20% 아래로 깎으면 바로 처치한다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Elder);
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Baron);
+
+	/** 받는 피해가 줄어든 상태(젖소 R). 줄어드는 비율은 UMobaAttributeSet::UnbreakableDamageTaken. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Unbreakable);
 
 	/** 바론 버프를 가진 아군 챔피언 근처에서 강해진 미니언. 1초짜리로 계속 갱신된다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_BaronAura);
