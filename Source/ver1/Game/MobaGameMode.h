@@ -379,6 +379,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
 	float AssistWindow = 10.0f;
 
+	/** 이 시간(초) 안에 다음 챔피언을 잡으면 멀티킬(더블킬, 트리플킬…)로 이어진다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
+	float MultiKillWindow = 10.0f;
+
 	/** 어시스트한 아군들이 나눠 받는 골드(현상금 대비 비율). */
 	UPROPERTY(EditDefaultsOnly, Category = "Rewards")
 	float AssistGoldFraction = 0.5f;

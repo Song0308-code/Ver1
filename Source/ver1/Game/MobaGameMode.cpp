@@ -1329,9 +1329,37 @@ void AMobaGameMode::HandleChampionKilled(AMobaCharacter* Victim, AActor* Killer)
 		Announce(FString::Printf(TEXT("선취점! %s (+%dG)"), *DescribeUnit(KillerPawn), FMath::RoundToInt(FirstBloodBonusGold)), KillerState->GetTeam());
 	}
 
+	if (KillerState)
+	{
+		const int32 MultiKill = KillerState->RegisterMultiKill(GetWorld()->GetTimeSeconds(), MultiKillWindow);
+		if (MultiKill >= 2)
+		{
+			Announce(FString::Printf(TEXT("%s %s!"), *DescribeUnit(KillerPawn), *MobaScore::GetMultiKillName(MultiKill)), KillerState->GetTeam());
+		}
+	}
+
 	if (KillerState && KillerState->GetKillStreak() >= 3)
 	{
 		Announce(FString::Printf(TEXT("%s %d연속 처치!"), *DescribeUnit(KillerPawn), KillerState->GetKillStreak()), KillerState->GetTeam());
+	}
+
+	// 상대 팀(2명 이상)이 모두 죽어 있으면 에이스.
+	if (KillerState)
+	{
+		int32 Members = 0;
+		bool bAllDead = true;
+		for (TActorIterator<AMobaCharacter> It(GetWorld()); It; ++It)
+		{
+			if (It->GetTeam() == Victim->GetTeam())
+			{
+				++Members;
+				bAllDead &= (*It == Victim || It->IsDead());
+			}
+		}
+		if (Members >= 2 && bAllDead)
+		{
+			Announce(FString::Printf(TEXT("에이스! %s 팀 전멸"), *MobaTeam::GetTeamDisplayName(Victim->GetTeam())), KillerState->GetTeam());
+		}
 	}
 
 	SendDeathRecap(Victim, Killer);

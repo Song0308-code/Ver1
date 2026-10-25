@@ -295,6 +295,21 @@ bool FMobaTeamObjectivesTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaMultiKillTest, "Moba.Rules.MultiKill", MobaTestFlags)
+bool FMobaMultiKillTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("첫 처치"), MobaScore::NextMultiKillCount(0, -1000.0, 0.0, 10.0), 1);
+	TestEqual(TEXT("10초 안"), MobaScore::NextMultiKillCount(1, 100.0, 109.0, 10.0), 2);
+	TestEqual(TEXT("정확히 10초"), MobaScore::NextMultiKillCount(2, 100.0, 110.0, 10.0), 3);
+	TestEqual(TEXT("10초 지나면 다시 1"), MobaScore::NextMultiKillCount(3, 100.0, 110.5, 10.0), 1);
+	TestEqual(TEXT("펜타킬에서 멈춤"), MobaScore::NextMultiKillCount(5, 100.0, 101.0, 10.0), 5);
+
+	TestTrue(TEXT("단독 처치는 이름 없음"), MobaScore::GetMultiKillName(1).IsEmpty());
+	TestEqual(TEXT("더블킬"), MobaScore::GetMultiKillName(2), FString(TEXT("더블킬")));
+	TestEqual(TEXT("펜타킬"), MobaScore::GetMultiKillName(5), FString(TEXT("펜타킬")));
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaSpellsOptionTest, "Moba.Rules.SpellsOption", MobaTestFlags)
 bool FMobaSpellsOptionTest::RunTest(const FString& Parameters)
 {

@@ -98,6 +98,28 @@ struct FMobaTeamObjectives
 	int32 Get(EMobaObjective Objective) const { return const_cast<FMobaTeamObjectives*>(this)->Get(Objective); }
 };
 
+namespace MobaScore
+{
+	/** 직전 처치에서 Window초 안이면 멀티킬 수를 이어 가고, 아니면 1부터 다시 센다. 최대 5(펜타킬). */
+	inline int32 NextMultiKillCount(int32 Previous, double LastKillTime, double Now, double Window)
+	{
+		return Now - LastKillTime <= Window ? FMath::Min(Previous + 1, 5) : 1;
+	}
+
+	/** "더블킬" 같은 이름. 1 이하이면 빈 문자열. */
+	inline FString GetMultiKillName(int32 Count)
+	{
+		switch (Count)
+		{
+		case 2: return TEXT("더블킬");
+		case 3: return TEXT("트리플킬");
+		case 4: return TEXT("쿼드라킬");
+		case 5: return TEXT("펜타킬");
+		default: return FString();
+		}
+	}
+}
+
 namespace MobaDragon
 {
 	/** "화염" 같은 원소 이름. */

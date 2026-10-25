@@ -44,6 +44,18 @@ public:
 
 	int32 GetAssists() const { return Assists; }
 
+	/** 서버 전용. 챔피언 처치를 멀티킬로 세고 지금까지 이어진 수(1이면 단독 처치)를 돌려준다. */
+	int32 RegisterMultiKill(double Now, double Window)
+	{
+		MultiKillCount = MobaScore::NextMultiKillCount(MultiKillCount, LastChampionKillTime, Now, Window);
+		LastChampionKillTime = Now;
+		LargestMultiKill = FMath::Max(LargestMultiKill, MultiKillCount);
+		return MultiKillCount;
+	}
+
+	/** 경기 중 가장 큰 멀티킬(결과 화면용). */
+	int32 GetLargestMultiKill() const { return LargestMultiKill; }
+
 	/** 항복에 동의했는지. */
 	bool HasVotedSurrender() const { return bVotedSurrender; }
 
@@ -200,6 +212,14 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	int32 DeathStreak = 0;
+
+	UPROPERTY(VisibleAnywhere, Category = "Score")
+	int32 MultiKillCount = 0;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 LargestMultiKill = 0;
+
+	double LastChampionKillTime = -1000.0;
 
 	UPROPERTY(Replicated)
 	bool bVotedSurrender = false;

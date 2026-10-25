@@ -1919,7 +1919,9 @@ float AMobaHUD::DrawPlayerTable(float Top, bool bDetailed)
 		}
 
 		DrawText(MobaTeam::GetTeamDisplayName(Player->GetTeam()), Color, Left + Columns[0], RowTop, Font, 1.2f);
-		DrawText(Player->GetChampionDisplayName(), Color, Left + Columns[1], RowTop, Font, 1.2f);
+		const FString MultiKillName = bDetailed ? MobaScore::GetMultiKillName(Player->GetLargestMultiKill()) : FString();
+		DrawTextFit(MultiKillName.IsEmpty() ? Player->GetChampionDisplayName() : FString::Printf(TEXT("%s (%s)"), *Player->GetChampionDisplayName(), *MultiKillName),
+			Color, Left + Columns[1], RowTop, Columns[2] - Columns[1] - 6.0f, Font, 1.2f);
 		DrawText(FString::FromInt(Player->GetChampionLevel()), FLinearColor::White, Left + Columns[2], RowTop, Font, 1.2f);
 		DrawText(FString::Printf(TEXT("%d / %d / %d"), Player->GetKills(), Player->GetDeaths(), Player->GetAssists()), FLinearColor::White, Left + Columns[3], RowTop, Font, 1.2f);
 		DrawText(FString::FromInt(Player->GetMinionKills()), FLinearColor::White, Left + Columns[4], RowTop, Font, 1.2f);
