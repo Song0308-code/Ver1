@@ -57,6 +57,12 @@ public:
 	/** 이 챔피언의 스킬이 적에게 맞았을 때. */
 	virtual void OnAbilityHit(AActor* Target) {}
 
+	/** 기본 공격을 시작해도 되는지(탄창이 비어 재장전 중이면 false). */
+	virtual bool CanStartBasicAttack() const { return true; }
+
+	/** 기본 공격 주기에 쓸 공격 속도. 기본은 능력치 그대로. */
+	virtual float ModifyAttackSpeed(float AttackSpeed) const { return AttackSpeed; }
+
 protected:
 	/** 챔피언의 중첩 표시를 바꾼다. */
 	void SetStacks(int32 Stacks) const;
@@ -283,4 +289,46 @@ protected:
 
 	int32 Stacks = 0;
 	double ExpireTime = 0.0;
+};
+
+/**
+ * 진진자라: 탄창 3발. 다 쏘면 2초 동안 재장전하고, 세 번째 발은 공격력 100%만큼 더 강하다.
+ * 공격 속도는 기본값에 고정되고, 늘어난 공격 속도 1%당 공격력 0.4를 얻는다. 기본 공격에 맞은 적 챔피언에게 표식.
+ */
+UCLASS()
+class VER1_API UMobaPassive_Magazine : public UMobaPassive
+{
+	GENERATED_BODY()
+
+public:
+	UMobaPassive_Magazine();
+
+	virtual FMobaAttackBonus OnBasicAttack(AActor* Target) override;
+	virtual bool CanStartBasicAttack() const override { return Ammo > 0; }
+	virtual float ModifyAttackSpeed(float AttackSpeed) const override;
+	virtual void Tick(float DeltaSeconds) override;
+	virtual void OnRespawned() override;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	int32 MagazineSize = 3;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float ReloadTime = 2.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float LastShotAttackDamageRatio = 1.0f;
+
+	/** 늘어난 공격 속도 1%당 얻는 공격력. */
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float AttackDamagePerAttackSpeedPercent = 0.4f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Passive")
+	float MarkDuration = 4.0f;
+
+	float GetBaseAttackSpeed() const;
+
+	int32 Ammo = 3;
+	double ReloadEndTime = 0.0;
+	float AppliedConversion = 0.0f;
 };

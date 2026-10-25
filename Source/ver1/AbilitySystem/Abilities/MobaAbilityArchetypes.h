@@ -791,3 +791,161 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Damage")
 	float NonChampionDamageScale = 0.5f;
 };
+
+/** 진진자라 Q. 커서 근처의 적에게 탄을 쏘고, 맞을 때마다 근처의 다른 적에게 튕긴다(최대 4명). */
+UCLASS()
+class VER1_API UMobaAbility_JinRicochet : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_JinRicochet();
+
+	virtual float GetIndicatorRadius() const override { return TargetPickRadius; }
+
+protected:
+	virtual bool ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const override;
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Target")
+	float TargetPickRadius = 250.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Bounce")
+	int32 MaxTargets = 4;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Bounce")
+	float BounceRadius = 450.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Bounce")
+	float BoltSpeed = 1800.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 45.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 25.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 0.5f;
+
+	mutable TWeakObjectPtr<AActor> PendingTarget;
+};
+
+/** 진진자라 W. 잠시 조준한 뒤 아주 긴 사거리로 저격한다. 미니언은 꿰뚫고 처음 맞은 챔피언에서 멈추며, 표식이 있으면 속박한다. */
+UCLASS()
+class VER1_API UMobaAbility_JinAimedShot : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_JinAimedShot();
+
+	virtual float GetIndicatorRadius() const override { return ShotRadius; }
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	float AimTime = 0.6f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	float ShotSpeed = 5000.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	float ShotRadius = 45.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	float RootDuration = 1.5f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 50.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 40.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 0.5f;
+
+	/** 미니언·몬스터가 받는 피해 비율. */
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float NonChampionDamageScale = 0.75f;
+};
+
+/** 진진자라 E. 지정한 곳에 덫을 놓는다(최대 2개, 60초). */
+UCLASS()
+class VER1_API UMobaAbility_JinTrap : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_JinTrap();
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Trap")
+	int32 MaxTraps = 2;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Trap")
+	float ArmDelay = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Trap")
+	float Lifetime = 60.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 60.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 50.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 0.8f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AbilityPowerRatio = 1.0f;
+
+	TArray<TWeakObjectPtr<AActor>> ActiveTraps;
+};
+
+/** 진진자라 R. 제자리에 서서 조준한 방향으로 강한 탄 세 발을 쏜다. 대상이 잃은 체력이 많을수록 아프고 세 번째 발은 더 강하다. */
+UCLASS()
+class VER1_API UMobaAbility_JinCurtainCall : public UMobaGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UMobaAbility_JinCurtainCall();
+
+	virtual float GetIndicatorRadius() const override { return ShotRadius; }
+
+protected:
+	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	int32 ShotCount = 3;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	float FirstShotDelay = 0.3f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	float ShotInterval = 0.8f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	float ShotSpeed = 4000.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	float ShotRadius = 80.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage = 90.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float DamagePerLevel = 70.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float AttackDamageRatio = 0.25f;
+
+	/** 마지막 발의 피해 배율. */
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float LastShotMultiplier = 1.5f;
+};

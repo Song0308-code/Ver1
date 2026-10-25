@@ -34,6 +34,9 @@ public:
 	/** 서버 전용. true면 멈추지 않고 지나가며 맞은 적마다 한 번씩 이펙트를 적용한다. */
 	bool bPierce = false;
 
+	/** 서버 전용. 관통 중인 투사체를 OnHitActor 안에서 멈출 때 부른다. */
+	void StopPierce() { bPierceStopped = true; }
+
 protected:
 	UFUNCTION()
 	void OnRep_Visual();
@@ -67,6 +70,8 @@ protected:
 	TArray<FGameplayEffectSpecHandle> HitEffects;
 
 	float DistanceTravelled = 0.0f;
+
+	bool bPierceStopped = false;
 
 	/** 관통 투사체가 이미 맞힌 대상. */
 	TSet<TWeakObjectPtr<AActor>> AlreadyHit;

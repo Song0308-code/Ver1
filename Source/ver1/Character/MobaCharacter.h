@@ -123,6 +123,15 @@ public:
 	/** 서버 전용. 스킬이 적 Target에게 맞았을 때 부른다. 패시브에 알린다. */
 	void NotifyAbilityHit(AActor* Target);
 
+	/** 챔피언 데이터의 레벨 1 능력치. */
+	const FMobaBaseStats& GetBaseStats() const;
+
+	/** 서버 전용. 패시브가 지금 기본 공격을 막는지(재장전 등). */
+	bool CanStartBasicAttack() const;
+
+	/** 서버 전용. 기본 공격 주기에 쓸 공격 속도(패시브가 바꿀 수 있다). */
+	float GetEffectiveAttackSpeed(float AttackSpeed) const;
+
 	/** 이 챔피언의 패시브 정의(클래스 기본값). 이름·설명을 화면에 보여 줄 때 쓴다. 없으면 nullptr. */
 	const UMobaPassive* GetPassiveDefaults() const;
 
@@ -259,7 +268,6 @@ protected:
 	/** 서버 전용. 기본 재생과 우물 회복을 적용한다. */
 	void TickRegen();
 
-	const FMobaBaseStats& GetBaseStats() const;
 	const FMobaStatGrowth& GetStatGrowth() const;
 
 	/** 서버가 옮긴 위치를 조종하는 클라이언트에도 즉시 반영한다. */

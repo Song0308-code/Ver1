@@ -1329,6 +1329,16 @@ void AMobaCharacter::NotifyAbilityHit(AActor* Target)
 	}
 }
 
+bool AMobaCharacter::CanStartBasicAttack() const
+{
+	return !PassiveInstance || PassiveInstance->CanStartBasicAttack();
+}
+
+float AMobaCharacter::GetEffectiveAttackSpeed(float AttackSpeed) const
+{
+	return PassiveInstance ? PassiveInstance->ModifyAttackSpeed(AttackSpeed) : AttackSpeed;
+}
+
 void AMobaCharacter::SetEmpoweredAttack(const FMobaAttackBonus& Bonus, float Duration)
 {
 	EmpoweredAttack = Bonus;

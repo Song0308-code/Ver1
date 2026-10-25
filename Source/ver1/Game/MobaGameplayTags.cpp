@@ -31,6 +31,7 @@ namespace MobaTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Baron, "Buff.Baron", "내셔 남작 처치 보상.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Unbreakable, "Buff.Unbreakable", "받는 피해 감소(젖소 불굴).");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Overclock, "Buff.Overclock", "노머고 패시브 공격 속도 중첩.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_Conversion, "Buff.Conversion", "진진자라 패시브: 공격 속도를 공격력으로.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Buff_BaronAura, "Buff.BaronAura", "바론 버프 챔피언 근처의 강화된 미니언.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Unit_Ward, "Unit.Ward", "와드. 기본 공격 한 번에 체력 1씩만 깎인다.");
 

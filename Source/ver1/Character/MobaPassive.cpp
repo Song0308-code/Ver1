@@ -331,3 +331,87 @@ void UMobaPassive_Overclock::OnRespawned()
 	Stacks = 0;
 	SetStacks(0);
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 진진자라
+
+UMobaPassive_Magazine::UMobaPassive_Magazine()
+{
+	DisplayName = NSLOCTEXT("Moba", "MagazineName", "네 박자");
+	Description = NSLOCTEXT("Moba", "MagazineDesc", "탄창이 3발입니다. 다 쏘면 2초 동안 재장전하고, 세 번째 발은 공격력의 100%만큼 추가 피해를 줍니다. 공격 속도는 오르지 않는 대신 늘어난 공격 속도 1%당 공격력 0.4를 얻습니다. 기본 공격에 맞은 적 챔피언에게 4초 동안 표식을 남깁니다.");
+	MaxStacks = 3;
+}
+
+float UMobaPassive_Magazine::GetBaseAttackSpeed() const
+{
+	return Owner ? Owner->GetBaseStats().AttackSpeed : 0.0f;
+}
+
+float UMobaPassive_Magazine::ModifyAttackSpeed(float AttackSpeed) const
+{
+	// 둔화는 그대로 받고, 늘어난 몫은 쓰지 않는다.
+	const float Base = GetBaseAttackSpeed();
+	return Base > 0.0f ? FMath::Min(AttackSpeed, Base) : AttackSpeed;
+}
+
+FMobaAttackBonus UMobaPassive_Magazine::OnBasicAttack(AActor* Target)
+{
+	FMobaAttackBonus Bonus;
+	UAbilitySystemComponent* AbilitySystem = Owner ? Owner->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystem || Ammo <= 0)
+	{
+		return Bonus;
+	}
+
+	--Ammo;
+	if (Ammo == 0)
+	{
+		Bonus.BonusPhysicalDamage = GetAttribute(Owner, UMobaAttributeSet::GetAttackDamageAttribute()) * LastShotAttackDamageRatio;
+		ReloadEndTime = Owner->GetWorld()->GetTimeSeconds() + ReloadTime;
+	}
+	SetStacks(Ammo);
+
+	if (Target && Target->IsA<AMobaCharacter>())
+	{
+		MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(AbilitySystem, Owner, MarkDuration, MobaTags::State_Marked), Target);
+	}
+	return Bonus;
+}
+
+void UMobaPassive_Magazine::Tick(float DeltaSeconds)
+{
+	UAbilitySystemComponent* AbilitySystem = Owner ? Owner->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystem)
+	{
+		return;
+	}
+
+	if (Ammo <= 0 && Owner->GetWorld()->GetTimeSeconds() >= ReloadEndTime)
+	{
+		Ammo = MagazineSize;
+		SetStacks(Ammo);
+	}
+
+	// 늘어난 공격 속도를 공격력으로 바꾼다. 값이 바뀌었을 때만 효과를 갈아 끼운다.
+	const float Base = GetBaseAttackSpeed();
+	const float Current = AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackSpeedAttribute());
+	const float BonusPercent = Base > 0.0f ? FMath::Max(Current / Base - 1.0f, 0.0f) * 100.0f : 0.0f;
+	const float Conversion = FMath::RoundToFloat(BonusPercent * AttackDamagePerAttackSpeedPercent);
+	if (!FMath::IsNearlyEqual(Conversion, AppliedConversion))
+	{
+		AbilitySystem->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(MobaTags::Buff_Conversion));
+		if (Conversion > 0.0f)
+		{
+			FMobaStatBonus StatBonus;
+			StatBonus.AttackDamage = Conversion;
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeStatBuffSpec(AbilitySystem, Owner, 36000.0f, StatBonus, FGameplayTagContainer(MobaTags::Buff_Conversion)), Owner);
+		}
+		AppliedConversion = Conversion;
+	}
+}
+
+void UMobaPassive_Magazine::OnRespawned()
+{
+	Ammo = MagazineSize;
+	SetStacks(Ammo);
+}

@@ -442,7 +442,17 @@ void UMobaCombatComponent::UpdateAttack()
 	}
 
 	const UAbilitySystemComponent* AbilitySystem = MobaCombat::GetAbilitySystem(GetOwner());
-	const float AttackSpeed = AbilitySystem ? AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackSpeedAttribute()) : 0.0f;
+	float AttackSpeed = AbilitySystem ? AbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetAttackSpeedAttribute()) : 0.0f;
+
+	// 챔피언 패시브가 공격을 막거나(재장전) 공격 주기를 바꿀 수 있다.
+	if (const AMobaCharacter* Champion = Cast<AMobaCharacter>(GetOwner()))
+	{
+		if (!Champion->CanStartBasicAttack())
+		{
+			return;
+		}
+		AttackSpeed = Champion->GetEffectiveAttackSpeed(AttackSpeed);
+	}
 	if (AttackSpeed <= 0.0f)
 	{
 		return;

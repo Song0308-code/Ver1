@@ -7,6 +7,7 @@
 #include "Combat/MobaCombatLibrary.h"
 #include "Combat/MobaProjectile.h"
 #include "Combat/MobaSkillshotProjectile.h"
+#include "Combat/MobaTrap.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
 #include "Game/MobaEffects.h"
@@ -1134,6 +1135,281 @@ void UMobaAbility_NomagoBarrage::ExecuteCast(AMobaCharacter* Caster, const FVect
 			}
 		};
 	}), ChargeTime, false);
+
+	FinishCast();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 진진자라
+
+namespace
+{
+	/** 서버 전용. 시전자가 Seconds 동안 스스로 걷지 못하게 한다(조준·제자리 사격). */
+	void HoldInPlace(AMobaCharacter* Caster, float Seconds)
+	{
+		UAbilitySystemComponent* AbilitySystem = Caster->GetAbilitySystemComponent();
+		if (!AbilitySystem)
+		{
+			return;
+		}
+		AbilitySystem->AddLooseGameplayTag(MobaTags::State_Displaced, 1, EGameplayTagReplicationState::TagOnly);
+		const TWeakObjectPtr<UAbilitySystemComponent> WeakAbilitySystem = AbilitySystem;
+		FTimerHandle Handle;
+		Caster->GetWorldTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([WeakAbilitySystem]()
+		{
+			if (UAbilitySystemComponent* Source = WeakAbilitySystem.Get())
+			{
+				Source->RemoveLooseGameplayTag(MobaTags::State_Displaced, 1, EGameplayTagReplicationState::TagOnly);
+			}
+		}), Seconds, false);
+	}
+
+	/** 튕기는 탄 하나를 Target에게 쏜다. 닿으면 HitSoFar에 넣고 다음 대상을 찾는다. */
+	void FireRicochet(AMobaCharacter* Caster, const TWeakObjectPtr<UAbilitySystemComponent>& WeakAbilitySystem, const FVector& From, AActor* Target,
+		TSharedRef<TArray<TWeakObjectPtr<AActor>>> HitSoFar, int32 MaxTargets, float BounceRadius, float Speed, float Damage)
+	{
+		UAbilitySystemComponent* AbilitySystem = WeakAbilitySystem.Get();
+		if (!AbilitySystem || !Target)
+		{
+			return;
+		}
+
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = Caster;
+		SpawnParams.Instigator = Caster;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		AMobaProjectile* Bolt = Caster->GetWorld()->SpawnActor<AMobaProjectile>(AMobaProjectile::StaticClass(), From, FRotator::ZeroRotator, SpawnParams);
+		if (!Bolt)
+		{
+			return;
+		}
+
+		HitSoFar->Add(Target);
+		Bolt->InitHoming(Target, MobaAbility::MakeDamageSpec(AbilitySystem, Caster, Damage, 0.0f, 0.0f), Speed, 0.5f, Caster->GetTeam());
+		Bolt->OnArrived = [Caster, WeakAbilitySystem, HitSoFar, MaxTargets, BounceRadius, Speed, Damage](AActor* Arrived)
+		{
+			if (!IsValid(Caster))
+			{
+				return;
+			}
+			Caster->NotifyAbilityHit(Arrived);
+			if (HitSoFar->Num() >= MaxTargets)
+			{
+				return;
+			}
+
+			// 아직 맞지 않은 가장 가까운 적에게 튕긴다.
+			TArray<AActor*> Enemies;
+			MobaAbility::FindEnemiesInRadius(Caster, Arrived->GetActorLocation(), BounceRadius, Enemies);
+			AActor* Next = nullptr;
+			for (AActor* Enemy : Enemies)
+			{
+				if (!HitSoFar->Contains(Enemy) && (!Next || FVector::DistSquared2D(Enemy->GetActorLocation(), Arrived->GetActorLocation()) < FVector::DistSquared2D(Next->GetActorLocation(), Arrived->GetActorLocation())))
+				{
+					Next = Enemy;
+				}
+			}
+			FireRicochet(Caster, WeakAbilitySystem, Arrived->GetActorLocation(), Next, HitSoFar, MaxTargets, BounceRadius, Speed, Damage);
+		};
+	}
+}
+
+UMobaAbility_JinRicochet::UMobaAbility_JinRicochet()
+{
+	DisplayName = NSLOCTEXT("Moba", "JinRicochetName", "도탄");
+	Description = NSLOCTEXT("Moba", "JinRicochetDesc", "커서 근처의 적에게 탄을 쏩니다. 맞을 때마다 근처의 다른 적에게 튕겨 최대 4명에게 물리 피해를 줍니다.");
+	TargetingMode = EMobaTargetingMode::Location;
+	CastRange = 550.0f;
+	ManaCost = 40.0f;
+	CooldownDuration = 7.0f;
+}
+
+bool UMobaAbility_JinRicochet::ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const
+{
+	PendingTarget = MobaAbility::PickEnemyNearCursor(Caster, InOutTargetLocation, TargetPickRadius, CastRange, [](const AActor*) { return true; });
+	if (!PendingTarget.IsValid())
+	{
+		return false;
+	}
+	InOutTargetLocation = PendingTarget->GetActorLocation();
+	return true;
+}
+
+void UMobaAbility_JinRicochet::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	AActor* Target = PendingTarget.Get();
+	PendingTarget.Reset();
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	if (Target && AbilitySystem)
+	{
+		const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAttackDamage(AbilitySystem) * AttackDamageRatio;
+		FireRicochet(Caster, AbilitySystem, Caster->GetActorLocation(), Target, MakeShared<TArray<TWeakObjectPtr<AActor>>>(), MaxTargets, BounceRadius, BoltSpeed, Damage);
+	}
+	FinishCast();
+}
+
+UMobaAbility_JinAimedShot::UMobaAbility_JinAimedShot()
+{
+	DisplayName = NSLOCTEXT("Moba", "JinAimedShotName", "조준 사격");
+	Description = NSLOCTEXT("Moba", "JinAimedShotDesc", "0.6초 동안 제자리에서 조준한 뒤 아주 긴 사거리로 저격합니다. 미니언은 꿰뚫어 75% 피해를 주고 처음 맞은 챔피언에서 멈춥니다. 표식이 있는 챔피언은 1.5초 동안 속박됩니다.");
+	TargetingMode = EMobaTargetingMode::Direction;
+	CastRange = 2500.0f;
+	ManaCost = 60.0f;
+	CooldownDuration = 12.0f;
+}
+
+void UMobaAbility_JinAimedShot::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	HoldInPlace(Caster, AimTime);
+
+	const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAttackDamage(AbilitySystem) * AttackDamageRatio;
+	const TWeakObjectPtr<UAbilitySystemComponent> WeakAbilitySystem = AbilitySystem;
+	const float Speed = ShotSpeed;
+	const float Range = CastRange;
+	const float Radius = ShotRadius;
+	const float Root = RootDuration;
+	const float Scale = NonChampionDamageScale;
+	FTimerHandle Handle;
+	GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(Caster, [Caster, TargetLocation, WeakAbilitySystem, Damage, Speed, Range, Radius, Root, Scale]()
+	{
+		if (Caster->IsDead() || !WeakAbilitySystem.IsValid())
+		{
+			return;
+		}
+
+		FVector Direction;
+		AMobaSkillshotProjectile* Shot = SpawnSkillshot(Caster, TargetLocation, Direction);
+		if (!Shot)
+		{
+			return;
+		}
+		Shot->bPierce = true;
+		Shot->Launch(Caster, Direction, Speed, Range, Radius, {});
+		const TWeakObjectPtr<AMobaSkillshotProjectile> WeakShot = Shot;
+		Shot->OnHitActor = [Caster, WeakAbilitySystem, WeakShot, Damage, Root, Scale](AActor* HitActor)
+		{
+			UAbilitySystemComponent* Source = WeakAbilitySystem.Get();
+			if (!Source || !IsValid(Caster))
+			{
+				return;
+			}
+
+			const bool bChampion = HitActor->IsA<AMobaCharacter>();
+			MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(Source, Caster, bChampion ? Damage : Damage * Scale, 0.0f, 0.0f), HitActor);
+			if (!bChampion)
+			{
+				return;
+			}
+
+			if (!MobaCombat::IsDead(HitActor) && MobaAbility::ConsumeMark(HitActor))
+			{
+				MobaAbility::ApplySpecToTarget(MobaAbility::MakeCrowdControlSpec(Source, Caster, Root, MobaTags::State_Rooted), HitActor);
+			}
+			Caster->NotifyAbilityHit(HitActor);
+			if (AMobaSkillshotProjectile* Projectile = WeakShot.Get())
+			{
+				Projectile->StopPierce();
+			}
+		};
+	}), AimTime, false);
+
+	FinishCast();
+}
+
+UMobaAbility_JinTrap::UMobaAbility_JinTrap()
+{
+	DisplayName = NSLOCTEXT("Moba", "JinTrapName", "덫");
+	Description = NSLOCTEXT("Moba", "JinTrapDesc", "지정한 곳에 상대에게 보이지 않는 덫을 놓습니다(최대 2개, 60초). 1초 뒤 작동하고, 적 챔피언이 밟으면 터져 주변 적에게 마법 피해와 2초 35% 둔화, 챔피언에게는 표식을 남깁니다.");
+	TargetingMode = EMobaTargetingMode::Location;
+	CastRange = 750.0f;
+	ManaCost = 30.0f;
+	CooldownDuration = 2.0f;
+}
+
+void UMobaAbility_JinTrap::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	FVector Location = TargetLocation;
+	Location.Z = Caster->GetActorLocation().Z - Caster->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 2.0f;
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = Caster;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	if (AMobaTrap* Trap = GetWorld()->SpawnActor<AMobaTrap>(AMobaTrap::StaticClass(), Location, FRotator::ZeroRotator, SpawnParams))
+	{
+		const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAttackDamage(AbilitySystem) * AttackDamageRatio + GetAbilityPower(AbilitySystem) * AbilityPowerRatio;
+		Trap->Arm(Caster, Damage, ArmDelay, Lifetime);
+
+		// 많으면 가장 오래된 덫부터 없앤다.
+		ActiveTraps.RemoveAll([](const TWeakObjectPtr<AActor>& Existing) { return !Existing.IsValid(); });
+		ActiveTraps.Add(Trap);
+		while (ActiveTraps.Num() > MaxTraps)
+		{
+			ActiveTraps[0]->Destroy();
+			ActiveTraps.RemoveAt(0);
+		}
+	}
+	FinishCast();
+}
+
+UMobaAbility_JinCurtainCall::UMobaAbility_JinCurtainCall()
+{
+	DisplayName = NSLOCTEXT("Moba", "JinCurtainCallName", "정밀 사격");
+	Description = NSLOCTEXT("Moba", "JinCurtainCallDesc", "제자리에 서서 조준한 방향으로 강한 탄 세 발을 쏩니다. 각 탄은 처음 맞은 적에게 물리 피해를 주고, 대상이 잃은 체력 1%당 피해가 1% 늘어납니다. 세 번째 발은 50% 더 강합니다.");
+	TargetingMode = EMobaTargetingMode::Direction;
+	CastRange = 3000.0f;
+	ManaCost = 100.0f;
+	CooldownDuration = 110.0f;
+	bUltimate = true;
+}
+
+void UMobaAbility_JinCurtainCall::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponentFromActorInfo();
+	HoldInPlace(Caster, FirstShotDelay + ShotInterval * (ShotCount - 1) + 0.1f);
+
+	const float Damage = ScaleByLevel(BaseDamage, DamagePerLevel) + GetAttackDamage(AbilitySystem) * AttackDamageRatio;
+	const TWeakObjectPtr<UAbilitySystemComponent> WeakAbilitySystem = AbilitySystem;
+	for (int32 Index = 0; Index < ShotCount; ++Index)
+	{
+		const float ShotDamage = Index == ShotCount - 1 ? Damage * LastShotMultiplier : Damage;
+		const float Speed = ShotSpeed;
+		const float Range = CastRange;
+		const float Radius = ShotRadius;
+		FTimerHandle Handle;
+		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(Caster, [Caster, TargetLocation, WeakAbilitySystem, ShotDamage, Speed, Range, Radius]()
+		{
+			if (Caster->IsDead() || !WeakAbilitySystem.IsValid())
+			{
+				return;
+			}
+
+			FVector Direction;
+			AMobaSkillshotProjectile* Shot = SpawnSkillshot(Caster, TargetLocation, Direction);
+			if (!Shot)
+			{
+				return;
+			}
+			Shot->Launch(Caster, Direction, Speed, Range, Radius, {});
+			Shot->OnHitActor = [Caster, WeakAbilitySystem, ShotDamage](AActor* HitActor)
+			{
+				UAbilitySystemComponent* Source = WeakAbilitySystem.Get();
+				const UAbilitySystemComponent* TargetAbilitySystem = MobaCombat::GetAbilitySystem(HitActor);
+				if (!Source || !TargetAbilitySystem || !IsValid(Caster))
+				{
+					return;
+				}
+
+				// 잃은 체력 1%당 피해 1% 증가.
+				const float MaxHealth = TargetAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetMaxHealthAttribute());
+				const float Health = TargetAbilitySystem->GetNumericAttribute(UMobaAttributeSet::GetHealthAttribute());
+				const float Missing = MaxHealth > 0.0f ? FMath::Clamp(1.0f - Health / MaxHealth, 0.0f, 1.0f) : 0.0f;
+				MobaAbility::ApplySpecToTarget(MobaAbility::MakeDamageSpec(Source, Caster, ShotDamage * (1.0f + Missing), 0.0f, 0.0f), HitActor);
+				Caster->NotifyAbilityHit(HitActor);
+			};
+		}), FirstShotDelay + ShotInterval * Index, false);
+	}
 
 	FinishCast();
 }

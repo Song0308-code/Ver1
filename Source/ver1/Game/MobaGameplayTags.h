@@ -57,6 +57,9 @@ namespace MobaTags
 	/** 노머고 패시브의 공격 속도 중첩. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Overclock);
 
+	/** 진진자라 패시브: 늘어난 공격 속도를 공격력으로 바꾼 몫. */
+	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_Conversion);
+
 	/** 바론 버프를 가진 아군 챔피언 근처에서 강해진 미니언. 1초짜리로 계속 갱신된다. */
 	VER1_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Buff_BaronAura);
 

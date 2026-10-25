@@ -101,6 +101,10 @@ void AMobaProjectile::Tick(float DeltaSeconds)
 				MobaAbility::ApplySpecToTarget(ExtraSpec, Target);
 			}
 			MobaAbility::ApplySpecToTarget(EffectSpec, Target);
+			if (OnArrived)
+			{
+				OnArrived(Target);
+			}
 			Destroy();
 		}
 		else

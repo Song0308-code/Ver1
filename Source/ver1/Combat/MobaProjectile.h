@@ -28,6 +28,9 @@ public:
 	/** 서버 전용. 명중했을 때 피해와 함께 적용할 이펙트(둔화 등)를 더한다. */
 	void AddOnHitEffect(const FGameplayEffectSpecHandle& InEffectSpec) { ExtraEffectSpecs.Add(InEffectSpec); }
 
+	/** 서버 전용. 대상에 닿아 이펙트를 적용한 뒤 불린다(튕기는 탄 등). */
+	TFunction<void(AActor*)> OnArrived;
+
 protected:
 	UFUNCTION()
 	void OnRep_Visual();

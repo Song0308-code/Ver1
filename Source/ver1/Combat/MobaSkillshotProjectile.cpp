@@ -108,6 +108,11 @@ void AMobaSkillshotProjectile::Tick(float DeltaSeconds)
 				{
 					OnHitActor(HitActor);
 				}
+				if (bPierceStopped)
+				{
+					Destroy();
+					return;
+				}
 				continue;
 			}
 			if (!bPierce && MobaCombat::IsValidEnemyTarget(Source, HitActor))
