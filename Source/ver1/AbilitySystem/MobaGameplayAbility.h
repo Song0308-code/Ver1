@@ -55,6 +55,9 @@ public:
 	/** 조준 표시에 쓰는 크기. 방향 스킬은 폭의 절반, 위치 스킬은 범위 반지름. */
 	virtual float GetIndicatorRadius() const { return 0.0f; }
 
+	/** 이 스킬이 거는 가장 강한 행동 불가 제어(기절·띄우기·끌기·밀치기·속박·침묵)의 시간. 둔화는 넣지 않는다. 밸런스 확인용. */
+	virtual float GetCrowdControlSeconds() const { return 0.0f; }
+
 protected:
 	/**
 	 * 마나와 쿨다운이 소모되기 전에 대상 위치를 확정한다. 사거리 제한 등을 여기서 적용한다.

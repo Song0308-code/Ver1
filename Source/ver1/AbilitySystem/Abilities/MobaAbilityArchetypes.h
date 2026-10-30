@@ -97,6 +97,7 @@ public:
 	UMobaAbility_GroundAoE();
 
 	virtual float GetIndicatorRadius() const override { return Radius; }
+	virtual float GetCrowdControlSeconds() const override { return FMath::Max(FMath::Max(StunDuration, AirborneDuration), FMath::Max(RootDuration, SilenceDuration)); }
 
 protected:
 	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
@@ -167,6 +168,7 @@ public:
 	UMobaAbility_TinHook();
 
 	virtual float GetIndicatorRadius() const override { return HookRadius; }
+	virtual float GetCrowdControlSeconds() const override { return PullDuration; }
 
 protected:
 	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
@@ -232,6 +234,8 @@ class VER1_API UMobaAbility_TinPowerPunch : public UMobaGameplayAbility
 public:
 	UMobaAbility_TinPowerPunch();
 
+	virtual float GetCrowdControlSeconds() const override { return AirborneDuration; }
+
 protected:
 	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
 
@@ -242,7 +246,7 @@ protected:
 	float AttackDamageRatio = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Punch")
-	float AirborneDuration = 1.0f;
+	float AirborneDuration = 0.75f;
 };
 
 /** 깡통 R. 주변 적에게 마법 피해를 주고 침묵시킨다. */
@@ -278,6 +282,7 @@ public:
 	UMobaAbility_CowCharge();
 
 	virtual float GetIndicatorRadius() const override { return TargetPickRadius; }
+	virtual float GetCrowdControlSeconds() const override { return KnockbackDuration; }
 
 protected:
 	virtual bool ResolveTarget(const AMobaCharacter* Caster, FVector& InOutTargetLocation) const override;
@@ -533,6 +538,7 @@ public:
 	UMobaAbility_JinAimedShot();
 
 	virtual float GetIndicatorRadius() const override { return ShotRadius; }
+	virtual float GetCrowdControlSeconds() const override { return RootDuration; }
 
 protected:
 	virtual void ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation) override;
@@ -547,10 +553,10 @@ protected:
 	float ShotRadius = 45.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
-	float RootDuration = 1.5f;
+	float RootDuration = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Damage")
-	float BaseDamage = 50.0f;
+	float BaseDamage = 45.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Damage")
 	float DamagePerLevel = 40.0f;
@@ -629,13 +635,13 @@ protected:
 	float ShotRadius = 80.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Damage")
-	float BaseDamage = 90.0f;
+	float BaseDamage = 70.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Damage")
-	float DamagePerLevel = 70.0f;
+	float DamagePerLevel = 55.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Damage")
-	float AttackDamageRatio = 0.25f;
+	float AttackDamageRatio = 0.2f;
 
 	/** 마지막 발의 피해 배율. */
 	UPROPERTY(EditDefaultsOnly, Category = "Damage")

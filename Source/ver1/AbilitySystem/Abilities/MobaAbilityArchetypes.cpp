@@ -334,10 +334,10 @@ void UMobaAbility_TinOverdrive::ExecuteCast(AMobaCharacter* Caster, const FVecto
 UMobaAbility_TinPowerPunch::UMobaAbility_TinPowerPunch()
 {
 	DisplayName = NSLOCTEXT("Moba", "TinPowerPunchName", "감전 펀치");
-	Description = NSLOCTEXT("Moba", "TinPowerPunchDesc", "5초 안의 다음 기본 공격이 공격력의 100%만큼 추가 물리 피해를 주고 대상을 1초 동안 띄웁니다.");
+	Description = NSLOCTEXT("Moba", "TinPowerPunchDesc", "5초 안의 다음 기본 공격이 공격력의 100%만큼 추가 물리 피해를 주고 대상을 0.75초 동안 띄웁니다.");
 	TargetingMode = EMobaTargetingMode::None;
 	ManaCost = 30.0f;
-	CooldownDuration = 9.0f;
+	CooldownDuration = 12.0f;
 }
 
 void UMobaAbility_TinPowerPunch::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)
@@ -826,11 +826,11 @@ void UMobaAbility_JinRicochet::ExecuteCast(AMobaCharacter* Caster, const FVector
 UMobaAbility_JinAimedShot::UMobaAbility_JinAimedShot()
 {
 	DisplayName = NSLOCTEXT("Moba", "JinAimedShotName", "조준 사격");
-	Description = NSLOCTEXT("Moba", "JinAimedShotDesc", "0.6초 동안 제자리에서 조준한 뒤 아주 긴 사거리로 저격합니다. 미니언은 꿰뚫어 75% 피해를 주고 처음 맞은 챔피언에서 멈춥니다. 표식이 있는 챔피언은 1.5초 동안 속박됩니다.");
+	Description = NSLOCTEXT("Moba", "JinAimedShotDesc", "0.6초 동안 제자리에서 조준한 뒤 아주 긴 사거리로 저격합니다. 미니언은 꿰뚫어 75% 피해를 주고 처음 맞은 챔피언에서 멈춥니다. 표식이 있는 챔피언은 1초 동안 속박됩니다.");
 	TargetingMode = EMobaTargetingMode::Direction;
 	CastRange = 2500.0f;
 	ManaCost = 60.0f;
-	CooldownDuration = 12.0f;
+	CooldownDuration = 14.0f;
 }
 
 void UMobaAbility_JinAimedShot::ExecuteCast(AMobaCharacter* Caster, const FVector& TargetLocation)

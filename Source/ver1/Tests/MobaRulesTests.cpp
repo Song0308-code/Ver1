@@ -502,6 +502,41 @@ bool FMobaTalentOptionTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaCrowdControlBudgetTest, "Moba.Balance.CrowdControl", MobaTestFlags)
+bool FMobaCrowdControlBudgetTest::RunTest(const FString& Parameters)
+{
+	// 궁극기가 아닌 스킬은 행동 불가 제어가 재사용 대기 1초당 0.075초를 넘지 않는다(14초에 1초 정도).
+	// 한 번의 제어는 1.25초 이하, 궁극기는 2초 이하. 기준은 Docs/BALANCE.md 4절.
+	for (const FSoftObjectPath& Path : GetDefault<AMobaGameMode>()->GetChampionRoster())
+	{
+		const UMobaChampionData* Champion = Cast<UMobaChampionData>(Path.TryLoad());
+		if (!Champion)
+		{
+			continue;
+		}
+		for (const TPair<EMobaAbilitySlot, TSubclassOf<UMobaGameplayAbility>>& Entry : Champion->Abilities)
+		{
+			const UMobaGameplayAbility* Ability = Entry.Value ? Entry.Value->GetDefaultObject<UMobaGameplayAbility>() : nullptr;
+			if (!Ability || Ability->GetCrowdControlSeconds() <= 0.0f)
+			{
+				continue;
+			}
+
+			const FString Name = FString::Printf(TEXT("%s %s"), *Path.GetAssetName(), *Ability->GetClass()->GetName());
+			const float Seconds = Ability->GetCrowdControlSeconds();
+			if (Ability->GetMaxLevel() == 3)
+			{
+				TestTrue(FString::Printf(TEXT("%s 궁극기 제어 %.2f초 <= 2"), *Name, Seconds), Seconds <= 2.0f);
+				continue;
+			}
+			TestTrue(FString::Printf(TEXT("%s 제어 %.2f초 <= 1.25"), *Name, Seconds), Seconds <= 1.25f);
+			const float PerCooldown = Seconds / FMath::Max(Ability->GetCooldownDuration(), 0.1f);
+			TestTrue(FString::Printf(TEXT("%s 제어/재사용 대기 %.3f <= 0.075"), *Name, PerCooldown), PerCooldown <= 0.075f);
+		}
+	}
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMobaSpellsOptionTest, "Moba.Rules.SpellsOption", MobaTestFlags)
 bool FMobaSpellsOptionTest::RunTest(const FString& Parameters)
 {
